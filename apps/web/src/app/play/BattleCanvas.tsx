@@ -29,6 +29,9 @@ type UnitVisual = {
 
 const RARITY_COLORS = [0x6b7280, 0x38bdf8, 0xa855f7, 0xf59e0b];
 const FACTION_COLORS = [0x7ce4ff, 0xf97316, 0x22c55e, 0xf472b6, 0xa78bfa];
+const TARGET_ASPECT = 16 / 9;
+const MIN_CANVAS_WIDTH = 320;
+const MIN_CANVAS_HEIGHT = 360;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
@@ -58,6 +61,18 @@ const hpColor = (pct: number) => {
   if (pct > 0.6) return 0x22c55e;
   if (pct > 0.3) return 0xfbbf24;
   return 0xf87171;
+};
+
+const computeCanvasSize = (bounds: DOMRectReadOnly) => {
+  const baseWidth = Math.max(MIN_CANVAS_WIDTH, Math.floor(bounds.width || MIN_CANVAS_WIDTH));
+  const maxHeight = Math.max(MIN_CANVAS_HEIGHT, Math.floor(bounds.height || baseWidth / TARGET_ASPECT));
+  let width = baseWidth;
+  let height = Math.round(width / TARGET_ASPECT);
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = Math.round(height * TARGET_ASPECT);
+  }
+  return { width, height };
 };
 
 class BattleScene extends Phaser.Scene {
@@ -92,33 +107,45 @@ class BattleScene extends Phaser.Scene {
     this.createHud();
   }
 
+  private layout() {
+    const w = this.scale?.width ?? 960;
+    const h = this.scale?.height ?? 540;
+    const margin = Math.min(140, w * 0.08);
+    const fieldWidth = w - margin * 2;
+    const frontY = h * 0.44;
+    const backY = h * 0.66;
+    const frontSpacing = Math.max(72, fieldWidth * 0.12);
+    const backSpacing = Math.max(68, fieldWidth * 0.1);
+    return { w, h, margin, fieldWidth, frontY, backY, frontSpacing, backSpacing };
+  }
+
   private drawBackground() {
     this.midLine?.destroy();
     this.fieldFrame?.destroy();
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const { w, h } = this.layout();
     this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.35).setDepth(2);
     this.midLine.setStrokeStyle(1, 0x25314b, 0.6);
     this.fieldFrame = this.add.graphics().setDepth(1);
-    this.fieldFrame.fillStyle(0x0b0f1a, 0.3);
+    this.fieldFrame.fillStyle(0x0b0f1a, 0.36);
     this.fieldFrame.fillRoundedRect(12, 12, w - 24, h - 24, 18);
+    this.fieldFrame.lineStyle(2, 0x233149, 0.4);
+    this.fieldFrame.strokeRoundedRect(12, 12, w - 24, h - 24, 18);
+    this.fieldFrame.fillStyle(0x12203b, 0.25);
+    this.fieldFrame.fillEllipse(w / 2, h * 0.55, w * 0.72, h * 0.3);
   }
 
   private drawLaneGuides() {
     if (this.laneGuides) this.laneGuides.destroy();
-    const w = this.scale.width;
-    const h = this.scale.height;
+    const { w, frontY, backY, margin } = this.layout();
     const guide = this.add.graphics().setDepth(3);
-    guide.lineStyle(1, 0x233149, 0.4);
-    const frontY = h * 0.44;
-    const backY = h * 0.64;
-    guide.moveTo(w * 0.12, frontY);
-    guide.lineTo(w * 0.88, frontY);
-    guide.moveTo(w * 0.12, backY);
-    guide.lineTo(w * 0.88, backY);
-    const lanes = [0.22, 0.32, 0.42, 0.58, 0.68, 0.78];
+    guide.lineStyle(1, 0x233149, 0.45);
+    guide.moveTo(margin, frontY);
+    guide.lineTo(w - margin, frontY);
+    guide.moveTo(margin, backY);
+    guide.lineTo(w - margin, backY);
+    const lanes = [0.26, 0.36, 0.46, 0.54, 0.64, 0.74];
     lanes.forEach((lx) => {
-      guide.lineBetween(w * lx, frontY - 48, w * lx, backY + 48);
+      guide.lineBetween(w * lx, frontY - 56, w * lx, backY + 56);
     });
     guide.strokePath();
     this.laneGuides = guide;
@@ -146,6 +173,10 @@ class BattleScene extends Phaser.Scene {
       .text(w / 2, 12, "1x", { fontFamily: "sans-serif", fontSize: "12px", color: "#7ce4ff" })
       .setOrigin(0.5, 0)
       .setDepth(20);
+    ally.setShadow(0, 2, "#050814", 3);
+    enemy.setShadow(0, 2, "#050814", 3);
+    last.setShadow(0, 2, "#000000", 4);
+    speed.setShadow(0, 2, "#000000", 3);
     const vignette = this.add.graphics({ x: 0, y: 0 }).setScrollFactor(0).setDepth(50).setAlpha(0);
     vignette.fillStyle(0x000000, 0.35);
     vignette.fillRect(0, 0, w, h);
@@ -153,13 +184,10 @@ class BattleScene extends Phaser.Scene {
   }
 
   private unitPosition(unit: UnitRuntimeState, index: number) {
-    const w = this.scale?.width ?? 960;
-    const h = this.scale?.height ?? 540;
-    const frontY = h * 0.44;
-    const backY = h * 0.64;
+    const { w, frontY, backY, frontSpacing, backSpacing, margin, fieldWidth } = this.layout();
     const isFront = unit.position === "front";
-    const sideBase = unit.side === "player" ? w * 0.26 : w * 0.74;
-    const offsets = isFront ? [-38, 38] : [-86, 0, 86];
+    const sideBase = unit.side === "player" ? margin + fieldWidth * 0.26 : w - margin - fieldWidth * 0.26;
+    const offsets = isFront ? [-frontSpacing / 2, frontSpacing / 2] : [-backSpacing, 0, backSpacing];
     const offset = offsets[Math.min(index, offsets.length - 1)] ?? 0;
     const x = sideBase + offset * (unit.side === "player" ? 1 : -1);
     const y = isFront ? frontY : backY;
@@ -188,14 +216,14 @@ class BattleScene extends Phaser.Scene {
     const pos = this.unitPosition(unit, index);
     const palette = this.tokenPalette(unit);
     const container = this.add.container(pos.x, pos.y).setDepth(10 + (unit.side === "player" ? 0 : 1));
-    const shadow = this.add.ellipse(0, 14, 90, 26, 0x000000, 0.28).setScale(1, 0.65);
+    const shadow = this.add.ellipse(0, 18, 96, 30, 0x000000, 0.28).setScale(1, 0.62);
     const aura = this.add.graphics();
     const ring = this.add.graphics();
     const token = this.add.graphics();
     const role = this.add.graphics();
     const hpBar = this.add.graphics();
     const energyBar = this.add.graphics();
-    const label = this.add.text(0, 48, shortLabel(unit.name), {
+    const label = this.add.text(0, 50, shortLabel(unit.name), {
       fontFamily: "sans-serif",
       fontSize: "12px",
       color: "#e5ecff",
@@ -203,34 +231,39 @@ class BattleScene extends Phaser.Scene {
     });
     label.setOrigin(0.5, 0);
     const fullLabel = this.add
-      .text(0, 64, unit.name, { fontFamily: "sans-serif", fontSize: "11px", color: "#cbd5f5" })
+      .text(0, 68, unit.name, { fontFamily: "sans-serif", fontSize: "11px", color: "#cbd5f5" })
       .setOrigin(0.5, 0)
       .setAlpha(0);
+    label.setShadow(0, 2, "#0b0f1a", 3);
+    fullLabel.setShadow(0, 2, "#0b0f1a", 3);
 
     const drawToken = () => {
       const main = palette.primary;
       const inner = palette.inner;
       aura.clear();
-      aura.fillStyle(palette.faction, 0.18);
-      aura.fillCircle(0, 0, 44);
-      aura.lineStyle(2, palette.faction, 0.7);
-      aura.strokeCircle(0, 0, 46);
-
+      aura.fillStyle(palette.faction, 0.16);
+      aura.fillCircle(0, 0, 48);
+      aura.lineStyle(2, palette.faction, 0.35);
+      aura.strokeCircle(0, 0, 52);
       ring.clear();
-      ring.lineStyle(5, palette.border, 1);
+      ring.lineStyle(6, palette.border, 0.95);
       ring.strokeCircle(0, 0, 38);
       ring.lineStyle(2, palette.faction, 0.8);
-      ring.strokeCircle(0, 0, 36);
-
+      ring.strokeCircle(0, 0, 34);
       token.clear();
-      token.fillStyle(main, 0.9);
+      token.fillStyle(main, 0.94);
       token.fillCircle(0, 0, 34);
-      token.fillStyle(inner, 0.85);
-      token.fillCircle(0, -2, 28);
-
+      token.fillStyle(inner, 0.95);
+      token.fillCircle(0, -3, 28);
+      token.fillStyle(0xffffff, 0.12);
+      token.fillEllipse(0, -18, 32, 20);
+      token.fillStyle(0xffffff, 0.08);
+      token.fillEllipse(-10, -6, 26, 12);
+      token.fillStyle(0x000000, 0.12);
+      token.fillCircle(12, 12, 16);
       role.clear();
-      role.fillStyle(0x0b0f1a, 0.8);
-      role.fillCircle(0, 0, 12);
+      role.fillStyle(0x0b0f1a, 0.82);
+      role.fillRoundedRect(-13, -13, 26, 26, 12);
       this.drawRoleGlyph(role, unit);
     };
 
@@ -240,7 +273,7 @@ class BattleScene extends Phaser.Scene {
     const energyPct = clamp01(unit.energy / 100);
     const barState = { hp: hpPct, energy: energyPct };
     container.add([shadow, aura, ring, token, role, hpBar, energyBar, label, fullLabel]);
-    container.setSize(80, 80);
+    container.setSize(96, 96);
     container.setInteractive(new Phaser.Geom.Circle(0, 0, 40), Phaser.Geom.Circle.Contains);
     container.on("pointerover", () => fullLabel.setAlpha(0.95));
     container.on("pointerout", () => fullLabel.setAlpha(0));
@@ -249,6 +282,15 @@ class BattleScene extends Phaser.Scene {
       targets: container,
       y: container.y - 6,
       duration: 1400 + seeded(unit.id, "bob", 0, 220),
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    this.tweens.add({
+      targets: aura,
+      alpha: { from: 0.55, to: 0.8 },
+      scale: { from: 0.95, to: 1.05 },
+      duration: 2400 + seeded(unit.id, "aura", 0, 520),
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut",
@@ -309,105 +351,157 @@ class BattleScene extends Phaser.Scene {
     const energyHeight = 6;
     const hpPct = unit.maxHp > 0 ? unit.hp / unit.maxHp : 0;
     const energyPct = Math.min(1, unit.energy / 100);
-    vis.barState.hp = clamp01(Phaser.Math.Linear(vis.barState.hp, hpPct, 0.25));
-    vis.barState.energy = clamp01(Phaser.Math.Linear(vis.barState.energy, energyPct, 0.35));
+    vis.barState.hp = clamp01(Phaser.Math.Linear(vis.barState.hp, hpPct, 0.18));
+    vis.barState.energy = clamp01(Phaser.Math.Linear(vis.barState.energy, energyPct, 0.26));
     const x = -width / 2;
-    const hpY = -54;
-    const energyY = -42;
+    const hpY = -58;
+    const energyY = -44;
 
     vis.hpBar.clear();
-    vis.hpBar.fillStyle(0x0f172a, 0.7).fillRoundedRect(x, hpY, width, hpHeight, 4);
+    vis.hpBar.fillStyle(0x0f172a, 0.78).fillRoundedRect(x, hpY, width, hpHeight, 4);
     vis.hpBar.fillStyle(hpColor(vis.barState.hp), 0.95).fillRoundedRect(x, hpY, width * vis.barState.hp, hpHeight, 4);
+    vis.hpBar.lineStyle(1, 0x233149, 0.8).strokeRoundedRect(x, hpY, width, hpHeight, 4);
 
     vis.energyBar.clear();
     vis.energyBar.fillStyle(0x0b1224, 0.75).fillRoundedRect(x, energyY, width, energyHeight, 4);
     vis.energyBar
       .fillStyle(0x7c3aed, 0.95)
       .fillRoundedRect(x, energyY, width * vis.barState.energy, energyHeight, 4);
+    vis.energyBar.lineStyle(1, 0x1f2b46, 0.7).strokeRoundedRect(x, energyY, width, energyHeight, 4);
   }
 
   private animateAttack(vis: UnitVisual, unit: UnitRuntimeState) {
-    const offset = (unit.side === "player" ? 1 : -1) * (10 + seeded(unit.id, "lunge", 0, 6));
+    const offset = (unit.side === "player" ? 1 : -1) * (8 + seeded(unit.id, "lunge", 0, 8));
     this.tweens.add({
       targets: vis.container,
       x: vis.container.x + offset,
-      duration: this.tickMs / 1.3,
+      duration: this.tickMs / 1.4,
+      yoyo: true,
+      ease: "Quad.easeOut",
+    });
+    this.tweens.add({
+      targets: vis.container,
+      scale: 1.02,
+      duration: this.tickMs / 2,
       yoyo: true,
       ease: "Quad.easeOut",
     });
   }
 
-  private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState) {
+  private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState, tick = 0) {
     const originalScale = vis.container.scale;
+    const shakeDir = seeded(unit.id, `shake-${tick}`, -1, 1) >= 0 ? 1 : -1;
+    const shakeMag = 2 + seeded(unit.id, `shake-mag-${tick}`, 0, 2);
     this.tweens.add({
       targets: vis.container,
-      x: vis.container.x + (unit.side === "player" ? -4 : 4),
-      y: vis.container.y + 2,
+      x: vis.container.x + (unit.side === "player" ? -1 : 1) * shakeMag * shakeDir,
+      y: vis.container.y + shakeMag * 0.6,
       scale: originalScale * 0.98,
-      duration: this.tickMs / 2,
+      duration: this.tickMs * 0.45,
       yoyo: true,
       ease: "Sine.easeInOut",
     });
     vis.token.setAlpha(0.7);
-    this.time.delayedCall(this.tickMs / 2.5, () => vis.token.setAlpha(1));
-    this.spawnImpactParticles(vis.container.x, vis.container.y, unit.side === "player" ? 0x7ce4ff : 0xfca5a5);
+    vis.ring.setAlpha(0.85);
+    const flash = this.add.circle(vis.container.x, vis.container.y, 46, 0xffffff, 0.2).setDepth(65);
+    flash.setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: flash,
+      scale: 1.25,
+      alpha: 0,
+      duration: this.tickMs * 0.6,
+      ease: "Quad.easeOut",
+      onComplete: () => flash.destroy(),
+    });
+    this.time.delayedCall(this.tickMs * 0.4, () => {
+      vis.token.setAlpha(1);
+      vis.ring.setAlpha(1);
+    });
+    this.spawnImpactParticles(
+      vis.container.x,
+      vis.container.y,
+      unit.side === "player" ? 0x7ce4ff : 0xfca5a5,
+      `${unit.id}-${tick}`
+    );
   }
 
-  private spawnImpactParticles(x: number, y: number, color: number) {
-    for (let i = 0; i < 4; i++) {
-      const p = this.add.circle(x, y, 4, color, 0.9).setDepth(60);
-      const angle = (-15 + i * 10) * (Math.PI / 180);
-      const dist = 12 + i * 2;
+  private spawnImpactParticles(x: number, y: number, color: number, seedKey: string) {
+    const count = Math.round(seeded(seedKey, "count", 2, 6));
+    for (let i = 0; i < count; i++) {
+      const particleId = `${seedKey}-${i}`;
+      const p = this.add.circle(x, y, seeded(particleId, "size", 3, 5), color, 0.95).setDepth(60);
+      const angle = Phaser.Math.DegToRad(seeded(particleId, "angle", -28, 28));
+      const dist = seeded(particleId, "dist", 10, 22);
+      const drift = seeded(particleId, "drift", -4, 4);
       this.tweens.add({
         targets: p,
-        x: x + Math.cos(angle) * dist,
-        y: y + Math.sin(angle) * dist,
+        x: x + Math.cos(angle) * dist + drift,
+        y: y + Math.sin(angle) * dist + drift * 0.5,
         alpha: 0,
-        scale: 0.6,
-        duration: this.tickMs,
+        scale: 0.4,
+        duration: this.tickMs * 0.9,
         ease: "Quad.easeOut",
         onComplete: () => p.destroy(),
       });
     }
   }
 
-  private damageNumber(target: UnitVisual, value?: number, action?: CombatLogEntry["action"]) {
+  private damageNumber(
+    target: UnitVisual,
+    value?: number,
+    action?: CombatLogEntry["action"],
+    tick = 0,
+    unitId?: string
+  ) {
     const dmg = value ?? 0;
     const isBig = action === "ultimate" || dmg > 200;
+    const yStart = Math.max(30, target.container.y - 60);
+    const floatSeed = unitId ?? `target-${tick}`;
     const txt = this.add
-      .text(target.container.x, target.container.y - 58, `-${dmg}`, {
-        fontSize: isBig ? "18px" : "15px",
+      .text(target.container.x, yStart, `-${dmg}`, {
+        fontSize: isBig ? "19px" : "15px",
         fontFamily: "sans-serif",
-        color: "#fca5a5",
+        color: isBig ? "#fde047" : "#fca5a5",
         stroke: "#0b0f1a",
-        strokeThickness: 4,
+        strokeThickness: 5,
         fontStyle: "bold",
       })
       .setDepth(80);
     txt.setOrigin(0.5);
-    txt.setScale(0.9);
+    txt.setScale(0.6);
+    txt.setAlpha(0);
     this.tweens.add({
       targets: txt,
-      y: txt.y - 26,
+      scale: isBig ? 1.25 : 1.05,
+      alpha: 1,
+      duration: 120,
+      ease: "Back.Out",
+    });
+    this.tweens.add({
+      targets: txt,
+      y: txt.y - 20 - seeded(floatSeed, `float-${tick}`, 0, 12),
       alpha: 0,
-      scale: isBig ? 1.2 : 1.05,
-      duration: this.tickMs * 1.8,
-      ease: "Sine.easeOut",
+      duration: this.tickMs * 1.6,
+      delay: 90,
+      ease: "Quad.easeOut",
       onComplete: () => txt.destroy(),
     });
   }
 
   private ultimateFlash(caster: UnitVisual) {
     if (!this.hud) return;
-    this.hud.vignette.setAlpha(0.4);
+    this.hud.vignette.setAlpha(0.45);
     this.tweens.add({
       targets: this.hud.vignette,
       alpha: 0,
-      duration: 240,
+      duration: 260,
       ease: "Quad.easeOut",
     });
 
-    const wave = this.add.circle(caster.container.x, caster.container.y, 26, 0xffffff, 0.14).setDepth(55);
+    const wave = this.add
+      .circle(caster.container.x, caster.container.y, 28, 0xffffff, 0.16)
+      .setDepth(55)
+      .setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({
       targets: wave,
       scale: 3,
@@ -417,6 +511,14 @@ class BattleScene extends Phaser.Scene {
       onComplete: () => wave.destroy(),
     });
 
+    this.tweens.add({
+      targets: caster.aura,
+      scale: 1.18,
+      alpha: 1,
+      duration: 220,
+      yoyo: true,
+      ease: "Sine.easeOut",
+    });
     this.tweens.add({
       targets: caster.container,
       scale: 1.08,
@@ -478,6 +580,7 @@ class BattleScene extends Phaser.Scene {
       const vis = this.ensureUnit(u, idx);
       const pos = this.unitPosition(u, idx);
       vis.container.setPosition(pos.x, pos.y);
+      vis.container.setDepth((u.side === "player" ? 10 : 20) + (u.position === "front" ? 2 : 0));
       vis.label.setText(shortLabel(u.name));
       this.drawBars(vis, u);
       const alpha = u.alive ? 1 : 0.28;
@@ -488,11 +591,12 @@ class BattleScene extends Phaser.Scene {
 
     let lastAction: string | undefined;
     logs.forEach((log) => {
+      const tick = log.tick ?? 0;
       const actor = [...playerTeam, ...enemyTeam].find((u) => u.name === log.actor || u.id === log.actor);
       const target = [...playerTeam, ...enemyTeam].find((u) => u.name === log.target || u.id === log.target);
       if (actor) {
         const vis = this.units[actor.id];
-        if (vis) {
+        if (vis && (log.action === "attack" || log.action === "ultimate")) {
           this.animateAttack(vis, actor);
           if (log.action === "ultimate") {
             this.ultimateFlash(vis);
@@ -502,9 +606,9 @@ class BattleScene extends Phaser.Scene {
       if (target) {
         const vis = this.units[target.id];
         if (vis) {
-          this.hitFeedback(vis, target);
+          this.hitFeedback(vis, target, tick);
           if (log.value !== undefined) {
-            this.damageNumber(vis, log.value, log.action);
+            this.damageNumber(vis, log.value, log.action, tick, target.id);
           }
         }
       }
@@ -535,8 +639,7 @@ export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
     const scene = new BattleScene(tickMs);
     sceneRef.current = scene;
     const rect = containerRef.current.getBoundingClientRect();
-    const width = rect.width || 960;
-    const height = Math.max(400, Math.round(width * (9 / 16)));
+    const { width, height } = computeCanvasSize(rect);
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: containerRef.current,
@@ -554,11 +657,7 @@ export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
     const handleResize = () => {
       if (!containerRef.current || !game.scale) return;
       const bounds = containerRef.current.getBoundingClientRect();
-      const w = bounds.width || 960;
-      const h = Math.max(400, Math.round(w * (9 / 16)));
-      game.scale.resize(w, h);
-      const camera = sceneRef.current?.cameras?.main;
-      camera?.setViewport(0, 0, w, h);
+      const { width: w, height: h } = computeCanvasSize(bounds);
       sceneRef.current?.resize(w, h);
     };
     const resizeObserver = new ResizeObserver(handleResize);
