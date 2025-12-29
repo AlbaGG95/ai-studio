@@ -71,6 +71,24 @@ if (!existsSync(PROJECTS_DIR)) {
 }
 
 const buildPreviewUrl = (projectId: string) => `/preview/${projectId}/`;
+const ensureTrailingSlash = (value: string) =>
+  value.endsWith("/") ? value : `${value}/`;
+
+const normalizePreviewUrl = (previewUrl: string, apiOrigin: string) => {
+  if (previewUrl.startsWith("http")) {
+    return ensureTrailingSlash(previewUrl);
+  }
+  if (previewUrl.startsWith("/")) {
+    return ensureTrailingSlash(`${apiOrigin}${previewUrl}`);
+  }
+  return ensureTrailingSlash(`${apiOrigin}/${previewUrl}`);
+};
+
+const getRequestOrigin = (request: any) => {
+  const host = request?.headers?.host || "localhost:4000";
+  const protocol = request?.protocol || "http";
+  return `${protocol}://${host}`;
+};
 
 async function readJsonFile<T>(path: string): Promise<T | null> {
   try {
@@ -268,10 +286,15 @@ app.post<{ Body: GenerateWorldParams }>("/api/generate/world", async (request, r
   }
 });
 
-app.get("/api/projects", async (_request, reply) => {
+app.get("/api/projects", async (request, reply) => {
   try {
+    const origin = getRequestOrigin(request);
     const projects = await listProjects();
-    return reply.code(200).send({ ok: true, projects });
+    const normalized = projects.map((meta) => ({
+      ...meta,
+      previewUrl: normalizePreviewUrl(meta.previewUrl || buildPreviewUrl(meta.projectId), origin),
+    }));
+    return reply.code(200).send({ ok: true, projects: normalized });
   } catch (err) {
     const message = err instanceof Error ? err.message : "No se pudieron listar los proyectos";
     app.log.error(err);
@@ -281,6 +304,7 @@ app.get("/api/projects", async (_request, reply) => {
 
 app.get<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
   const projectId = request.params.id;
+  const origin = getRequestOrigin(request);
   const spec = await loadSpec(projectId);
   const meta = await loadMetadata(projectId);
 
@@ -288,15 +312,20 @@ app.get<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) 
     return reply.code(404).send({ ok: false, error: "Not found" });
   }
 
+  const preview = meta?.previewUrl || buildPreviewUrl(projectId);
+  const previewUrl = normalizePreviewUrl(preview, origin);
+
   return reply.code(200).send({
     ok: true,
-    project: meta || {
-      projectId,
-      name: spec?.meta.name,
-      description: spec?.meta.description,
-      createdAt: spec?.meta.createdAt,
-      previewUrl: buildPreviewUrl(projectId),
-    },
+    project: meta
+      ? { ...meta, previewUrl }
+      : {
+          projectId,
+          name: spec?.meta.name,
+          description: spec?.meta.description,
+          createdAt: spec?.meta.createdAt,
+          previewUrl,
+        },
     spec,
   });
 });

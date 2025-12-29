@@ -1,0 +1,2142 @@
+{
+  "meta": {
+    "name": "AFK ARENA PRUEBA",
+    "description": "Juego idle RPG estilo AFK Arena.\nCombates automáticos por equipos de 5 héroes con roles claros (tanque, DPS, soporte).\nProgresión AFK con oro y experiencia mientras el jugador está offline.\nCampaña por stages con dificultad creciente, facciones con sinergias y habilidades definitivas automáticas.\nEstilo fantasía épica, ritmo rápido, enfoque en progresión, balance y simulación determinista.",
+    "themePreset": "magical-storybook",
+    "createdAt": "2025-12-29T12:26:09.384Z",
+    "version": "2.0.0",
+    "seed": 1280579851
+  },
+  "progression": {
+    "stage": 1,
+    "xpCurve": [
+      118,
+      139,
+      164,
+      193,
+      228,
+      269,
+      318,
+      375,
+      443,
+      523,
+      617,
+      728,
+      859,
+      1014,
+      1197,
+      1412,
+      1667,
+      1967,
+      2321,
+      2739
+    ],
+    "goldPerSec": 12,
+    "difficultyCurve": [
+      1.2,
+      1.4,
+      1.6,
+      1.8,
+      2,
+      2.2,
+      2.4000000000000004,
+      2.6,
+      2.8,
+      3,
+      3.2,
+      3.4000000000000004,
+      3.6,
+      3.8000000000000003,
+      4,
+      4.2,
+      4.4,
+      4.6,
+      4.800000000000001,
+      5
+    ],
+    "offlineCapMinutes": 240,
+    "tickMs": 1200
+  },
+  "roster": {
+    "heroes": [
+      {
+        "id": "hero-mage-Wilder-uncommon-92656",
+        "name": "Lyra del Relato",
+        "class": "mage",
+        "faction": "Wilder",
+        "rarity": "uncommon",
+        "ascensionTier": 1,
+        "roleHint": "dps",
+        "lore": "Defiende los reinos ocultos de la Biblioteca Eterna. Camina entre ilustraciones vivientes.",
+        "stats": {
+          "hp": 1272,
+          "atk": 157,
+          "def": 81,
+          "spd": 99,
+          "crit": 23,
+          "critDmg": 177
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Lyra-9496",
+              "name": "Invoca runas",
+              "description": "cura en oleadas y potencia a los aliados de Lyra.",
+              "cooldown": 4,
+              "tags": [
+                "passive",
+                "Lyra"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Lyra-3438",
+              "name": "Invoca luz arcana",
+              "description": "aumenta ATK y potencia a los aliados de Lyra.",
+              "cooldown": 4,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Lyra-1284",
+              "name": "Invoca escudos etéreos",
+              "description": "reduce DEF enemiga y potencia a los aliados de Lyra.",
+              "cooldown": 5,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Lyra-247",
+            "name": "Desata luz arcana",
+            "description": "reduce DEF enemiga y potencia a los aliados de Lyra.",
+            "cooldown": 15,
+            "tags": [
+              "ultimate",
+              "Lyra"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-mage-Graveborn-rare-92667",
+        "name": "Lyra del Alba",
+        "class": "mage",
+        "faction": "Graveborn",
+        "rarity": "rare",
+        "ascensionTier": 2,
+        "roleHint": "dps",
+        "lore": "Camina entre ilustraciones vivientes. Portador de un tomo que canta al amanecer.",
+        "stats": {
+          "hp": 1600,
+          "atk": 224,
+          "def": 119,
+          "spd": 105,
+          "crit": 26,
+          "critDmg": 169
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Lyra-9406",
+              "name": "Desata astros",
+              "description": "concede velocidad y potencia a los aliados de Lyra.",
+              "cooldown": 6,
+              "tags": [
+                "passive",
+                "Lyra"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Lyra-4709",
+              "name": "Protege luz arcana",
+              "description": "cura en oleadas y potencia a los aliados de Lyra.",
+              "cooldown": 7,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Lyra-7303",
+              "name": "Canaliza astros",
+              "description": "concede velocidad y potencia a los aliados de Lyra.",
+              "cooldown": 6,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Lyra-8845",
+            "name": "Invoca espíritus",
+            "description": "reduce DEF enemiga y potencia a los aliados de Lyra.",
+            "cooldown": 14,
+            "tags": [
+              "ultimate",
+              "Lyra"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-support-Dimensional-rare-92678",
+        "name": "Melly del Alba",
+        "class": "support",
+        "faction": "Dimensional",
+        "rarity": "rare",
+        "ascensionTier": 2,
+        "roleHint": "support",
+        "lore": "Portador de un tomo que canta al amanecer. Guarda secretos antiguos entre páginas luminosas.",
+        "stats": {
+          "hp": 1598,
+          "atk": 153,
+          "def": 136,
+          "spd": 102,
+          "crit": 18,
+          "critDmg": 161
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Melly-9316",
+              "name": "Invoca espíritus",
+              "description": "cura en oleadas y potencia a los aliados de Melly.",
+              "cooldown": 4,
+              "tags": [
+                "passive",
+                "Melly"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Melly-5979",
+              "name": "Desata escudos etéreos",
+              "description": "concede velocidad y potencia a los aliados de Melly.",
+              "cooldown": 6,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Melly-3323",
+              "name": "Canaliza luz arcana",
+              "description": "aplica daño en el tiempo y potencia a los aliados de Melly.",
+              "cooldown": 7,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Melly-7444",
+            "name": "Protege luz arcana",
+            "description": "concede velocidad y potencia a los aliados de Melly.",
+            "cooldown": 13,
+            "tags": [
+              "ultimate",
+              "Melly"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-support-Dimensional-uncommon-92689",
+        "name": "Melly del Alba",
+        "class": "support",
+        "faction": "Dimensional",
+        "rarity": "uncommon",
+        "ascensionTier": 1,
+        "roleHint": "support",
+        "lore": "Guarda secretos antiguos entre páginas luminosas. Teje destinos con tinta encantada.",
+        "stats": {
+          "hp": 1268,
+          "atk": 150,
+          "def": 88,
+          "spd": 108,
+          "crit": 10,
+          "critDmg": 154
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Melly-9226",
+              "name": "Protege luz arcana",
+              "description": "concede velocidad y potencia a los aliados de Melly.",
+              "cooldown": 6,
+              "tags": [
+                "passive",
+                "Melly"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Melly-7249",
+              "name": "Invoca espíritus",
+              "description": "reduce DEF enemiga y potencia a los aliados de Melly.",
+              "cooldown": 5,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Melly-9342",
+              "name": "Desata espíritus",
+              "description": "cura en oleadas y potencia a los aliados de Melly.",
+              "cooldown": 4,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Melly-6044",
+            "name": "Canaliza espíritus",
+            "description": "concede velocidad y potencia a los aliados de Melly.",
+            "cooldown": 17,
+            "tags": [
+              "ultimate",
+              "Melly"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-support-Mauler-uncommon-92700",
+        "name": "Melly de las Runas",
+        "class": "support",
+        "faction": "Mauler",
+        "rarity": "uncommon",
+        "ascensionTier": 1,
+        "roleHint": "support",
+        "lore": "Teje destinos con tinta encantada. Portador de un tomo que canta al amanecer.",
+        "stats": {
+          "hp": 1266,
+          "atk": 124,
+          "def": 101,
+          "spd": 115,
+          "crit": 12,
+          "critDmg": 176
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Melly-9136",
+              "name": "Invoca runas",
+              "description": "aumenta ATK y potencia a los aliados de Melly.",
+              "cooldown": 4,
+              "tags": [
+                "passive",
+                "Melly"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Melly-8520",
+              "name": "Protege astros",
+              "description": "cura en oleadas y potencia a los aliados de Melly.",
+              "cooldown": 4,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Melly-5362",
+              "name": "Protege astros",
+              "description": "reduce DEF enemiga y potencia a los aliados de Melly.",
+              "cooldown": 5,
+              "tags": [
+                "active",
+                "Melly"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Melly-4643",
+            "name": "Amplifica runas",
+            "description": "aplica daño en el tiempo y potencia a los aliados de Melly.",
+            "cooldown": 16,
+            "tags": [
+              "ultimate",
+              "Melly"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-tank-Lightbearer-uncommon-92711",
+        "name": "Brann de las Runas",
+        "class": "tank",
+        "faction": "Lightbearer",
+        "rarity": "uncommon",
+        "ascensionTier": 1,
+        "roleHint": "tank",
+        "lore": "Defiende los reinos ocultos de la Biblioteca Eterna. Guarda secretos antiguos entre páginas luminosas.",
+        "stats": {
+          "hp": 1466,
+          "atk": 153,
+          "def": 112,
+          "spd": 92,
+          "crit": 15,
+          "critDmg": 168
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Brann-9046",
+              "name": "Protege astros",
+              "description": "concede velocidad y potencia a los aliados de Brann.",
+              "cooldown": 6,
+              "tags": [
+                "passive",
+                "Brann"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Brann-9790",
+              "name": "Desata runas",
+              "description": "aplica daño en el tiempo y potencia a los aliados de Brann.",
+              "cooldown": 7,
+              "tags": [
+                "active",
+                "Brann"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Brann-1382",
+              "name": "Amplifica luz arcana",
+              "description": "concede velocidad y potencia a los aliados de Brann.",
+              "cooldown": 6,
+              "tags": [
+                "active",
+                "Brann"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Brann-3243",
+            "name": "Desata escudos etéreos",
+            "description": "aplica daño en el tiempo y potencia a los aliados de Brann.",
+            "cooldown": 15,
+            "tags": [
+              "ultimate",
+              "Brann"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-mage-Lightbearer-uncommon-92722",
+        "name": "Lyra del Eco",
+        "class": "mage",
+        "faction": "Lightbearer",
+        "rarity": "uncommon",
+        "ascensionTier": 1,
+        "roleHint": "dps",
+        "lore": "Camina entre ilustraciones vivientes. Teje destinos con tinta encantada.",
+        "stats": {
+          "hp": 1265,
+          "atk": 168,
+          "def": 96,
+          "spd": 98,
+          "crit": 27,
+          "critDmg": 160
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Lyra-8955",
+              "name": "Canaliza espíritus",
+              "description": "aumenta ATK y potencia a los aliados de Lyra.",
+              "cooldown": 4,
+              "tags": [
+                "passive",
+                "Lyra"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Lyra-1061",
+              "name": "Invoca luz arcana",
+              "description": "reduce DEF enemiga y potencia a los aliados de Lyra.",
+              "cooldown": 6,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Lyra-7401",
+              "name": "Invoca espíritus",
+              "description": "aplica daño en el tiempo y potencia a los aliados de Lyra.",
+              "cooldown": 4,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Lyra-1842",
+            "name": "Invoca astros",
+            "description": "cura en oleadas y potencia a los aliados de Lyra.",
+            "cooldown": 14,
+            "tags": [
+              "ultimate",
+              "Lyra"
+            ],
+            "type": "ultimate"
+          }
+        }
+      },
+      {
+        "id": "hero-mage-Wilder-legendary-92733",
+        "name": "Lyra del Eco",
+        "class": "mage",
+        "faction": "Wilder",
+        "rarity": "legendary",
+        "ascensionTier": 4,
+        "roleHint": "dps",
+        "lore": "Portador de un tomo que canta al amanecer. Defiende los reinos ocultos de la Biblioteca Eterna.",
+        "stats": {
+          "hp": 2246,
+          "atk": 318,
+          "def": 194,
+          "spd": 105,
+          "crit": 29,
+          "critDmg": 153
+        },
+        "skills": {
+          "passives": [
+            {
+              "id": "passive-Lyra-8865",
+              "name": "Protege luz arcana",
+              "description": "aplica daño en el tiempo y potencia a los aliados de Lyra.",
+              "cooldown": 6,
+              "tags": [
+                "passive",
+                "Lyra"
+              ],
+              "type": "passive"
+            }
+          ],
+          "actives": [
+            {
+              "id": "active-Lyra-2332",
+              "name": "Amplifica luz arcana",
+              "description": "aumenta ATK y potencia a los aliados de Lyra.",
+              "cooldown": 5,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            },
+            {
+              "id": "active-Lyra-3421",
+              "name": "Canaliza runas",
+              "description": "cura en oleadas y potencia a los aliados de Lyra.",
+              "cooldown": 5,
+              "tags": [
+                "active",
+                "Lyra"
+              ],
+              "type": "active"
+            }
+          ],
+          "ultimate": {
+            "id": "ultimate-Lyra-441",
+            "name": "Protege escudos etéreos",
+            "description": "cura en oleadas y potencia a los aliados de Lyra.",
+            "cooldown": 12,
+            "tags": [
+              "ultimate",
+              "Lyra"
+            ],
+            "type": "ultimate"
+          }
+        }
+      }
+    ]
+  },
+  "enemies": [
+    {
+      "id": "enemy-forest-0-1",
+      "name": "Sombra forest-0",
+      "description": "Sombra forest-0 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 1280,
+        "atk": 96,
+        "def": 64,
+        "spd": 89
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        43,
+        86
+      ],
+      "goldRange": [
+        22,
+        54
+      ]
+    },
+    {
+      "id": "enemy-forest-1-2",
+      "name": "Guardia forest-1",
+      "description": "Guardia forest-1 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": false,
+      "stats": {
+        "hp": 1360,
+        "atk": 102,
+        "def": 68,
+        "spd": 92
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        46,
+        92
+      ],
+      "goldRange": [
+        24,
+        58
+      ]
+    },
+    {
+      "id": "enemy-forest-2-3",
+      "name": "Exiliado forest-2",
+      "description": "Exiliado forest-2 habita en las páginas del cuento mágico.",
+      "faction": "Hypogean",
+      "isBoss": false,
+      "stats": {
+        "hp": 1440,
+        "atk": 108,
+        "def": 72,
+        "spd": 80
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        49,
+        98
+      ],
+      "goldRange": [
+        26,
+        62
+      ]
+    },
+    {
+      "id": "enemy-forest-3-4",
+      "name": "Guardia forest-3",
+      "description": "Guardia forest-3 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 1520,
+        "atk": 114,
+        "def": 76,
+        "spd": 81
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        52,
+        104
+      ],
+      "goldRange": [
+        28,
+        66
+      ]
+    },
+    {
+      "id": "boss-forest-boss-0-5",
+      "name": "Guardia forest-boss-0",
+      "description": "Guardia forest-boss-0 habita en las páginas del cuento mágico.",
+      "faction": "Graveborn",
+      "isBoss": true,
+      "stats": {
+        "hp": 2400,
+        "atk": 190,
+        "def": 140,
+        "spd": 81
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        55,
+        110
+      ],
+      "goldRange": [
+        30,
+        70
+      ]
+    },
+    {
+      "id": "enemy-ruins-0-6",
+      "name": "Guardia ruins-0",
+      "description": "Guardia ruins-0 habita en las páginas del cuento mágico.",
+      "faction": "Wilder",
+      "isBoss": false,
+      "stats": {
+        "hp": 1680,
+        "atk": 126,
+        "def": 84,
+        "spd": 87
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        58,
+        116
+      ],
+      "goldRange": [
+        32,
+        74
+      ]
+    },
+    {
+      "id": "enemy-ruins-1-7",
+      "name": "Bestia ruins-1",
+      "description": "Bestia ruins-1 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": false,
+      "stats": {
+        "hp": 1760,
+        "atk": 132,
+        "def": 88,
+        "spd": 88
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        61,
+        122
+      ],
+      "goldRange": [
+        34,
+        78
+      ]
+    },
+    {
+      "id": "enemy-ruins-2-8",
+      "name": "Sombra ruins-2",
+      "description": "Sombra ruins-2 habita en las páginas del cuento mágico.",
+      "faction": "Hypogean",
+      "isBoss": false,
+      "stats": {
+        "hp": 1840,
+        "atk": 138,
+        "def": 92,
+        "spd": 85
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        64,
+        128
+      ],
+      "goldRange": [
+        36,
+        82
+      ]
+    },
+    {
+      "id": "enemy-ruins-3-9",
+      "name": "Bestia ruins-3",
+      "description": "Bestia ruins-3 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": false,
+      "stats": {
+        "hp": 1920,
+        "atk": 144,
+        "def": 96,
+        "spd": 98
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        67,
+        134
+      ],
+      "goldRange": [
+        38,
+        86
+      ]
+    },
+    {
+      "id": "boss-ruins-boss-1-10",
+      "name": "Cántico ruins-boss-1",
+      "description": "Cántico ruins-boss-1 habita en las páginas del cuento mágico.",
+      "faction": "Graveborn",
+      "isBoss": true,
+      "stats": {
+        "hp": 2800,
+        "atk": 220,
+        "def": 160,
+        "spd": 88
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        70,
+        140
+      ],
+      "goldRange": [
+        40,
+        90
+      ]
+    },
+    {
+      "id": "enemy-coast-0-11",
+      "name": "Exiliado coast-0",
+      "description": "Exiliado coast-0 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 2080,
+        "atk": 156,
+        "def": 104,
+        "spd": 80
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        73,
+        146
+      ],
+      "goldRange": [
+        42,
+        94
+      ]
+    },
+    {
+      "id": "enemy-coast-1-12",
+      "name": "Bestia coast-1",
+      "description": "Bestia coast-1 habita en las páginas del cuento mágico.",
+      "faction": "Graveborn",
+      "isBoss": false,
+      "stats": {
+        "hp": 2160,
+        "atk": 162,
+        "def": 108,
+        "spd": 95
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        76,
+        152
+      ],
+      "goldRange": [
+        44,
+        98
+      ]
+    },
+    {
+      "id": "enemy-coast-2-13",
+      "name": "Cántico coast-2",
+      "description": "Cántico coast-2 habita en las páginas del cuento mágico.",
+      "faction": "Graveborn",
+      "isBoss": false,
+      "stats": {
+        "hp": 2240,
+        "atk": 168,
+        "def": 112,
+        "spd": 86
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        79,
+        158
+      ],
+      "goldRange": [
+        46,
+        102
+      ]
+    },
+    {
+      "id": "enemy-coast-3-14",
+      "name": "Exiliado coast-3",
+      "description": "Exiliado coast-3 habita en las páginas del cuento mágico.",
+      "faction": "Hypogean",
+      "isBoss": false,
+      "stats": {
+        "hp": 2320,
+        "atk": 174,
+        "def": 116,
+        "spd": 81
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        82,
+        164
+      ],
+      "goldRange": [
+        48,
+        106
+      ]
+    },
+    {
+      "id": "boss-coast-boss-2-15",
+      "name": "Bestia coast-boss-2",
+      "description": "Bestia coast-boss-2 habita en las páginas del cuento mágico.",
+      "faction": "Wilder",
+      "isBoss": true,
+      "stats": {
+        "hp": 3200,
+        "atk": 250,
+        "def": 180,
+        "spd": 92
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        85,
+        170
+      ],
+      "goldRange": [
+        50,
+        110
+      ]
+    },
+    {
+      "id": "enemy-coast-0-16",
+      "name": "Sombra coast-0",
+      "description": "Sombra coast-0 habita en las páginas del cuento mágico.",
+      "faction": "Graveborn",
+      "isBoss": false,
+      "stats": {
+        "hp": 2480,
+        "atk": 186,
+        "def": 124,
+        "spd": 88
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        88,
+        176
+      ],
+      "goldRange": [
+        52,
+        114
+      ]
+    },
+    {
+      "id": "enemy-coast-1-17",
+      "name": "Guardia coast-1",
+      "description": "Guardia coast-1 habita en las páginas del cuento mágico.",
+      "faction": "Wilder",
+      "isBoss": false,
+      "stats": {
+        "hp": 2560,
+        "atk": 192,
+        "def": 128,
+        "spd": 93
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        91,
+        182
+      ],
+      "goldRange": [
+        54,
+        118
+      ]
+    },
+    {
+      "id": "enemy-coast-2-18",
+      "name": "Cántico coast-2",
+      "description": "Cántico coast-2 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 2640,
+        "atk": 198,
+        "def": 132,
+        "spd": 85
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        94,
+        188
+      ],
+      "goldRange": [
+        56,
+        122
+      ]
+    },
+    {
+      "id": "enemy-coast-3-19",
+      "name": "Bestia coast-3",
+      "description": "Bestia coast-3 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": false,
+      "stats": {
+        "hp": 2720,
+        "atk": 204,
+        "def": 136,
+        "spd": 82
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        97,
+        194
+      ],
+      "goldRange": [
+        58,
+        126
+      ]
+    },
+    {
+      "id": "boss-coast-boss-3-20",
+      "name": "Bestia coast-boss-3",
+      "description": "Bestia coast-boss-3 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": true,
+      "stats": {
+        "hp": 3600,
+        "atk": 280,
+        "def": 200,
+        "spd": 84
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        100,
+        200
+      ],
+      "goldRange": [
+        60,
+        130
+      ]
+    },
+    {
+      "id": "enemy-forest-0-21",
+      "name": "Guardia forest-0",
+      "description": "Guardia forest-0 habita en las páginas del cuento mágico.",
+      "faction": "Wilder",
+      "isBoss": false,
+      "stats": {
+        "hp": 2880,
+        "atk": 216,
+        "def": 144,
+        "spd": 91
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        103,
+        206
+      ],
+      "goldRange": [
+        62,
+        134
+      ]
+    },
+    {
+      "id": "enemy-forest-1-22",
+      "name": "Exiliado forest-1",
+      "description": "Exiliado forest-1 habita en las páginas del cuento mágico.",
+      "faction": "Hypogean",
+      "isBoss": false,
+      "stats": {
+        "hp": 2960,
+        "atk": 222,
+        "def": 148,
+        "spd": 81
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        106,
+        212
+      ],
+      "goldRange": [
+        64,
+        138
+      ]
+    },
+    {
+      "id": "enemy-forest-2-23",
+      "name": "Titán forest-2",
+      "description": "Titán forest-2 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": false,
+      "stats": {
+        "hp": 3040,
+        "atk": 228,
+        "def": 152,
+        "spd": 88
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        109,
+        218
+      ],
+      "goldRange": [
+        66,
+        142
+      ]
+    },
+    {
+      "id": "enemy-forest-3-24",
+      "name": "Sombra forest-3",
+      "description": "Sombra forest-3 habita en las páginas del cuento mágico.",
+      "faction": "Hypogean",
+      "isBoss": false,
+      "stats": {
+        "hp": 3120,
+        "atk": 234,
+        "def": 156,
+        "spd": 84
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        112,
+        224
+      ],
+      "goldRange": [
+        68,
+        146
+      ]
+    },
+    {
+      "id": "boss-forest-boss-4-25",
+      "name": "Exiliado forest-boss-4",
+      "description": "Exiliado forest-boss-4 habita en las páginas del cuento mágico.",
+      "faction": "Mauler",
+      "isBoss": true,
+      "stats": {
+        "hp": 4000,
+        "atk": 310,
+        "def": 220,
+        "spd": 96
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        115,
+        230
+      ],
+      "goldRange": [
+        70,
+        150
+      ]
+    },
+    {
+      "id": "enemy-ice-0-26",
+      "name": "Bestia ice-0",
+      "description": "Bestia ice-0 habita en las páginas del cuento mágico.",
+      "faction": "Wilder",
+      "isBoss": false,
+      "stats": {
+        "hp": 3280,
+        "atk": 246,
+        "def": 164,
+        "spd": 95
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        118,
+        236
+      ],
+      "goldRange": [
+        72,
+        154
+      ]
+    },
+    {
+      "id": "enemy-ice-1-27",
+      "name": "Exiliado ice-1",
+      "description": "Exiliado ice-1 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 3360,
+        "atk": 252,
+        "def": 168,
+        "spd": 83
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        121,
+        242
+      ],
+      "goldRange": [
+        74,
+        158
+      ]
+    },
+    {
+      "id": "enemy-ice-2-28",
+      "name": "Cántico ice-2",
+      "description": "Cántico ice-2 habita en las páginas del cuento mágico.",
+      "faction": "Lightbearer",
+      "isBoss": false,
+      "stats": {
+        "hp": 3440,
+        "atk": 258,
+        "def": 172,
+        "spd": 80
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        124,
+        248
+      ],
+      "goldRange": [
+        76,
+        162
+      ]
+    },
+    {
+      "id": "enemy-ice-3-29",
+      "name": "Titán ice-3",
+      "description": "Titán ice-3 habita en las páginas del cuento mágico.",
+      "faction": "Mauler",
+      "isBoss": false,
+      "stats": {
+        "hp": 3520,
+        "atk": 264,
+        "def": 176,
+        "spd": 96
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        127,
+        254
+      ],
+      "goldRange": [
+        78,
+        166
+      ]
+    },
+    {
+      "id": "boss-ice-boss-5-30",
+      "name": "Cántico ice-boss-5",
+      "description": "Cántico ice-boss-5 habita en las páginas del cuento mágico.",
+      "faction": "Dimensional",
+      "isBoss": true,
+      "stats": {
+        "hp": 4400,
+        "atk": 340,
+        "def": 240,
+        "spd": 85
+      },
+      "lootTableRef": "default",
+      "xpRange": [
+        130,
+        260
+      ],
+      "goldRange": [
+        80,
+        170
+      ]
+    }
+  ],
+  "items": {
+    "lootTables": [
+      {
+        "id": "common-table",
+        "name": "Botín common",
+        "rarityWeights": {
+          "common": 50,
+          "uncommon": 30,
+          "rare": 15,
+          "epic": 4,
+          "legendary": 1
+        },
+        "items": [
+          {
+            "id": "common-artifact-0",
+            "name": "COMMON Tinta artifact",
+            "rarity": "common",
+            "slot": "artifact",
+            "stats": {
+              "spd": 6
+            },
+            "tags": [
+              "artifact",
+              "common"
+            ]
+          },
+          {
+            "id": "common-trinket-1",
+            "name": "COMMON Llama trinket",
+            "rarity": "common",
+            "slot": "trinket",
+            "stats": {
+              "hp": 90
+            },
+            "tags": [
+              "trinket",
+              "common"
+            ]
+          },
+          {
+            "id": "common-trinket-2",
+            "name": "COMMON Niebla trinket",
+            "rarity": "common",
+            "slot": "trinket",
+            "stats": {
+              "hp": 90
+            },
+            "tags": [
+              "trinket",
+              "common"
+            ]
+          },
+          {
+            "id": "common-trinket-3",
+            "name": "COMMON Luz trinket",
+            "rarity": "common",
+            "slot": "trinket",
+            "stats": {
+              "hp": 90
+            },
+            "tags": [
+              "trinket",
+              "common"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "uncommon-table",
+        "name": "Botín uncommon",
+        "rarityWeights": {
+          "common": 50,
+          "uncommon": 30,
+          "rare": 15,
+          "epic": 4,
+          "legendary": 1
+        },
+        "items": [
+          {
+            "id": "uncommon-armor-0",
+            "name": "UNCOMMON Tinta armor",
+            "rarity": "uncommon",
+            "slot": "armor",
+            "stats": {
+              "def": 13
+            },
+            "tags": [
+              "armor",
+              "uncommon"
+            ]
+          },
+          {
+            "id": "uncommon-trinket-1",
+            "name": "UNCOMMON Llama trinket",
+            "rarity": "uncommon",
+            "slot": "trinket",
+            "stats": {
+              "hp": 130
+            },
+            "tags": [
+              "trinket",
+              "uncommon"
+            ]
+          },
+          {
+            "id": "uncommon-artifact-2",
+            "name": "UNCOMMON Tinta artifact",
+            "rarity": "uncommon",
+            "slot": "artifact",
+            "stats": {
+              "spd": 8
+            },
+            "tags": [
+              "artifact",
+              "uncommon"
+            ]
+          },
+          {
+            "id": "uncommon-armor-3",
+            "name": "UNCOMMON Bruma armor",
+            "rarity": "uncommon",
+            "slot": "armor",
+            "stats": {
+              "def": 13
+            },
+            "tags": [
+              "armor",
+              "uncommon"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rare-table",
+        "name": "Botín rare",
+        "rarityWeights": {
+          "common": 50,
+          "uncommon": 30,
+          "rare": 15,
+          "epic": 4,
+          "legendary": 1
+        },
+        "items": [
+          {
+            "id": "rare-armor-0",
+            "name": "RARE Bruma armor",
+            "rarity": "rare",
+            "slot": "armor",
+            "stats": {
+              "def": 16,
+              "crit": 9
+            },
+            "tags": [
+              "armor",
+              "rare"
+            ]
+          },
+          {
+            "id": "rare-artifact-1",
+            "name": "RARE Luz artifact",
+            "rarity": "rare",
+            "slot": "artifact",
+            "stats": {
+              "spd": 10,
+              "crit": 9
+            },
+            "tags": [
+              "artifact",
+              "rare"
+            ]
+          },
+          {
+            "id": "rare-trinket-2",
+            "name": "RARE Luz trinket",
+            "rarity": "rare",
+            "slot": "trinket",
+            "stats": {
+              "hp": 170,
+              "crit": 9
+            },
+            "tags": [
+              "trinket",
+              "rare"
+            ]
+          },
+          {
+            "id": "rare-weapon-3",
+            "name": "RARE Llama weapon",
+            "rarity": "rare",
+            "slot": "weapon",
+            "stats": {
+              "atk": 20,
+              "crit": 9
+            },
+            "tags": [
+              "weapon",
+              "rare"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "epic-table",
+        "name": "Botín epic",
+        "rarityWeights": {
+          "common": 50,
+          "uncommon": 30,
+          "rare": 15,
+          "epic": 4,
+          "legendary": 1
+        },
+        "items": [
+          {
+            "id": "epic-armor-0",
+            "name": "EPIC Eco armor",
+            "rarity": "epic",
+            "slot": "armor",
+            "stats": {
+              "def": 19,
+              "crit": 11
+            },
+            "tags": [
+              "armor",
+              "epic"
+            ]
+          },
+          {
+            "id": "epic-artifact-1",
+            "name": "EPIC Niebla artifact",
+            "rarity": "epic",
+            "slot": "artifact",
+            "stats": {
+              "spd": 12,
+              "crit": 11
+            },
+            "tags": [
+              "artifact",
+              "epic"
+            ]
+          },
+          {
+            "id": "epic-artifact-2",
+            "name": "EPIC Bruma artifact",
+            "rarity": "epic",
+            "slot": "artifact",
+            "stats": {
+              "spd": 12,
+              "crit": 11
+            },
+            "tags": [
+              "artifact",
+              "epic"
+            ]
+          },
+          {
+            "id": "epic-weapon-3",
+            "name": "EPIC Llama weapon",
+            "rarity": "epic",
+            "slot": "weapon",
+            "stats": {
+              "atk": 24,
+              "crit": 11
+            },
+            "tags": [
+              "weapon",
+              "epic"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "legendary-table",
+        "name": "Botín legendary",
+        "rarityWeights": {
+          "common": 50,
+          "uncommon": 30,
+          "rare": 15,
+          "epic": 4,
+          "legendary": 1
+        },
+        "items": [
+          {
+            "id": "legendary-artifact-0",
+            "name": "LEGENDARY Luz artifact",
+            "rarity": "legendary",
+            "slot": "artifact",
+            "stats": {
+              "spd": 14,
+              "crit": 13
+            },
+            "tags": [
+              "artifact",
+              "legendary"
+            ]
+          },
+          {
+            "id": "legendary-artifact-1",
+            "name": "LEGENDARY Eco artifact",
+            "rarity": "legendary",
+            "slot": "artifact",
+            "stats": {
+              "spd": 14,
+              "crit": 13
+            },
+            "tags": [
+              "artifact",
+              "legendary"
+            ]
+          },
+          {
+            "id": "legendary-artifact-2",
+            "name": "LEGENDARY Llama artifact",
+            "rarity": "legendary",
+            "slot": "artifact",
+            "stats": {
+              "spd": 14,
+              "crit": 13
+            },
+            "tags": [
+              "artifact",
+              "legendary"
+            ]
+          },
+          {
+            "id": "legendary-artifact-3",
+            "name": "LEGENDARY Luz artifact",
+            "rarity": "legendary",
+            "slot": "artifact",
+            "stats": {
+              "spd": 14,
+              "crit": 13
+            },
+            "tags": [
+              "artifact",
+              "legendary"
+            ]
+          }
+        ]
+      }
+    ],
+    "affixes": [
+      "Velo",
+      "Arcano",
+      "Bestial",
+      "Sigiloso",
+      "Resonante"
+    ],
+    "setBonuses": [
+      {
+        "id": "storybook-2",
+        "name": "Relato Viviente (2)",
+        "description": "Incrementa ATK un 10% y velocidad en 5.",
+        "required": 2,
+        "bonus": "+10% ATK / +5 SPD"
+      },
+      {
+        "id": "storybook-4",
+        "name": "Relato Viviente (4)",
+        "description": "Regenera 3% de HP cada 5s y +10% daño mágico.",
+        "required": 4,
+        "bonus": "Regeneración y +10% daño mágico"
+      }
+    ],
+    "sampleItems": [
+      {
+        "id": "common-artifact-0",
+        "name": "COMMON Tinta artifact",
+        "rarity": "common",
+        "slot": "artifact",
+        "stats": {
+          "spd": 6
+        },
+        "tags": [
+          "artifact",
+          "common"
+        ]
+      },
+      {
+        "id": "common-trinket-1",
+        "name": "COMMON Llama trinket",
+        "rarity": "common",
+        "slot": "trinket",
+        "stats": {
+          "hp": 90
+        },
+        "tags": [
+          "trinket",
+          "common"
+        ]
+      },
+      {
+        "id": "common-trinket-2",
+        "name": "COMMON Niebla trinket",
+        "rarity": "common",
+        "slot": "trinket",
+        "stats": {
+          "hp": 90
+        },
+        "tags": [
+          "trinket",
+          "common"
+        ]
+      },
+      {
+        "id": "common-trinket-3",
+        "name": "COMMON Luz trinket",
+        "rarity": "common",
+        "slot": "trinket",
+        "stats": {
+          "hp": 90
+        },
+        "tags": [
+          "trinket",
+          "common"
+        ]
+      },
+      {
+        "id": "uncommon-armor-0",
+        "name": "UNCOMMON Tinta armor",
+        "rarity": "uncommon",
+        "slot": "armor",
+        "stats": {
+          "def": 13
+        },
+        "tags": [
+          "armor",
+          "uncommon"
+        ]
+      },
+      {
+        "id": "uncommon-trinket-1",
+        "name": "UNCOMMON Llama trinket",
+        "rarity": "uncommon",
+        "slot": "trinket",
+        "stats": {
+          "hp": 130
+        },
+        "tags": [
+          "trinket",
+          "uncommon"
+        ]
+      },
+      {
+        "id": "uncommon-artifact-2",
+        "name": "UNCOMMON Tinta artifact",
+        "rarity": "uncommon",
+        "slot": "artifact",
+        "stats": {
+          "spd": 8
+        },
+        "tags": [
+          "artifact",
+          "uncommon"
+        ]
+      },
+      {
+        "id": "uncommon-armor-3",
+        "name": "UNCOMMON Bruma armor",
+        "rarity": "uncommon",
+        "slot": "armor",
+        "stats": {
+          "def": 13
+        },
+        "tags": [
+          "armor",
+          "uncommon"
+        ]
+      },
+      {
+        "id": "rare-armor-0",
+        "name": "RARE Bruma armor",
+        "rarity": "rare",
+        "slot": "armor",
+        "stats": {
+          "def": 16,
+          "crit": 9
+        },
+        "tags": [
+          "armor",
+          "rare"
+        ]
+      },
+      {
+        "id": "rare-artifact-1",
+        "name": "RARE Luz artifact",
+        "rarity": "rare",
+        "slot": "artifact",
+        "stats": {
+          "spd": 10,
+          "crit": 9
+        },
+        "tags": [
+          "artifact",
+          "rare"
+        ]
+      },
+      {
+        "id": "rare-trinket-2",
+        "name": "RARE Luz trinket",
+        "rarity": "rare",
+        "slot": "trinket",
+        "stats": {
+          "hp": 170,
+          "crit": 9
+        },
+        "tags": [
+          "trinket",
+          "rare"
+        ]
+      },
+      {
+        "id": "rare-weapon-3",
+        "name": "RARE Llama weapon",
+        "rarity": "rare",
+        "slot": "weapon",
+        "stats": {
+          "atk": 20,
+          "crit": 9
+        },
+        "tags": [
+          "weapon",
+          "rare"
+        ]
+      },
+      {
+        "id": "epic-armor-0",
+        "name": "EPIC Eco armor",
+        "rarity": "epic",
+        "slot": "armor",
+        "stats": {
+          "def": 19,
+          "crit": 11
+        },
+        "tags": [
+          "armor",
+          "epic"
+        ]
+      },
+      {
+        "id": "epic-artifact-1",
+        "name": "EPIC Niebla artifact",
+        "rarity": "epic",
+        "slot": "artifact",
+        "stats": {
+          "spd": 12,
+          "crit": 11
+        },
+        "tags": [
+          "artifact",
+          "epic"
+        ]
+      },
+      {
+        "id": "epic-artifact-2",
+        "name": "EPIC Bruma artifact",
+        "rarity": "epic",
+        "slot": "artifact",
+        "stats": {
+          "spd": 12,
+          "crit": 11
+        },
+        "tags": [
+          "artifact",
+          "epic"
+        ]
+      },
+      {
+        "id": "epic-weapon-3",
+        "name": "EPIC Llama weapon",
+        "rarity": "epic",
+        "slot": "weapon",
+        "stats": {
+          "atk": 24,
+          "crit": 11
+        },
+        "tags": [
+          "weapon",
+          "epic"
+        ]
+      },
+      {
+        "id": "legendary-artifact-0",
+        "name": "LEGENDARY Luz artifact",
+        "rarity": "legendary",
+        "slot": "artifact",
+        "stats": {
+          "spd": 14,
+          "crit": 13
+        },
+        "tags": [
+          "artifact",
+          "legendary"
+        ]
+      },
+      {
+        "id": "legendary-artifact-1",
+        "name": "LEGENDARY Eco artifact",
+        "rarity": "legendary",
+        "slot": "artifact",
+        "stats": {
+          "spd": 14,
+          "crit": 13
+        },
+        "tags": [
+          "artifact",
+          "legendary"
+        ]
+      },
+      {
+        "id": "legendary-artifact-2",
+        "name": "LEGENDARY Llama artifact",
+        "rarity": "legendary",
+        "slot": "artifact",
+        "stats": {
+          "spd": 14,
+          "crit": 13
+        },
+        "tags": [
+          "artifact",
+          "legendary"
+        ]
+      },
+      {
+        "id": "legendary-artifact-3",
+        "name": "LEGENDARY Luz artifact",
+        "rarity": "legendary",
+        "slot": "artifact",
+        "stats": {
+          "spd": 14,
+          "crit": 13
+        },
+        "tags": [
+          "artifact",
+          "legendary"
+        ]
+      }
+    ]
+  },
+  "world": {
+    "id": "world-l6f9ty",
+    "name": "Libro de Aventuras",
+    "description": "Un mundo ilustrado que reacciona a tus decisiones.",
+    "regions": [
+      {
+        "id": "region-1",
+        "name": "Ruinas Ardiente",
+        "biome": "forest",
+        "levelRange": [
+          1,
+          5
+        ],
+        "enemyPool": [
+          "enemy-forest-0-0",
+          "enemy-forest-0-1",
+          "enemy-forest-0-2",
+          "enemy-forest-0-3"
+        ],
+        "bossRef": "boss-forest-0",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 1",
+          "Nido 1"
+        ]
+      },
+      {
+        "id": "region-2",
+        "name": "Ruinas Susurrante",
+        "biome": "ruins",
+        "levelRange": [
+          6,
+          10
+        ],
+        "enemyPool": [
+          "enemy-ruins-1-0",
+          "enemy-ruins-1-1",
+          "enemy-ruins-1-2",
+          "enemy-ruins-1-3"
+        ],
+        "bossRef": "boss-ruins-1",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 2",
+          "Nido 2"
+        ]
+      },
+      {
+        "id": "region-3",
+        "name": "Torre de Cristal",
+        "biome": "coast",
+        "levelRange": [
+          11,
+          15
+        ],
+        "enemyPool": [
+          "enemy-coast-2-0",
+          "enemy-coast-2-1",
+          "enemy-coast-2-2",
+          "enemy-coast-2-3"
+        ],
+        "bossRef": "boss-coast-2",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 3",
+          "Nido 3"
+        ]
+      },
+      {
+        "id": "region-4",
+        "name": "Torre Susurrante",
+        "biome": "coast",
+        "levelRange": [
+          16,
+          20
+        ],
+        "enemyPool": [
+          "enemy-coast-3-0",
+          "enemy-coast-3-1",
+          "enemy-coast-3-2",
+          "enemy-coast-3-3"
+        ],
+        "bossRef": "boss-coast-3",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 4",
+          "Nido 4"
+        ]
+      },
+      {
+        "id": "region-5",
+        "name": "Valle Susurrante",
+        "biome": "forest",
+        "levelRange": [
+          21,
+          25
+        ],
+        "enemyPool": [
+          "enemy-forest-4-0",
+          "enemy-forest-4-1",
+          "enemy-forest-4-2",
+          "enemy-forest-4-3"
+        ],
+        "bossRef": "boss-forest-4",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 5",
+          "Nido 5"
+        ]
+      },
+      {
+        "id": "region-6",
+        "name": "Mar de Cristal",
+        "biome": "ice",
+        "levelRange": [
+          26,
+          30
+        ],
+        "enemyPool": [
+          "enemy-ice-5-0",
+          "enemy-ice-5-1",
+          "enemy-ice-5-2",
+          "enemy-ice-5-3"
+        ],
+        "bossRef": "boss-ice-5",
+        "events": [
+          "hallazgo de runas",
+          "mercader efímero",
+          "duelo amistoso"
+        ],
+        "puzzles": [
+          "sigilos",
+          "laberinto corto",
+          "luces cambiantes"
+        ],
+        "fastTravelPoints": [
+          "Portal 6",
+          "Nido 6"
+        ]
+      }
+    ],
+    "meta": {
+      "createdAt": "2025-12-29T12:26:09.384Z",
+      "version": "2.0.0",
+      "seed": 1280579974
+    }
+  },
+  "modes": {
+    "campaign": true,
+    "dailyTrials": true,
+    "arenaMock": true,
+    "towerMock": true
+  },
+  "uiHints": {
+    "palette": [
+      "#0b1024",
+      "#111b3a",
+      "#1f2e5c",
+      "#65d1ff",
+      "#b77bff"
+    ],
+    "factionColors": {
+      "Lightbearer": "#f4d35e",
+      "Mauler": "#ef6c57",
+      "Wilder": "#65d1ff",
+      "Graveborn": "#c084fc",
+      "Celestial": "#fef08a",
+      "Hypogean": "#8b5cf6",
+      "Dimensional": "#22d3ee"
+    },
+    "biomeStyles": {
+      "forest": "#22c55e",
+      "desert": "#f59e0b",
+      "mountain": "#94a3b8",
+      "swamp": "#047857",
+      "ruins": "#6b7280",
+      "ice": "#7dd3fc",
+      "volcanic": "#fb7185",
+      "coast": "#38bdf8"
+    },
+    "iconMap": {
+      "hp": "heart",
+      "atk": "sword",
+      "def": "shield",
+      "spd": "wind",
+      "crit": "spark",
+      "gold": "coin"
+    }
+  }
+}

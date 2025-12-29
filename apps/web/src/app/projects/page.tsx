@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, buildPreviewUrl } from "@/lib/api";
 import styles from "../page.module.css";
 
 type Project = {
@@ -95,16 +95,14 @@ export default function ProjectsPage() {
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {project.status && <span className={styles.tag}>{project.status}</span>}
-                    <Link
+                    <a
                       className={styles.link}
-                      href={
-                        project.previewUrl
-                          ? project.previewUrl
-                          : `/preview/${project.projectId ?? project.id ?? ""}/`
-                      }
+                      href={buildPreviewUrl(project)}
+                      target="_self"
+                      rel="noreferrer"
                     >
                       Abrir
-                    </Link>
+                    </a>
                   </div>
                 </li>
               ))

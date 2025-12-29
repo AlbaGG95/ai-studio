@@ -1,0 +1,8 @@
+{
+  "projectId": "afk-arena-prueba-1ibaoc",
+  "name": "AFK ARENA PRUEBA",
+  "description": "Juego idle RPG estilo AFK Arena.\nCombates automáticos por equipos de 5 héroes con roles claros (tanque, DPS, soporte).\nProgresión AFK con oro y experiencia mientras el jugador está offline.\nCampaña por stages con dificultad creciente, facciones con sinergias y habilidades definitivas automáticas.\nEstilo fantasía épica, ritmo rápido, enfoque en progresión, balance y simulación determinista.",
+  "createdAt": "2025-12-29T12:26:09.384Z",
+  "previewUrl": "/preview/afk-arena-prueba-1ibaoc/",
+  "themePreset": "magical-storybook"
+}
