@@ -540,6 +540,7 @@ class BattleScene extends Phaser.Scene {
   }
 
   resize(width: number, height: number) {
+    if (!this.scale || !this.cameras?.main) return;
     this.scale.resize(width, height);
     this.cameras.main.setViewport(0, 0, width, height);
     this.drawBackground();
@@ -658,6 +659,7 @@ export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
       if (!containerRef.current || !game.scale) return;
       const bounds = containerRef.current.getBoundingClientRect();
       const { width: w, height: h } = computeCanvasSize(bounds);
+      game.scale.resize(w, h);
       sceneRef.current?.resize(w, h);
     };
     const resizeObserver = new ResizeObserver(handleResize);
