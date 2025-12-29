@@ -1,0 +1,199 @@
+/* :global(:root) font setup moved to apps/web/src/_backup/page-module-root.txt */
+
+.main {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px 64px;
+  background: radial-gradient(circle at 10% 20%, #1f2937 0, #0b0f1a 40%, #060912 75%);
+  color: #e5ecff;
+}
+
+.card {
+  width: min(960px, 100%);
+  border: 1px solid #1f2b46;
+  background: linear-gradient(145deg, rgba(13, 19, 35, 0.9), rgba(11, 15, 26, 0.7));
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin: 0 0 4px;
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+.link {
+  color: #7ce4ff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 10px 14px;
+  border: 1px solid rgba(124, 228, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(124, 228, 255, 0.12);
+  transition: all 0.2s ease;
+}
+
+.link:hover {
+  background: rgba(124, 228, 255, 0.2);
+  border-color: rgba(124, 228, 255, 0.6);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.field label {
+  font-size: 14px;
+  color: #cbd5f5;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #1f2b46;
+  background: #0f172a;
+  color: #e5ecff;
+  font-size: 15px;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #7ce4ff;
+  box-shadow: 0 0 0 3px rgba(124, 228, 255, 0.15);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.actions button {
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #1f2b46;
+  background: linear-gradient(135deg, #1e293b, #111827);
+  color: #e5ecff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border-color: #2f3f63;
+}
+
+.actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.status {
+  margin-top: 16px;
+  color: #7ce4ff;
+  font-weight: 500;
+}
+
+.error {
+  margin-top: 10px;
+  color: #fda4af;
+  font-weight: 600;
+}
+
+.subtle {
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #1f2b46;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.8);
+}
+
+.itemTitle {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.muted {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.tag {
+  align-self: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(124, 228, 255, 0.12);
+  border: 1px solid rgba(124, 228, 255, 0.4);
+  color: #7ce4ff;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 22px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,307 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI Studio Game Specification v1",
+  "description": "Schema for Idle RPG game generation",
+  "type": "object",
+  "required": ["meta", "engine", "systems", "content", "ui", "balance"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["name", "version", "language"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Game name"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["en", "es"],
+          "description": "Game language"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Game description"
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "required": ["templateId"],
+      "properties": {
+        "templateId": {
+          "type": "string",
+          "enum": ["idle-rpg-base"],
+          "description": "Base template identifier"
+        }
+      }
+    },
+    "systems": {
+      "type": "object",
+      "required": ["idleLoop", "combat", "progression", "inventory"],
+      "properties": {
+        "idleLoop": {
+          "type": "object",
+          "required": ["tickMs", "baseIncome"],
+          "properties": {
+            "tickMs": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 10000,
+              "description": "Game tick interval in milliseconds"
+            },
+            "baseIncome": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1000,
+              "description": "Gold earned per tick"
+            }
+          }
+        },
+        "combat": {
+          "type": "object",
+          "required": ["auto", "damageFormula"],
+          "properties": {
+            "auto": {
+              "type": "boolean",
+              "description": "Enable auto-combat"
+            },
+            "damageFormula": {
+              "type": "string",
+              "enum": ["linear", "scaling", "exponential"],
+              "description": "Damage calculation method"
+            }
+          }
+        },
+        "progression": {
+          "type": "object",
+          "required": ["levels", "scaling"],
+          "properties": {
+            "levels": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 200,
+              "description": "Maximum player level"
+            },
+            "scaling": {
+              "type": "string",
+              "enum": ["linear", "quadratic", "exponential"],
+              "description": "Level scaling growth"
+            }
+          }
+        },
+        "inventory": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable inventory system"
+            },
+            "maxSlots": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "required": ["heroes", "enemies", "stages", "items"],
+      "properties": {
+        "heroes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "hp", "atk", "def"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "hp": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "atk": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "def": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "enemies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "hp", "atk", "goldReward"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "hp": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "atk": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "goldReward": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "level", "enemies"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "enemies": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "rarity"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "rarity": {
+                "type": "string",
+                "enum": ["common", "rare", "epic", "legendary"]
+              },
+              "stats": {
+                "type": "object",
+                "properties": {
+                  "atk": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "def": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hp": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["screens"],
+      "properties": {
+        "screens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "enum": ["home", "battle", "inventory", "heroes"]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "balance": {
+      "type": "object",
+      "required": ["goldPerSecond", "enemyHPScaling"],
+      "properties": {
+        "goldPerSecond": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10000,
+          "description": "Base gold generation rate"
+        },
+        "enemyHPScaling": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "HP multiplier per stage level"
+        }
+      }
+    }
+  }
+}

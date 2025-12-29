@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "name": "Dragon Slayer Idle",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "An epic idle RPG where you slay dragons and grow stronger"
+  },
+  "engine": {
+    "templateId": "idle-rpg-base"
+  },
+  "systems": {
+    "idleLoop": {
+      "tickMs": 1000,
+      "baseIncome": 5
+    },
+    "combat": {
+      "auto": true,
+      "damageFormula": "scaling"
+    },
+    "progression": {
+      "levels": 100,
+      "scaling": "exponential"
+    },
+    "inventory": {
+      "enabled": true,
+      "maxSlots": 30
+    }
+  },
+  "content": {
+    "heroes": [
+      {
+        "id": "knight",
+        "name": "Knight",
+        "description": "A skilled warrior",
+        "hp": 100,
+        "atk": 20,
+        "def": 15
+      },
+      {
+        "id": "mage",
+        "name": "Mage",
+        "description": "Master of magic",
+        "hp": 60,
+        "atk": 35,
+        "def": 5
+      }
+    ],
+    "enemies": [
+      {
+        "id": "goblin",
+        "name": "Goblin",
+        "hp": 20,
+        "atk": 5,
+        "goldReward": 10
+      },
+      {
+        "id": "orc",
+        "name": "Orc",
+        "hp": 50,
+        "atk": 15,
+        "goldReward": 50
+      },
+      {
+        "id": "dragon",
+        "name": "Dragon",
+        "hp": 200,
+        "atk": 40,
+        "goldReward": 500
+      }
+    ],
+    "stages": [
+      {
+        "id": "stage1",
+        "name": "Goblin Forest",
+        "level": 1,
+        "enemies": ["goblin", "goblin"]
+      },
+      {
+        "id": "stage2",
+        "name": "Orc Stronghold",
+        "level": 5,
+        "enemies": ["orc", "orc", "orc"]
+      },
+      {
+        "id": "stage3",
+        "name": "Dragon Lair",
+        "level": 10,
+        "enemies": ["dragon"]
+      }
+    ],
+    "items": [
+      {
+        "id": "sword",
+        "name": "Iron Sword",
+        "rarity": "common",
+        "stats": {
+          "atk": 10
+        }
+      },
+      {
+        "id": "shield",
+        "name": "Steel Shield",
+        "rarity": "rare",
+        "stats": {
+          "def": 20,
+          "hp": 50
+        }
+      },
+      {
+        "id": "dragon_slayer",
+        "name": "Dragonslayer Blade",
+        "rarity": "legendary",
+        "stats": {
+          "atk": 100,
+          "def": 30
+        }
+      }
+    ]
+  },
+  "ui": {
+    "screens": [
+      {
+        "id": "home",
+        "name": "Home",
+        "enabled": true
+      },
+      {
+        "id": "battle",
+        "name": "Battle",
+        "enabled": true
+      },
+      {
+        "id": "inventory",
+        "name": "Inventory",
+        "enabled": true
+      },
+      {
+        "id": "heroes",
+        "name": "Heroes",
+        "enabled": true
+      }
+    ]
+  },
+  "balance": {
+    "goldPerSecond": 5,
+    "enemyHPScaling": 1.5
+  }
+}

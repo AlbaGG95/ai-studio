@@ -1,0 +1,21 @@
+{
+  "name": "@ai-studio/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./spec": "./dist/spec/index.js"
+  },
+  "scripts": {
+    "clean": "node --input-type=module -e \"import { rmSync } from 'fs'; rmSync('dist', { recursive: true, force: true });\"",
+    "build:ts": "tsc -p tsconfig.build.json",
+    "build:assets": "node --input-type=module -e \"import { mkdirSync, copyFileSync } from 'fs'; mkdirSync('dist/spec', { recursive: true }); copyFileSync('spec/gamespec.schema.json', 'dist/spec/gamespec.schema.json');\"",
+    "build": "pnpm run clean && pnpm run build:ts && pnpm run build:assets"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0"
+  }
+}

@@ -1,0 +1,36 @@
+# Dockerfile for AI Studio Web
+FROM node:20-alpine as builder
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy workspace files
+COPY pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/web ./apps/web
+COPY packages/core ./packages/core
+
+# Install dependencies and build
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter web build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy only necessary files from builder
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+# Expose port
+EXPOSE 3000
+
+# Start web app
+CMD ["node_modules/.bin/next", "start", "apps/web", "-p", "3000"]

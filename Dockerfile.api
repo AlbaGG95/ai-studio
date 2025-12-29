@@ -1,0 +1,25 @@
+# Dockerfile for AI Studio API
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy workspace files
+COPY pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/api ./apps/api
+COPY packages/core ./packages/core
+COPY packages/templates ./packages/templates
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build
+RUN pnpm --filter api build
+
+# Expose port
+EXPOSE 4000
+
+# Start API
+CMD ["pnpm", "--filter", "api", "start"]
