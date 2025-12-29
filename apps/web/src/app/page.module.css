@@ -58,6 +58,30 @@
   border-color: rgba(124, 228, 255, 0.6);
 }
 
+.dangerButton {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.6);
+  background: linear-gradient(135deg, #7f1d1d, #991b1b);
+  color: #fee2e2;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.dangerButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border-color: rgba(248, 113, 113, 0.9);
+}
+
+.dangerButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;

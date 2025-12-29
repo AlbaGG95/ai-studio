@@ -20,6 +20,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -28,6 +30,7 @@ export default function ProjectsPage() {
   const fetchProjects = async () => {
     setLoading(true);
     setError(null);
+    setDeleteError(null);
 
     try {
       const response = await fetch(buildApiUrl("/api/projects"), {
@@ -55,6 +58,44 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleDelete = async (project: Project) => {
+    const projectId = project.projectId ?? project.id;
+    if (!projectId) {
+      setDeleteError("No se pudo determinar el ID del proyecto.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "¿Seguro que quieres borrar este proyecto? Esta acción no se puede deshacer."
+    );
+    if (!confirmed) return;
+
+    setDeleteError(null);
+    setDeletingId(projectId);
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/projects/${projectId}`), {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data?.ok === false) {
+        throw new Error(
+          data?.error || `DELETE /api/projects/${projectId} respondio ${response.status}`
+        );
+      }
+
+      setProjects((prev) => prev.filter((item) => (item.projectId ?? item.id) !== projectId));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo borrar el proyecto.";
+      setDeleteError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <main className={styles.main}>
       <div className={styles.card}>
@@ -70,6 +111,7 @@ export default function ProjectsPage() {
 
         {loading && <p className={styles.status}>Cargando proyectos...</p>}
         {error && <p className={styles.error}>{error}</p>}
+        {deleteError && <p className={styles.error}>{deleteError}</p>}
 
         {!loading && !error && (
           <ul className={styles.list}>
@@ -103,6 +145,13 @@ export default function ProjectsPage() {
                     >
                       Abrir
                     </a>
+                    <button
+                      className={styles.dangerButton}
+                      onClick={() => handleDelete(project)}
+                      disabled={deletingId === (project.projectId ?? project.id)}
+                    >
+                      {deletingId === (project.projectId ?? project.id) ? "Borrando..." : "Borrar"}
+                    </button>
                   </div>
                 </li>
               ))

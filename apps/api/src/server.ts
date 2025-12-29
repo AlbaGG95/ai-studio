@@ -302,6 +302,28 @@ app.get("/api/projects", async (request, reply) => {
   }
 });
 
+app.delete<{ Params: { projectId: string } }>("/api/projects/:projectId", async (request, reply) => {
+  const { projectId } = request.params;
+  const projectDir = resolve(PROJECTS_DIR, projectId);
+
+  if (!projectDir.startsWith(PROJECTS_DIR)) {
+    return reply.code(400).send({ ok: false, error: "Invalid project path" });
+  }
+
+  if (!existsSync(projectDir)) {
+    return reply.code(404).send({ ok: false, error: "Project not found" });
+  }
+
+  try {
+    await rm(projectDir, { recursive: true, force: true });
+    return reply.code(200).send({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to delete project";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
 app.get<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
   const projectId = request.params.id;
   const origin = getRequestOrigin(request);
