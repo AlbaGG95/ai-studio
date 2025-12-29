@@ -485,7 +485,8 @@ class BattleScene extends Phaser.Scene {
       graphics.lineStyle(4, c2, 0.9);
       graphics.beginPath();
       graphics.moveTo(32, -28);
-      graphics.quadraticCurveTo(60, 4, 32, 38);
+      graphics.lineTo(52, 4);
+      graphics.lineTo(32, 38);
       graphics.strokePath();
       graphics.lineStyle(2, c1, 0.9);
       graphics.beginPath();
