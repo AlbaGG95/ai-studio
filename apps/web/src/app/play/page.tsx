@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { EngineCombatState, EngineState, EngineUnitTemplate } from "@ai-studio/core";
 import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
+import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
 import styles from "./play.module.css";
 
 const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
@@ -61,6 +62,7 @@ export default function PlayPage() {
   const [logs, setLogs] = useState<CombatLogEntry[]>([]);
   const [battleResult, setBattleResult] = useState<"victory" | "defeat" | null>(null);
   const [teamSlots, setTeamSlots] = useState<(string | null)[]>([null, null, null, null, null]);
+  const [heroArtMap, setHeroArtMap] = useState<Record<string, HeroArtSpec>>({});
 
   const logCursor = useRef(0);
   const autoStartTimer = useRef<NodeJS.Timeout | null>(null);
@@ -124,7 +126,12 @@ export default function PlayPage() {
       const padded = [...active, null, null, null, null, null].slice(0, 5);
       return padded;
     });
-  }, [engineState]);
+    const nextArt: Record<string, HeroArtSpec> = {};
+    engineState.player.heroes.forEach((hero) => {
+      nextArt[hero.id] = buildHeroArtSpec(hero, projectId || undefined);
+    });
+    setHeroArtMap(nextArt);
+  }, [engineState, projectId]);
 
   useEffect(() => {
     if (!engineState) return;
@@ -432,6 +439,13 @@ export default function PlayPage() {
               <p className={styles.itemTitle}>{hero.name}</p>
               <span className={styles.tag}>{hero.rarity}</span>
             </div>
+            {heroArtMap[hero.id] && (
+              <img
+                src={getPortraitDataUri(heroArtMap[hero.id])}
+                alt={hero.name}
+                style={{ width: "100%", borderRadius: 12, margin: "8px 0", border: "1px solid #1f2b46" }}
+              />
+            )}
             <p className={styles.subtle}>Rol: {hero.role} · Línea: {hero.position}</p>
             <p className={styles.subtle}>HP {hero.baseStats.hp} · ATK {hero.baseStats.atk}</p>
             <button onClick={() => applyHero(hero.id)}>Añadir</button>
@@ -469,7 +483,14 @@ export default function PlayPage() {
           </button>
         </div>
       </div>
-      <BattleCanvas combat={engineState?.combat} logs={logs} tickMs={tickMs} />
+      <BattleCanvas
+        combat={engineState?.combat}
+        logs={logs}
+        tickMs={tickMs}
+        heroArt={heroArtMap}
+        projectId={projectId ?? undefined}
+        seed={engineState?.seed}
+      />
       {battleResult && <div className={styles.banner}>{battleResult === "victory" ? "Victoria" : "Derrota"}</div>}
       <div className={styles.logBar}>
         <p className={styles.muted}>Última acción: {logs[logs.length - 1]?.action ?? "..."}</p>

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import * as Phaser from "phaser";
 import { EngineCombatState, UnitRuntimeState } from "@ai-studio/core";
 import styles from "./play.module.css";
+import { HeroArtSpec, buildHeroArtSpec } from "./heroArt";
 
 type CombatLogEntry = {
   tick: number;
@@ -15,16 +16,21 @@ type CombatLogEntry = {
 
 type UnitVisual = {
   container: Phaser.GameObjects.Container;
+  body: Phaser.GameObjects.Graphics;
+  armor: Phaser.GameObjects.Graphics;
+  weapon: Phaser.GameObjects.Graphics;
   token: Phaser.GameObjects.Graphics;
   ring: Phaser.GameObjects.Graphics;
   role: Phaser.GameObjects.Graphics;
   aura: Phaser.GameObjects.Graphics;
+  auraFx?: Phaser.GameObjects.Graphics;
   shadow: Phaser.GameObjects.Ellipse;
   hpBar: Phaser.GameObjects.Graphics;
   energyBar: Phaser.GameObjects.Graphics;
   label: Phaser.GameObjects.Text;
   fullLabel: Phaser.GameObjects.Text;
   barState: { hp: number; energy: number };
+  spec: HeroArtSpec;
 };
 
 const RARITY_COLORS = [0x6b7280, 0x38bdf8, 0xa855f7, 0xf59e0b];
@@ -90,6 +96,9 @@ class BattleScene extends Phaser.Scene {
   private laneGuides?: Phaser.GameObjects.Graphics;
   private midLine?: Phaser.GameObjects.Rectangle;
   private fieldFrame?: Phaser.GameObjects.Graphics;
+  private heroArt: Record<string, HeroArtSpec> = {};
+  private projectId?: string;
+  private projectSeed = "offline";
 
   constructor(tickMs: number) {
     super("BattleScene");
@@ -98,6 +107,12 @@ class BattleScene extends Phaser.Scene {
 
   preload() {
     this.cameras.main.setBackgroundColor("#050814");
+  }
+
+  setHeroArt(map?: Record<string, HeroArtSpec>, projectId?: string, seed?: number | string) {
+    this.heroArt = map || {};
+    this.projectId = projectId;
+    this.projectSeed = seed ? seed.toString() : projectId || "offline";
   }
 
   create() {
@@ -211,14 +226,39 @@ class BattleScene extends Phaser.Scene {
     };
   }
 
+  private specForUnit(unit: UnitRuntimeState): HeroArtSpec {
+    const existing = this.heroArt[unit.id];
+    if (existing) return existing;
+    const fallbackRarity = (unit as any).rarity || "common";
+    const faction = (unit as any).faction || "default";
+    return buildHeroArtSpec(
+      {
+        id: unit.id,
+        role: (unit as any).role || "dps",
+        faction,
+        rarity: fallbackRarity,
+      } as any,
+      this.projectId || this.projectSeed
+    );
+  }
+
   private ensureUnit(unit: UnitRuntimeState, index: number) {
-    if (this.units[unit.id]) return this.units[unit.id];
+    const spec = this.specForUnit(unit);
+    if (this.units[unit.id]) {
+      const existing = this.units[unit.id];
+      existing.spec = spec;
+      this.drawVisualLayers(existing, unit);
+      return existing;
+    }
     const pos = this.unitPosition(unit, index);
-    const palette = this.tokenPalette(unit);
     const container = this.add.container(pos.x, pos.y).setDepth(10 + (unit.side === "player" ? 0 : 1));
     const shadow = this.add.ellipse(0, 18, 96, 30, 0x000000, 0.28).setScale(1, 0.62);
     const aura = this.add.graphics();
+    const auraFx = this.add.graphics();
     const ring = this.add.graphics();
+    const body = this.add.graphics();
+    const armor = this.add.graphics();
+    const weapon = this.add.graphics();
     const token = this.add.graphics();
     const role = this.add.graphics();
     const hpBar = this.add.graphics();
@@ -237,42 +277,24 @@ class BattleScene extends Phaser.Scene {
     label.setShadow(0, 2, "#0b0f1a", 3);
     fullLabel.setShadow(0, 2, "#0b0f1a", 3);
 
-    const drawToken = () => {
-      const main = palette.primary;
-      const inner = palette.inner;
-      aura.clear();
-      aura.fillStyle(palette.faction, 0.16);
-      aura.fillCircle(0, 0, 48);
-      aura.lineStyle(2, palette.faction, 0.35);
-      aura.strokeCircle(0, 0, 52);
-      ring.clear();
-      ring.lineStyle(6, palette.border, 0.95);
-      ring.strokeCircle(0, 0, 38);
-      ring.lineStyle(2, palette.faction, 0.8);
-      ring.strokeCircle(0, 0, 34);
-      token.clear();
-      token.fillStyle(main, 0.94);
-      token.fillCircle(0, 0, 34);
-      token.fillStyle(inner, 0.95);
-      token.fillCircle(0, -3, 28);
-      token.fillStyle(0xffffff, 0.12);
-      token.fillEllipse(0, -18, 32, 20);
-      token.fillStyle(0xffffff, 0.08);
-      token.fillEllipse(-10, -6, 26, 12);
-      token.fillStyle(0x000000, 0.12);
-      token.fillCircle(12, 12, 16);
-      role.clear();
-      role.fillStyle(0x0b0f1a, 0.82);
-      role.fillRoundedRect(-13, -13, 26, 26, 12);
-      this.drawRoleGlyph(role, unit);
-    };
-
-    drawToken();
-
     const hpPct = unit.maxHp > 0 ? clamp01(unit.hp / unit.maxHp) : 0;
     const energyPct = clamp01(unit.energy / 100);
     const barState = { hp: hpPct, energy: energyPct };
-    container.add([shadow, aura, ring, token, role, hpBar, energyBar, label, fullLabel]);
+    container.add([
+      shadow,
+      aura,
+      auraFx,
+      ring,
+      body,
+      armor,
+      weapon,
+      token,
+      role,
+      hpBar,
+      energyBar,
+      label,
+      fullLabel,
+    ]);
     container.setSize(96, 96);
     container.setInteractive(new Phaser.Geom.Circle(0, 0, 40), Phaser.Geom.Circle.Contains);
     container.on("pointerover", () => fullLabel.setAlpha(0.95));
@@ -296,8 +318,105 @@ class BattleScene extends Phaser.Scene {
       ease: "Sine.easeInOut",
     });
 
-    this.units[unit.id] = { container, token, ring, role, aura, shadow, hpBar, energyBar, label, fullLabel, barState };
+    this.units[unit.id] = {
+      container,
+      token,
+      ring,
+      role,
+      aura,
+      shadow,
+      hpBar,
+      energyBar,
+      label,
+      fullLabel,
+      barState,
+      body,
+      armor,
+      weapon,
+      auraFx,
+    };
+    this.units[unit.id].spec = spec;
+    this.drawVisualLayers(this.units[unit.id], unit);
     return this.units[unit.id];
+  }
+
+  private drawVisualLayers(vis: UnitVisual, unit: UnitRuntimeState) {
+    const spec = vis.spec;
+    const palette = spec.palette;
+    const aura = vis.aura;
+    const ring = vis.ring;
+    const body = vis.body;
+    const armor = vis.armor;
+    const weapon = vis.weapon;
+    const token = vis.token;
+    const role = vis.role;
+
+    aura.clear();
+    vis.auraFx?.clear();
+    const baseRadius = 46 + spec.rarityRank * 2;
+    if (spec.auraStyle === "halo") {
+      aura.fillStyle(palette.aura, 0.22 + spec.rarityRank * 0.04);
+      aura.fillEllipse(0, 6, baseRadius * 1.4, baseRadius * 0.5);
+    } else {
+      aura.lineStyle(3 + spec.rarityRank, palette.aura, 0.6);
+      aura.strokeCircle(0, 0, baseRadius);
+      if (spec.auraStyle === "sparks") {
+        const sparkCount = 4 + spec.rarityRank * 2;
+        for (let i = 0; i < sparkCount; i++) {
+          const angle = seeded(spec.id, `spark-${i}`, 0, Math.PI * 2);
+          const dist = baseRadius + seeded(spec.id, `spark-dist-${i}`, 6, 14);
+          aura.fillStyle(palette.aura, 0.6);
+          aura.fillCircle(Math.cos(angle) * dist, Math.sin(angle) * dist, 3 + spec.rarityRank);
+        }
+      }
+    }
+
+    ring.clear();
+    ring.lineStyle(6, palette.border, 0.95);
+    ring.strokeCircle(0, 0, 38);
+    ring.lineStyle(2, palette.accent, 0.8);
+    ring.strokeCircle(0, 0, 34);
+    if (spec.rarityRank >= 2) {
+      this.tweens.add({
+        targets: ring,
+        alpha: { from: 0.9, to: 0.5 },
+        duration: 1200 + spec.rarityRank * 200,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    const torsoW = spec.silhouette === "bulky" ? 82 : spec.silhouette === "slim" ? 64 : 72;
+    const torsoH = spec.silhouette === "robed" ? 94 : 82;
+    const torsoY = -10;
+    body.clear();
+    body.fillStyle(palette.primary, 0.95);
+    body.fillRoundedRect(-torsoW / 2, torsoY, torsoW, torsoH, 18);
+    body.fillStyle(palette.secondary, 0.9);
+    body.fillRoundedRect(-torsoW / 2 + 6, torsoY + 8, torsoW - 12, torsoH - 16, 14);
+    body.fillCircle(0, torsoY - 26, spec.silhouette === "bulky" ? 26 : 24);
+
+    armor.clear();
+    const armorOpacity = spec.armor === "heavy" ? 0.55 : spec.armor === "mystic" ? 0.38 : 0.32;
+    armor.fillStyle(palette.accent, armorOpacity);
+    armor.fillRoundedRect(-torsoW / 2 + 10, torsoY + 10, torsoW - 20, torsoH - 32, 14);
+    armor.lineStyle(2, palette.border, 0.8);
+    armor.strokeRoundedRect(-torsoW / 2 + 10, torsoY + 10, torsoW - 20, torsoH - 32, 14);
+
+    weapon.clear();
+    this.drawWeaponGlyph(weapon, spec);
+
+    token.clear();
+    token.fillStyle(0xffffff, 0.12);
+    token.fillEllipse(0, torsoY - 32, 28, 18);
+    token.fillStyle(0x000000, 0.12);
+    token.fillCircle(16, torsoY - 8, 12);
+
+    role.clear();
+    role.fillStyle(0x0b0f1a, 0.82);
+    role.fillRoundedRect(-13, -13, 26, 26, 12);
+    this.drawRoleGlyph(role, unit);
   }
 
   private drawRoleGlyph(graphics: Phaser.GameObjects.Graphics, unit: UnitRuntimeState) {
@@ -345,6 +464,52 @@ class BattleScene extends Phaser.Scene {
     graphics.restore();
   }
 
+  private drawWeaponGlyph(graphics: Phaser.GameObjects.Graphics, spec: HeroArtSpec) {
+    const c1 = spec.palette.accent;
+    const c2 = spec.palette.border;
+    graphics.lineStyle(3, c2, 0.9);
+    if (spec.weapon === "shield") {
+      graphics.fillStyle(c1, 0.6);
+      graphics.fillRoundedRect(-40, -10, 32, 44, 10);
+      graphics.lineStyle(2, c2, 1);
+      graphics.strokeRoundedRect(-40, -10, 32, 44, 10);
+    } else if (spec.weapon === "staff") {
+      graphics.lineStyle(3, c2, 0.9);
+      graphics.beginPath();
+      graphics.moveTo(28, -24);
+      graphics.lineTo(32, 42);
+      graphics.strokePath();
+      graphics.fillStyle(c1, 0.9);
+      graphics.fillCircle(30, -28, 10);
+    } else if (spec.weapon === "bow") {
+      graphics.lineStyle(4, c2, 0.9);
+      graphics.beginPath();
+      graphics.moveTo(32, -28);
+      graphics.quadraticCurveTo(60, 4, 32, 38);
+      graphics.strokePath();
+      graphics.lineStyle(2, c1, 0.9);
+      graphics.beginPath();
+      graphics.moveTo(32, -28);
+      graphics.lineTo(32, 38);
+      graphics.strokePath();
+    } else if (spec.weapon === "hammer") {
+      graphics.fillStyle(c2, 0.9);
+      graphics.fillRoundedRect(22, -8, 16, 48, 4);
+      graphics.fillStyle(c1, 0.9);
+      graphics.fillRoundedRect(12, -24, 36, 18, 6);
+    } else if (spec.weapon === "claws" || spec.weapon === "dagger") {
+      graphics.fillStyle(c1, 0.9);
+      graphics.fillTriangle(22, -18, 46, -8, 20, 6);
+      graphics.fillTriangle(18, 6, 42, 16, 16, 28);
+    } else {
+      graphics.fillStyle(c2, 0.9);
+      graphics.fillRoundedRect(22, -12, 12, 52, 4);
+      graphics.fillStyle(c1, 0.9);
+      graphics.fillTriangle(18, -20, 48, -8, 18, 0);
+      graphics.fillRoundedRect(16, 6, 26, 10, 4);
+    }
+  }
+
   private drawBars(vis: UnitVisual, unit: UnitRuntimeState) {
     const width = 86;
     const hpHeight = 8;
@@ -356,16 +521,19 @@ class BattleScene extends Phaser.Scene {
     const x = -width / 2;
     const hpY = -58;
     const energyY = -44;
+    const palette = vis.spec?.palette;
 
     vis.hpBar.clear();
     vis.hpBar.fillStyle(0x0f172a, 0.78).fillRoundedRect(x, hpY, width, hpHeight, 4);
-    vis.hpBar.fillStyle(hpColor(vis.barState.hp), 0.95).fillRoundedRect(x, hpY, width * vis.barState.hp, hpHeight, 4);
+    vis.hpBar
+      .fillStyle(palette?.accent ?? hpColor(vis.barState.hp), 0.95)
+      .fillRoundedRect(x, hpY, width * vis.barState.hp, hpHeight, 4);
     vis.hpBar.lineStyle(1, 0x233149, 0.8).strokeRoundedRect(x, hpY, width, hpHeight, 4);
 
     vis.energyBar.clear();
     vis.energyBar.fillStyle(0x0b1224, 0.75).fillRoundedRect(x, energyY, width, energyHeight, 4);
     vis.energyBar
-      .fillStyle(0x7c3aed, 0.95)
+      .fillStyle(palette?.secondary ?? 0x7c3aed, 0.95)
       .fillRoundedRect(x, energyY, width * vis.barState.energy, energyHeight, 4);
     vis.energyBar.lineStyle(1, 0x1f2b46, 0.7).strokeRoundedRect(x, energyY, width, energyHeight, 4);
   }
@@ -628,9 +796,12 @@ type BattleCanvasProps = {
   combat?: EngineCombatState;
   logs: CombatLogEntry[];
   tickMs: number;
+  heroArt?: Record<string, HeroArtSpec>;
+  projectId?: string;
+  seed?: number;
 };
 
-export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
+export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }: BattleCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<BattleScene | null>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -654,6 +825,7 @@ export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
       },
     });
     gameRef.current = game;
+    scene.setHeroArt(heroArt, projectId, seed);
 
     const handleResize = () => {
       if (!containerRef.current || !game.scale) return;
@@ -671,6 +843,13 @@ export function BattleCanvas({ combat, logs, tickMs }: BattleCanvasProps) {
       sceneRef.current = null;
     };
   }, [tickMs]);
+
+  useEffect(() => {
+    sceneRef.current?.setHeroArt(heroArt, projectId, seed);
+    if (combat) {
+      sceneRef.current?.updateCombat(combat, []);
+    }
+  }, [heroArt, projectId, seed]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
