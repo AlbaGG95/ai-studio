@@ -137,6 +137,18 @@ export default function ProjectsPage() {
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {project.status && <span className={styles.tag}>{project.status}</span>}
+                    {project.projectId || project.id ? (
+                      <Link
+                        className={styles.primaryButton}
+                        href={`/play?projectId=${encodeURIComponent(project.projectId ?? project.id ?? "")}`}
+                      >
+                        Jugar
+                      </Link>
+                    ) : (
+                      <button className={styles.primaryButton} disabled>
+                        Jugar
+                      </button>
+                    )}
                     <a
                       className={styles.link}
                       href={buildPreviewUrl(project)}

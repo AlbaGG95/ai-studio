@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { EngineCombatState, EngineState, EngineUnitTemplate } from "@ai-studio/core";
 import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
@@ -18,6 +20,13 @@ type CombatLogEntry = {
 
 type View = "map" | "roster" | "battle";
 type GameState = "MAP" | "BATTLE_STARTING" | "BATTLE_RUNNING" | "BATTLE_END" | "RETURNING_TO_MAP";
+
+type ProjectMeta = {
+  projectId?: string;
+  name?: string;
+  description?: string;
+  previewUrl?: string;
+};
 
 const AUTO_ENTER_DELAY_MS = 1200;
 const RETURN_COOLDOWN_MS = 2000;
@@ -38,7 +47,12 @@ async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export default function PlayPage() {
+  const searchParams = useSearchParams();
+  const projectId = useMemo(() => searchParams.get("projectId"), [searchParams]);
   const [engineState, setEngineState] = useState<EngineState | null>(null);
+  const [projectMeta, setProjectMeta] = useState<ProjectMeta | null>(null);
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const [projectLoading, setProjectLoading] = useState<boolean>(true);
   const [view, setView] = useState<View>("map");
   const [gameState, setGameState] = useState<GameState>("MAP");
   const [loading, setLoading] = useState(true);
@@ -56,6 +70,10 @@ export default function PlayPage() {
   const battleStartedAt = useRef<number>(0);
 
   const tickMs = engineState?.config.tickMs ?? 400;
+  const projectQuery = useMemo(
+    () => (projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""),
+    [projectId]
+  );
 
   const clearTimers = () => {
     if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
@@ -64,8 +82,39 @@ export default function PlayPage() {
   };
 
   useEffect(() => {
-    loadEngine();
-  }, []);
+    clearTimers();
+    setEngineState(null);
+    setLogs([]);
+    setBattleResult(null);
+    setStatus(null);
+    setError(null);
+    setProjectMeta(null);
+    setProjectError(null);
+    setGameState("MAP");
+    setView("map");
+
+    if (!projectId) {
+      setProjectLoading(false);
+      setLoading(false);
+      setProjectError("Falta projectId en la URL. Selecciona un proyecto para jugar.");
+      return;
+    }
+
+    let cancelled = false;
+
+    const init = async () => {
+      const ok = await loadProject(projectId);
+      if (!ok || cancelled) return;
+      await loadEngine(projectId);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   useEffect(() => {
     if (!engineState) return;
@@ -81,7 +130,13 @@ export default function PlayPage() {
     if (!engineState) return;
     if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
     const canAuto =
-      gameState === "MAP" && view === "map" && Date.now() >= cooldownUntil.current && !loading && !error;
+      gameState === "MAP" &&
+      view === "map" &&
+      Date.now() >= cooldownUntil.current &&
+      !loading &&
+      !error &&
+      !projectError &&
+      !projectLoading;
     if (canAuto) {
       autoStartTimer.current = setTimeout(() => startBattle(), AUTO_ENTER_DELAY_MS);
     }
@@ -89,7 +144,7 @@ export default function PlayPage() {
       if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineState, view, gameState, loading, error]);
+  }, [engineState, view, gameState, loading, error, projectError, projectLoading]);
 
   useEffect(() => {
     if (!engineState || gameState !== "BATTLE_RUNNING") return;
@@ -100,9 +155,9 @@ export default function PlayPage() {
 
     const loop = async () => {
       try {
-        const data = await apiCall<any>("/api/engine/simulate", {
+        const data = await apiCall<any>(`/api/engine/simulate${projectQuery}`, {
           method: "POST",
-          body: JSON.stringify({ ticks: 1 }),
+          body: JSON.stringify({ ticks: 1, projectId }),
         });
         const next: EngineState = data.data?.state || data.state || engineState;
         setEngineState(next);
@@ -134,22 +189,53 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engineState, gameState, tickMs]);
 
-  const loadEngine = async () => {
+  const loadProject = async (id: string) => {
+    setProjectLoading(true);
+    setProjectError(null);
+    setStatus("Cargando proyecto...");
+    try {
+      const response = await fetch(buildApiUrl(`/api/projects/${id}`), { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false || !data?.project) {
+        throw new Error(data?.error || `No se pudo cargar el proyecto ${id}`);
+      }
+      setProjectMeta(data.project);
+      setProjectError(null);
+      setStatus(`Proyecto ${data.project?.name ?? id} listo`);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo cargar el proyecto.";
+      setProjectMeta(null);
+      setProjectError(message);
+      setError(message);
+      setStatus(null);
+      setLoading(false);
+      return false;
+    } finally {
+      setProjectLoading(false);
+    }
+  };
+
+  const loadEngine = async (id?: string) => {
     setLoading(true);
     setError(null);
+    const query = id
+      ? `?projectId=${encodeURIComponent(id)}`
+      : projectQuery;
     try {
-      const data = await apiCall<any>("/api/engine/load");
+      const data = await apiCall<any>(`/api/engine/load${query}`);
       setEngineState(data.data?.state || data.state);
       setStatus("Engine listo");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar el engine");
+      setStatus(null);
     } finally {
       setLoading(false);
     }
   };
 
   const startBattle = () => {
-    if (!engineState) return;
+    if (!engineState || projectError || projectLoading) return;
     if (gameState !== "MAP" || Date.now() < cooldownUntil.current) return;
     clearTimers();
     logCursor.current = engineState.combat?.log?.length ?? 0;
@@ -180,8 +266,12 @@ export default function PlayPage() {
   };
 
   const claimAfk = async () => {
+    if (projectError || !engineState) return;
     try {
-      const data = await apiCall<any>("/api/engine/claim-afk", { method: "POST" });
+      const data = await apiCall<any>(`/api/engine/claim-afk${projectQuery}`, {
+        method: "POST",
+        body: JSON.stringify({ projectId }),
+      });
       setEngineState(data.data?.state || data.state);
       setStatus(`AFK +${data.data?.rewards?.gold ?? 0} oro, +${data.data?.rewards?.xp ?? 0} XP`);
     } catch (err) {
@@ -227,16 +317,16 @@ export default function PlayPage() {
   };
 
   const saveTeam = async () => {
-    if (!engineState) return;
+    if (!engineState || projectError) return;
     const cleaned = teamSlots.filter((id): id is string => Boolean(id));
     const nextState: EngineState = {
       ...engineState,
       player: { ...engineState.player, activeTeam: cleaned },
     };
     try {
-      const data = await apiCall<any>("/api/engine/save", {
+      const data = await apiCall<any>(`/api/engine/save${projectQuery}`, {
         method: "POST",
-        body: JSON.stringify({ state: nextState }),
+        body: JSON.stringify({ state: nextState, projectId }),
       });
       setEngineState(data.data?.state || data.state);
       setStatus("Equipo guardado");
@@ -252,11 +342,18 @@ export default function PlayPage() {
         <div>
           <p className={styles.kicker}>Mapa de campaña</p>
           <h2 className={styles.title}>Capítulo 1</h2>
+          <p className={styles.subtle}>
+            Proyecto: {projectMeta?.name ?? projectId ?? "sin seleccionar"}
+          </p>
           <p className={styles.subtle}>Stage actual: {engineState?.player.campaign.currentStage ?? 1}</p>
         </div>
         <div className={styles.actions}>
-          <button onClick={() => setView("roster")}>Editar equipo</button>
-          <button onClick={claimAfk}>Reclamar AFK</button>
+          <button onClick={() => setView("roster")} disabled={projectLoading || !!projectError}>
+            Editar equipo
+          </button>
+          <button onClick={claimAfk} disabled={projectLoading || !!projectError}>
+            Reclamar AFK
+          </button>
         </div>
       </div>
       <div className={styles.stages}>
@@ -270,7 +367,9 @@ export default function PlayPage() {
               key={stage}
               className={`${styles.stageNode} ${styles[state]}`}
               onClick={() => startBattle()}
-              disabled={state === "locked" || gameState !== "MAP"}
+              disabled={
+                state === "locked" || gameState !== "MAP" || projectLoading || !!projectError || !engineState
+              }
             >
               <span>{stage}</span>
             </button>
@@ -299,7 +398,9 @@ export default function PlayPage() {
           >
             Volver al mapa
           </button>
-          <button onClick={saveTeam}>Guardar equipo</button>
+          <button onClick={saveTeam} disabled={projectLoading || !!projectError}>
+            Guardar equipo
+          </button>
         </div>
       </div>
       <div className={styles.teamSlots}>
@@ -347,6 +448,9 @@ export default function PlayPage() {
           <p className={styles.kicker}>Stage {engineState?.player.campaign.currentStage}</p>
           <h2 className={styles.title}>Combate automático</h2>
           <p className={styles.subtle}>Mira la batalla, el engine decide el resultado</p>
+          <p className={styles.subtle}>
+            Proyecto: {projectMeta?.name ?? projectId ?? "sin seleccionar"}
+          </p>
         </div>
         <div className={styles.actions}>
           <button
@@ -354,7 +458,12 @@ export default function PlayPage() {
               setView("map");
               setGameState("MAP");
             }}
-            disabled={gameState === "BATTLE_RUNNING" || gameState === "BATTLE_STARTING"}
+            disabled={
+              gameState === "BATTLE_RUNNING" ||
+              gameState === "BATTLE_STARTING" ||
+              projectLoading ||
+              !!projectError
+            }
           >
             Salir al mapa
           </button>
@@ -380,17 +489,43 @@ export default function PlayPage() {
             <p className={styles.kicker}>Idle RPG</p>
             <h1 className={styles.title}>AI Studio Play</h1>
             <p className={styles.subtle}>Todo ocurre en vivo aunque no toques nada</p>
+            {projectId && (
+              <p className={styles.subtle}>
+                Proyecto: {projectMeta?.name ?? (projectLoading ? "Cargando..." : "Desconocido")} ({projectId})
+              </p>
+            )}
           </div>
           <div className={styles.actions}>
-            <button onClick={loadEngine}>Refrescar</button>
-            <button onClick={() => setView("map")}>Mapa</button>
-            <button onClick={() => setView("roster")}>Roster</button>
-            <button onClick={startBattle}>Ver batalla</button>
+            <button onClick={() => loadEngine(projectId ?? undefined)} disabled={projectLoading || !!projectError}>
+              Refrescar
+            </button>
+            <button onClick={() => setView("map")} disabled={projectLoading || !!projectError}>
+              Mapa
+            </button>
+            <button onClick={() => setView("roster")} disabled={projectLoading || !!projectError || !engineState}>
+              Roster
+            </button>
+            <button onClick={startBattle} disabled={projectLoading || !!projectError || !engineState}>
+              Ver batalla
+            </button>
           </div>
         </header>
 
-        {loading && <p className={styles.status}>Cargando engine...</p>}
-        {error && <p className={styles.error}>{error}</p>}
+        {projectLoading && <p className={styles.status}>Cargando proyecto...</p>}
+        {projectError && (
+          <p className={styles.error}>
+            {projectError}{" "}
+            <Link className={styles.link} href="/projects">
+              Volver a proyectos
+            </Link>
+          </p>
+        )}
+        {!projectError && (
+          <>
+            {loading && <p className={styles.status}>Cargando engine...</p>}
+            {error && <p className={styles.error}>{error}</p>}
+          </>
+        )}
         {status && <p className={styles.status}>{status}</p>}
 
         {!loading && engineState && (
