@@ -243,8 +243,9 @@
   position: relative;
   border: 1px solid #1f2b46;
   border-radius: 14px;
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.9);
+  padding: 14px;
+  background: radial-gradient(circle at 50% 10%, rgba(46, 71, 115, 0.12), rgba(11, 15, 26, 0.92));
+  min-height: 520px;
 }
 
 .banner {
@@ -263,6 +264,16 @@
   display: flex;
   justify-content: space-between;
   margin-top: 10px;
+}
+
+.battleCanvas {
+  width: 100%;
+  min-height: 440px;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #050814;
 }
 
 @media (max-width: 800px) {
