@@ -96,9 +96,11 @@ class BattleScene extends Phaser.Scene {
   private laneGuides?: Phaser.GameObjects.Graphics;
   private midLine?: Phaser.GameObjects.Rectangle;
   private fieldFrame?: Phaser.GameObjects.Graphics;
+  private floorPlane?: Phaser.GameObjects.Graphics;
   private heroArt: Record<string, HeroArtSpec> = {};
   private projectId?: string;
   private projectSeed = "offline";
+  private banner?: Phaser.GameObjects.Text;
 
   constructor(tickMs: number) {
     super("BattleScene");
@@ -120,6 +122,7 @@ class BattleScene extends Phaser.Scene {
     this.drawBackground();
     this.drawLaneGuides();
     this.createHud();
+    this.createBanner();
   }
 
   private layout() {
@@ -137,16 +140,34 @@ class BattleScene extends Phaser.Scene {
   private drawBackground() {
     this.midLine?.destroy();
     this.fieldFrame?.destroy();
+    this.floorPlane?.destroy();
     const { w, h } = this.layout();
-    this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.35).setDepth(2);
-    this.midLine.setStrokeStyle(1, 0x25314b, 0.6);
+    this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.28).setDepth(2);
+    this.midLine.setStrokeStyle(1, 0x25314b, 0.5);
     this.fieldFrame = this.add.graphics().setDepth(1);
-    this.fieldFrame.fillStyle(0x0b0f1a, 0.36);
+    this.fieldFrame.clear();
+    this.fieldFrame.fillStyle(0x0b0f1a, 0.42);
     this.fieldFrame.fillRoundedRect(12, 12, w - 24, h - 24, 18);
     this.fieldFrame.lineStyle(2, 0x233149, 0.4);
     this.fieldFrame.strokeRoundedRect(12, 12, w - 24, h - 24, 18);
     this.fieldFrame.fillStyle(0x12203b, 0.25);
     this.fieldFrame.fillEllipse(w / 2, h * 0.55, w * 0.72, h * 0.3);
+    this.fieldFrame.fillStyle(0x143452, 0.08);
+    this.fieldFrame.fillRect(12, h * 0.5, w * 0.45, h * 0.4);
+    this.fieldFrame.fillStyle(0x3a0f16, 0.08);
+    this.fieldFrame.fillRect(w * 0.55, h * 0.5, w * 0.43, h * 0.4);
+    const floor = this.add.graphics().setDepth(1);
+    floor.fillStyle(0x0c1626, 0.35);
+    floor.fillEllipse(w / 2, h * 0.78, w * 0.74, h * 0.18);
+    floor.lineStyle(1, 0x233149, 0.28);
+    const segments = 6;
+    for (let i = 1; i < segments; i++) {
+      const y = h * 0.45 + (h * 0.3 * i) / segments;
+      floor.lineBetween(w * 0.22, y, w * 0.78, y + i);
+    }
+    this.fieldFrame.lineStyle(1, 0x0a0e1c, 0.6);
+    this.fieldFrame.strokeEllipse(w / 2, h * 0.55, w * 0.72, h * 0.3);
+    this.floorPlane = floor;
   }
 
   private drawLaneGuides() {
@@ -196,6 +217,23 @@ class BattleScene extends Phaser.Scene {
     vignette.fillStyle(0x000000, 0.35);
     vignette.fillRect(0, 0, w, h);
     this.hud = { ally, enemy, last, speed, vignette };
+  }
+
+  private createBanner() {
+    const { w, h } = this.layout();
+    this.banner?.destroy();
+    this.banner = this.add
+      .text(w / 2, h * 0.18, "", {
+        fontFamily: "sans-serif",
+        fontSize: "28px",
+        color: "#ffffff",
+        fontStyle: "bold",
+        stroke: "#0b0f1a",
+        strokeThickness: 6,
+      })
+      .setDepth(120)
+      .setOrigin(0.5)
+      .setAlpha(0);
   }
 
   private unitPosition(unit: UnitRuntimeState, index: number) {
@@ -377,6 +415,7 @@ class BattleScene extends Phaser.Scene {
     ring.lineStyle(2, palette.accent, 0.8);
     ring.strokeCircle(0, 0, 34);
     if (spec.rarityRank >= 2) {
+      this.tweens.killTweensOf(ring);
       this.tweens.add({
         targets: ring,
         alpha: { from: 0.9, to: 0.5 },
@@ -417,6 +456,40 @@ class BattleScene extends Phaser.Scene {
     role.fillStyle(0x0b0f1a, 0.82);
     role.fillRoundedRect(-13, -13, 26, 26, 12);
     this.drawRoleGlyph(role, unit);
+  }
+
+  private resolveLabelCollisions() {
+    const groups: Record<string, Phaser.GameObjects.Text[]> = { player: [], enemy: [] };
+    Object.values(this.units).forEach((u) => {
+      const side = u.spec?.id && (u.container.x < (this.scale.width || 960) / 2 ? "player" : "enemy");
+      if (side) groups[side].push(u.label);
+    });
+    const spacing = 4;
+    Object.values(groups).forEach((labels) => {
+      const sorted = labels.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1];
+        const cur = sorted[i];
+        if (cur.y < prev.y + prev.height + spacing) {
+          cur.setY(prev.y + prev.height + spacing);
+        }
+      }
+    });
+  }
+
+  private showBanner(text: string) {
+    if (!this.banner) return;
+    this.banner.setText(text);
+    this.banner.setAlpha(0);
+    this.tweens.killTweensOf(this.banner);
+    this.tweens.add({
+      targets: this.banner,
+      alpha: 1,
+      scale: 1.05,
+      duration: 320,
+      ease: "Quad.easeOut",
+      yoyo: true,
+    });
   }
 
   private drawRoleGlyph(graphics: Phaser.GameObjects.Graphics, unit: UnitRuntimeState) {
@@ -540,6 +613,7 @@ class BattleScene extends Phaser.Scene {
   }
 
   private animateAttack(vis: UnitVisual, unit: UnitRuntimeState) {
+    this.tweens.killTweensOf(vis.container);
     const offset = (unit.side === "player" ? 1 : -1) * (8 + seeded(unit.id, "lunge", 0, 8));
     this.tweens.add({
       targets: vis.container,
@@ -558,6 +632,8 @@ class BattleScene extends Phaser.Scene {
   }
 
   private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState, tick = 0) {
+    this.tweens.killTweensOf(vis.container);
+    this.tweens.killTweensOf(vis.ring);
     const originalScale = vis.container.scale;
     const shakeDir = seeded(unit.id, `shake-${tick}`, -1, 1) >= 0 ? 1 : -1;
     const shakeMag = 2 + seeded(unit.id, `shake-mag-${tick}`, 0, 2);
@@ -624,7 +700,8 @@ class BattleScene extends Phaser.Scene {
   ) {
     const dmg = value ?? 0;
     const isBig = action === "ultimate" || dmg > 200;
-    const yStart = Math.max(30, target.container.y - 60);
+    const topClamp = 40;
+    const yStart = Math.max(topClamp, Math.min(target.container.y - 60, (this.scale.height || 540) - 140));
     const floatSeed = unitId ?? `target-${tick}`;
     const txt = this.add
       .text(target.container.x, yStart, `-${dmg}`, {
@@ -734,6 +811,7 @@ class BattleScene extends Phaser.Scene {
     this.lastCombat = combat;
     const playerTeam = combat.playerTeam || [];
     const enemyTeam = combat.enemyTeam || [];
+    const currentIds = new Set<string>();
     const orderForSide = (units: UnitRuntimeState[]) => {
       const front = units.filter((u) => u.position === "front");
       const back = units.filter((u) => u.position !== "front");
@@ -749,14 +827,29 @@ class BattleScene extends Phaser.Scene {
       const idx = Math.max(0, arr.findIndex((x) => x.id === u.id));
       const vis = this.ensureUnit(u, idx);
       const pos = this.unitPosition(u, idx);
-      vis.container.setPosition(pos.x, pos.y);
+      vis.container.setPosition(Math.round(pos.x), Math.round(pos.y));
       vis.container.setDepth((u.side === "player" ? 10 : 20) + (u.position === "front" ? 2 : 0));
       vis.label.setText(shortLabel(u.name));
       this.drawBars(vis, u);
       const alpha = u.alive ? 1 : 0.28;
-      vis.container.setAlpha(alpha);
+      if (!u.alive) {
+        this.tweens.killTweensOf(vis.container);
+        this.tweens.add({
+          targets: vis.container,
+          alpha: 0,
+          scale: 0.92,
+          duration: 260,
+          ease: "Quad.easeIn",
+          onComplete: () => vis.container.setVisible(false),
+        });
+      } else {
+        vis.container.setVisible(true);
+        vis.container.setScale(1);
+        vis.container.setAlpha(alpha);
+      }
       vis.label.setAlpha(u.alive ? 1 : 0.45);
       vis.fullLabel.setAlpha(0);
+      currentIds.add(u.id);
     });
 
     let lastAction: string | undefined;
@@ -790,6 +883,23 @@ class BattleScene extends Phaser.Scene {
     });
 
     this.updateHud(combat, lastAction);
+
+    // remove visuals not present
+    Object.keys(this.units).forEach((id) => {
+      if (!currentIds.has(id)) {
+        this.units[id].container.destroy(true);
+        delete this.units[id];
+      }
+    });
+
+    this.resolveLabelCollisions();
+    if (!combat.inProgress) {
+      const playerAlive = combat.playerTeam?.some((u) => u.alive);
+      const enemyAlive = combat.enemyTeam?.some((u) => u.alive);
+      this.showBanner(playerAlive && !enemyAlive ? "VICTORIA" : "DERROTA");
+    } else {
+      this.banner?.setAlpha(0);
+    }
   }
 }
 
@@ -809,6 +919,7 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const resolution = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
     const scene = new BattleScene(tickMs);
     sceneRef.current = scene;
     const rect = containerRef.current.getBoundingClientRect();
@@ -824,6 +935,8 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
         mode: Phaser.Scale.NONE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
+      render: { antialias: true, roundPixels: true, pixelArt: false },
+      resolution,
     });
     gameRef.current = game;
     scene.setHeroArt(heroArt, projectId, seed);
