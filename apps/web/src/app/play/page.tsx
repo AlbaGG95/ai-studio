@@ -1,18 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  EngineState,
-  EngineCombatState,
-  EngineUnitTemplate,
-} from "@ai-studio/core";
+import { EngineCombatState, EngineState, EngineUnitTemplate } from "@ai-studio/core";
+import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
 import styles from "./play.module.css";
-import dynamic from "next/dynamic";
 
-const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), {
-  ssr: false,
-});
+const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
 
 type CombatLogEntry = {
   tick: number;
@@ -23,6 +17,12 @@ type CombatLogEntry = {
 };
 
 type View = "map" | "roster" | "battle";
+type GameState = "MAP" | "BATTLE_STARTING" | "BATTLE_RUNNING" | "BATTLE_END" | "RETURNING_TO_MAP";
+
+const AUTO_ENTER_DELAY_MS = 1200;
+const RETURN_COOLDOWN_MS = 2000;
+const MIN_BATTLE_MS = 8000;
+const END_SCREEN_MS = 2000;
 
 async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(buildApiUrl(path), {
@@ -40,16 +40,28 @@ async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
 export default function PlayPage() {
   const [engineState, setEngineState] = useState<EngineState | null>(null);
   const [view, setView] = useState<View>("map");
+  const [gameState, setGameState] = useState<GameState>("MAP");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<CombatLogEntry[]>([]);
   const [battleResult, setBattleResult] = useState<"victory" | "defeat" | null>(null);
   const [teamSlots, setTeamSlots] = useState<(string | null)[]>([null, null, null, null, null]);
+
   const logCursor = useRef(0);
   const autoStartTimer = useRef<NodeJS.Timeout | null>(null);
+  const battleTimer = useRef<NodeJS.Timeout | null>(null);
+  const endTimer = useRef<NodeJS.Timeout | null>(null);
+  const cooldownUntil = useRef<number>(0);
+  const battleStartedAt = useRef<number>(0);
 
   const tickMs = engineState?.config.tickMs ?? 400;
+
+  const clearTimers = () => {
+    if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
+    if (battleTimer.current) clearInterval(battleTimer.current);
+    if (endTimer.current) clearTimeout(endTimer.current);
+  };
 
   useEffect(() => {
     loadEngine();
@@ -67,26 +79,26 @@ export default function PlayPage() {
 
   useEffect(() => {
     if (!engineState) return;
-    if (autoStartTimer.current) {
-      clearTimeout(autoStartTimer.current);
+    if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
+    const canAuto =
+      gameState === "MAP" && view === "map" && Date.now() >= cooldownUntil.current && !loading && !error;
+    if (canAuto) {
+      autoStartTimer.current = setTimeout(() => startBattle(), AUTO_ENTER_DELAY_MS);
     }
-    autoStartTimer.current = setTimeout(() => {
-      if (view === "map") {
-        enterBattle();
-      }
-    }, 1200);
     return () => {
-      if (autoStartTimer.current) {
-        clearTimeout(autoStartTimer.current);
-      }
+      if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineState, view]);
+  }, [engineState, view, gameState, loading, error]);
 
   useEffect(() => {
-    if (!engineState || view !== "battle") return;
+    if (!engineState || gameState !== "BATTLE_RUNNING") return;
+    if (!battleStartedAt.current) {
+      battleStartedAt.current = Date.now();
+    }
     setStatus("Simulando combate...");
-    const run = async () => {
+
+    const loop = async () => {
       try {
         const data = await apiCall<any>("/api/engine/simulate", {
           method: "POST",
@@ -97,29 +109,30 @@ export default function PlayPage() {
         const combat: EngineCombatState = next.combat;
         const newLog: CombatLogEntry[] = combat.log?.slice(logCursor.current) || [];
         logCursor.current = combat.log?.length ?? logCursor.current;
-        if (newLog.length > 0) {
-          setLogs(newLog);
-        }
+        if (newLog.length > 0) setLogs(newLog);
+
         if (!combat.inProgress) {
           const playerAlive = combat.playerTeam?.some((u) => u.alive);
           const enemyAlive = combat.enemyTeam?.some((u) => u.alive);
           const result = playerAlive && !enemyAlive ? "victory" : "defeat";
-          setBattleResult(result);
-          setStatus(result === "victory" ? "Victoria" : "Derrota");
-          setTimeout(() => {
-            setView("map");
-            setBattleResult(null);
-            setStatus(null);
-          }, 1800);
+          const elapsed = Date.now() - battleStartedAt.current;
+          const waitMs = Math.max(0, MIN_BATTLE_MS - elapsed);
+          if (battleTimer.current) clearInterval(battleTimer.current);
+          endTimer.current = setTimeout(() => finishBattle(result), waitMs);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Fallo al simular combate");
       }
     };
-    const timer = setInterval(run, tickMs);
-    run();
-    return () => clearInterval(timer);
-  }, [engineState, view, tickMs]);
+
+    battleTimer.current = setInterval(loop, tickMs);
+    loop();
+
+    return () => {
+      if (battleTimer.current) clearInterval(battleTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engineState, gameState, tickMs]);
 
   const loadEngine = async () => {
     setLoading(true);
@@ -135,12 +148,35 @@ export default function PlayPage() {
     }
   };
 
-  const enterBattle = () => {
+  const startBattle = () => {
     if (!engineState) return;
+    if (gameState !== "MAP" || Date.now() < cooldownUntil.current) return;
+    clearTimers();
     logCursor.current = engineState.combat?.log?.length ?? 0;
     setLogs([]);
-    setView("battle");
     setBattleResult(null);
+    battleStartedAt.current = 0;
+    setView("battle");
+    setGameState("BATTLE_STARTING");
+    setStatus("Preparando combate...");
+    setTimeout(() => setGameState("BATTLE_RUNNING"), 150);
+  };
+
+  const finishBattle = (result: "victory" | "defeat") => {
+    setBattleResult(result);
+    setStatus(result === "victory" ? "Victoria" : "Derrota");
+    setGameState("BATTLE_END");
+    endTimer.current = setTimeout(() => {
+      setGameState("RETURNING_TO_MAP");
+      setView("map");
+      cooldownUntil.current = Date.now() + RETURN_COOLDOWN_MS;
+      setBattleResult(null);
+      setStatus("Volviendo al mapa");
+      setTimeout(() => {
+        setStatus(null);
+        setGameState("MAP");
+      }, 80);
+    }, END_SCREEN_MS);
   };
 
   const claimAfk = async () => {
@@ -216,9 +252,7 @@ export default function PlayPage() {
         <div>
           <p className={styles.kicker}>Mapa de campaña</p>
           <h2 className={styles.title}>Capítulo 1</h2>
-          <p className={styles.subtle}>
-            Stage actual: {engineState?.player.campaign.currentStage ?? 1}
-          </p>
+          <p className={styles.subtle}>Stage actual: {engineState?.player.campaign.currentStage ?? 1}</p>
         </div>
         <div className={styles.actions}>
           <button onClick={() => setView("roster")}>Editar equipo</button>
@@ -235,8 +269,8 @@ export default function PlayPage() {
             <button
               key={stage}
               className={`${styles.stageNode} ${styles[state]}`}
-              onClick={enterBattle}
-              disabled={state === "locked"}
+              onClick={() => startBattle()}
+              disabled={state === "locked" || gameState !== "MAP"}
             >
               <span>{stage}</span>
             </button>
@@ -257,7 +291,14 @@ export default function PlayPage() {
           <h2 className={styles.title}>Elige tu equipo (2 front / 3 back)</h2>
         </div>
         <div className={styles.actions}>
-          <button onClick={() => setView("map")}>Volver al mapa</button>
+          <button
+            onClick={() => {
+              setView("map");
+              setGameState("MAP");
+            }}
+          >
+            Volver al mapa
+          </button>
           <button onClick={saveTeam}>Guardar equipo</button>
         </div>
       </div>
@@ -308,7 +349,15 @@ export default function PlayPage() {
           <p className={styles.subtle}>Mira la batalla, el engine decide el resultado</p>
         </div>
         <div className={styles.actions}>
-          <button onClick={() => setView("map")}>Salir al mapa</button>
+          <button
+            onClick={() => {
+              setView("map");
+              setGameState("MAP");
+            }}
+            disabled={gameState === "BATTLE_RUNNING" || gameState === "BATTLE_STARTING"}
+          >
+            Salir al mapa
+          </button>
         </div>
       </div>
       <BattleCanvas combat={engineState?.combat} logs={logs} tickMs={tickMs} />
@@ -336,7 +385,7 @@ export default function PlayPage() {
             <button onClick={loadEngine}>Refrescar</button>
             <button onClick={() => setView("map")}>Mapa</button>
             <button onClick={() => setView("roster")}>Roster</button>
-            <button onClick={enterBattle}>Ver batalla</button>
+            <button onClick={startBattle}>Ver batalla</button>
           </div>
         </header>
 
