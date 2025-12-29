@@ -5,7 +5,6 @@ import fastifyStatic from "@fastify/static";
 import { mkdir, readFile, readdir, rm, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join, resolve } from "path";
-import { fileURLToPath } from "url";
 import { buildIdleRpgProject } from "./projectGenerator.js";
 import {
   generateGameSpec,
@@ -19,30 +18,12 @@ import {
   GenerateHeroParams,
   GenerateWorldParams,
 } from "./types.js";
+import { REPO_ROOT } from "./paths.js";
+import { loadEngine, generateEngine, persistEngine, saveEngineState } from "./idleEngine.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = resolve(__filename, "..");
-
-function findRepoRoot(startDir: string): string {
-  let current = startDir;
-  let lastPackageDir: string | null = null;
-  for (let i = 0; i < 10; i += 1) {
-    const candidate = resolve(current, "..");
-    if (existsSync(join(candidate, "pnpm-workspace.yaml"))) {
-      return candidate;
-    }
-    if (existsSync(join(candidate, "package.json"))) {
-      lastPackageDir = candidate;
-    }
-    current = candidate;
-  }
-  return lastPackageDir || resolve(startDir, "..");
-}
-
-const REPO_ROOT = findRepoRoot(__dirname);
 const PROJECTS_DIR = resolve(REPO_ROOT, "data", "projects");
 const PORTS_DIR = join(REPO_ROOT, ".ai-studio");
 const PORTS_FILE = join(PORTS_DIR, "ports.json");
@@ -299,6 +280,85 @@ app.get("/api/projects", async (request, reply) => {
     const message = err instanceof Error ? err.message : "No se pudieron listar los proyectos";
     app.log.error(err);
     return reply.code(500).send({ ok: false, error: message, projects: [] });
+  }
+});
+
+// Idle RPG engine endpoints
+app.post("/api/engine/generate", async (request, reply) => {
+  const seed = (request.body as any)?.seed;
+  try {
+    const engine = await generateEngine(seed);
+    return reply
+      .code(200)
+      .send({ ok: true, message: "Engine generado", data: { state: engine.getState() } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo generar el engine";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.get("/api/engine/load", async (_request, reply) => {
+  try {
+    const engine = await loadEngine();
+    return reply.code(200).send({ ok: true, message: "Engine cargado", data: { state: engine.getState() } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo cargar el engine";
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.post("/api/engine/simulate", async (request, reply) => {
+  try {
+    const body = request.body as any;
+    const now = typeof body?.now === "number" ? body.now : Date.now();
+    const engine = await loadEngine(now);
+    const tickMs = engine.getState().config.tickMs;
+    const ticksFromMs =
+      typeof body?.ms === "number" ? Math.floor(body.ms / tickMs) : 0;
+    const ticks = typeof body?.ticks === "number" ? body.ticks : ticksFromMs || 5;
+    const result = engine.simulateTicks(ticks, now);
+    await persistEngine(engine);
+    return reply.code(200).send({
+      ok: true,
+      message: `Simulated ${ticks} ticks`,
+      data: { result, state: engine.getState() },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo simular el engine";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.post("/api/engine/claim-afk", async (request, reply) => {
+  try {
+    const now = typeof (request.body as any)?.now === "number" ? (request.body as any).now : Date.now();
+    const engine = await loadEngine(now);
+    const rewards = engine.claimAfkRewards(now);
+    await persistEngine(engine);
+    return reply
+      .code(200)
+      .send({ ok: true, message: "AFK reclamado", data: { rewards, state: engine.getState() } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo reclamar AFK";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.post("/api/engine/save", async (request, reply) => {
+  try {
+    const state = (request.body as any)?.state;
+    const engine = state ? await saveEngineState(state) : await loadEngine();
+    await persistEngine(engine);
+    return reply
+      .code(200)
+      .send({ ok: true, message: "Engine guardado", data: { state: engine.getState() } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo guardar el engine";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
   }
 });
 

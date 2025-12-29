@@ -13,9 +13,14 @@
     "clean": "node --input-type=module -e \"import { rmSync } from 'fs'; rmSync('dist', { recursive: true, force: true });\"",
     "build:ts": "tsc -p tsconfig.build.json",
     "build:assets": "node --input-type=module -e \"import { mkdirSync, copyFileSync } from 'fs'; mkdirSync('dist/spec', { recursive: true }); copyFileSync('spec/gamespec.schema.json', 'dist/spec/gamespec.schema.json');\"",
-    "build": "pnpm run clean && pnpm run build:ts && pnpm run build:assets"
+    "build": "pnpm run clean && pnpm run build:ts && pnpm run build:assets",
+    "test": "tsx --test test/**/*.ts"
   },
   "dependencies": {
     "ajv": "^8.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
   }
 }
