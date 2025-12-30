@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
   "seed": 1767109978413,
-  "rngState": 3482696570,
+  "rngState": 3489358164,
   "config": {
     "tickMs": 400,
     "attackIntervalTicks": 2,
@@ -207,8 +207,8 @@
       "bestStage": 2
     },
     "afk": {
-      "bankedGold": 3516,
-      "bankedXp": 1066,
+      "bankedGold": 5993,
+      "bankedXp": 1817,
       "lastClaimAt": 1767109978413,
       "capHours": 10
     },
@@ -226,11 +226,11 @@
   },
   "combat": {
     "stage": 2,
-    "inProgress": false,
-    "tick": 52,
+    "inProgress": true,
+    "tick": 29,
     "playerTeam": [
       {
-        "id": "player-auren-8be9",
+        "id": "player-auren-4m8g",
         "templateId": "auren",
         "side": "player",
         "name": "Auren la Muralla",
@@ -238,15 +238,15 @@
         "rarity": "epic",
         "position": "front",
         "maxHp": 2100,
-        "hp": 2100,
+        "hp": 0,
         "atk": 120,
         "def": 110,
-        "energy": 0,
-        "attackCooldown": 0,
-        "alive": true
+        "energy": 76,
+        "attackCooldown": 2,
+        "alive": false
       },
       {
-        "id": "player-nyra-efnz",
+        "id": "player-nyra-4s2f",
         "templateId": "nyra",
         "side": "player",
         "name": "Nyra Flechana",
@@ -254,15 +254,15 @@
         "rarity": "epic",
         "position": "back",
         "maxHp": 1500,
-        "hp": 1500,
+        "hp": 0,
         "atk": 180,
         "def": 70,
-        "energy": 0,
-        "attackCooldown": 0,
-        "alive": true
+        "energy": 60,
+        "attackCooldown": 2,
+        "alive": false
       },
       {
-        "id": "player-talya-8kw1",
+        "id": "player-talya-8ccd",
         "templateId": "talya",
         "side": "player",
         "name": "Talya de Luz",
@@ -270,15 +270,15 @@
         "rarity": "epic",
         "position": "back",
         "maxHp": 1600,
-        "hp": 1600,
+        "hp": 722,
         "atk": 130,
         "def": 80,
-        "energy": 0,
-        "attackCooldown": 0,
+        "energy": 82,
+        "attackCooldown": 1,
         "alive": true
       },
       {
-        "id": "player-vorin-gkuv",
+        "id": "player-vorin-66ig",
         "templateId": "vorin",
         "side": "player",
         "name": "Vorin de Bronce",
@@ -286,15 +286,15 @@
         "rarity": "rare",
         "position": "front",
         "maxHp": 1800,
-        "hp": 1800,
+        "hp": 0,
         "atk": 155,
         "def": 90,
         "energy": 0,
-        "attackCooldown": 0,
-        "alive": true
+        "attackCooldown": 2,
+        "alive": false
       },
       {
-        "id": "player-sylva-pc0",
+        "id": "player-sylva-6564",
         "templateId": "sylva",
         "side": "player",
         "name": "Sylva Umbría",
@@ -305,14 +305,14 @@
         "hp": 1400,
         "atk": 190,
         "def": 65,
-        "energy": 0,
-        "attackCooldown": 0,
+        "energy": 82,
+        "attackCooldown": 1,
         "alive": true
       }
     ],
     "enemyTeam": [
       {
-        "id": "enemy-brute-auva",
+        "id": "enemy-brute-e7lb",
         "templateId": "brute",
         "side": "enemy",
         "name": "Bruto Cieno",
@@ -328,7 +328,7 @@
         "alive": false
       },
       {
-        "id": "enemy-warden-1ja6",
+        "id": "enemy-warden-c7zx",
         "templateId": "warden",
         "side": "enemy",
         "name": "Guardián Risco",
@@ -339,12 +339,12 @@
         "hp": 0,
         "atk": 173,
         "def": 130,
-        "energy": 4,
+        "energy": 24,
         "attackCooldown": 0,
         "alive": false
       },
       {
-        "id": "enemy-stalker-2a4o",
+        "id": "enemy-stalker-51qw",
         "templateId": "stalker",
         "side": "enemy",
         "name": "Acechador Sombrío",
@@ -352,15 +352,15 @@
         "rarity": "rare",
         "position": "back",
         "maxHp": 1296,
-        "hp": 0,
+        "hp": 254,
         "atk": 184,
         "def": 65,
-        "energy": 84,
-        "attackCooldown": 0,
-        "alive": false
+        "energy": 82,
+        "attackCooldown": 1,
+        "alive": true
       },
       {
-        "id": "enemy-warlock-k92n",
+        "id": "enemy-warlock-7jzs",
         "templateId": "warlock",
         "side": "enemy",
         "name": "Brujo Ocaso",
@@ -368,15 +368,15 @@
         "rarity": "rare",
         "position": "back",
         "maxHp": 1404,
-        "hp": 0,
+        "hp": 1404,
         "atk": 178,
         "def": 70,
-        "energy": 84,
-        "attackCooldown": 0,
-        "alive": false
+        "energy": 82,
+        "attackCooldown": 1,
+        "alive": true
       },
       {
-        "id": "enemy-assassin-f87g",
+        "id": "enemy-assassin-74af",
         "templateId": "assassin",
         "side": "enemy",
         "name": "Asesino Espiral",
@@ -384,28 +384,220 @@
         "rarity": "rare",
         "position": "back",
         "maxHp": 1188,
-        "hp": 876,
+        "hp": 1188,
         "atk": 189,
         "def": 59,
-        "energy": 0,
-        "attackCooldown": 2,
+        "energy": 82,
+        "attackCooldown": 1,
         "alive": true
       }
     ],
     "log": [
       {
+        "tick": 10,
+        "actor": "Vorin de Bronce",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 115
+      },
+      {
+        "tick": 10,
+        "actor": "Sylva Umbría",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 169
+      },
+      {
+        "tick": 10,
+        "actor": "Guardián Risco",
+        "action": "attack",
+        "target": "Auren la Muralla",
+        "value": 149
+      },
+      {
+        "tick": 10,
+        "actor": "Auren la Muralla",
+        "action": "defeat"
+      },
+      {
+        "tick": 10,
+        "actor": "Acechador Sombrío",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 176
+      },
+      {
+        "tick": 10,
+        "actor": "Brujo Ocaso",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 157
+      },
+      {
+        "tick": 10,
+        "actor": "Asesino Espiral",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 177
+      },
+      {
+        "tick": 13,
+        "actor": "Nyra Flechana",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 148
+      },
+      {
+        "tick": 13,
+        "actor": "Talya de Luz",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 69
+      },
+      {
+        "tick": 13,
+        "actor": "Vorin de Bronce",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 117
+      },
+      {
+        "tick": 13,
+        "actor": "Sylva Umbría",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 172
+      },
+      {
+        "tick": 13,
+        "actor": "Guardián Risco",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 142
+      },
+      {
+        "tick": 13,
+        "actor": "Acechador Sombrío",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 162
+      },
+      {
+        "tick": 13,
+        "actor": "Brujo Ocaso",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 166
+      },
+      {
+        "tick": 13,
+        "actor": "Asesino Espiral",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 167
+      },
+      {
+        "tick": 16,
+        "actor": "Nyra Flechana",
+        "action": "ultimate",
+        "target": "Guardián Risco",
+        "value": 270
+      },
+      {
+        "tick": 16,
+        "actor": "Talya de Luz",
+        "action": "attack",
+        "target": "Vorin de Bronce",
+        "value": 156
+      },
+      {
+        "tick": 16,
+        "actor": "Vorin de Bronce",
+        "action": "ultimate",
+        "target": "Guardián Risco",
+        "value": 193
+      },
+      {
+        "tick": 16,
+        "actor": "Sylva Umbría",
+        "action": "ultimate",
+        "target": "Guardián Risco",
+        "value": 296
+      },
+      {
+        "tick": 16,
+        "actor": "Guardián Risco",
+        "action": "ultimate",
+        "target": "Vorin de Bronce",
+        "value": 300
+      },
+      {
+        "tick": 16,
+        "actor": "Acechador Sombrío",
+        "action": "ultimate",
+        "target": "Vorin de Bronce",
+        "value": 266
+      },
+      {
+        "tick": 16,
+        "actor": "Brujo Ocaso",
+        "action": "ultimate",
+        "target": "Vorin de Bronce",
+        "value": 287
+      },
+      {
+        "tick": 16,
+        "actor": "Vorin de Bronce",
+        "action": "defeat"
+      },
+      {
+        "tick": 16,
+        "actor": "Asesino Espiral",
+        "action": "ultimate",
+        "target": "Nyra Flechana",
+        "value": 272
+      },
+      {
+        "tick": 19,
+        "actor": "Nyra Flechana",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 145
+      },
+      {
+        "tick": 19,
+        "actor": "Talya de Luz",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 69
+      },
+      {
+        "tick": 19,
+        "actor": "Sylva Umbría",
+        "action": "attack",
+        "target": "Guardián Risco",
+        "value": 175
+      },
+      {
+        "tick": 19,
+        "actor": "Guardián Risco",
+        "action": "attack",
+        "target": "Nyra Flechana",
+        "value": 150
+      },
+      {
         "tick": 19,
         "actor": "Acechador Sombrío",
         "action": "attack",
         "target": "Nyra Flechana",
-        "value": 183
+        "value": 168
       },
       {
         "tick": 19,
         "actor": "Brujo Ocaso",
         "action": "attack",
         "target": "Nyra Flechana",
-        "value": 174
+        "value": 162
       },
       {
         "tick": 19,
@@ -418,36 +610,41 @@
         "tick": 22,
         "actor": "Nyra Flechana",
         "action": "attack",
-        "target": "Acechador Sombrío",
-        "value": 175
+        "target": "Guardián Risco",
+        "value": 148
+      },
+      {
+        "tick": 22,
+        "actor": "Guardián Risco",
+        "action": "defeat"
       },
       {
         "tick": 22,
         "actor": "Talya de Luz",
         "action": "attack",
         "target": "Acechador Sombrío",
-        "value": 94
+        "value": 90
       },
       {
         "tick": 22,
         "actor": "Sylva Umbría",
         "action": "attack",
         "target": "Acechador Sombrío",
-        "value": 202
+        "value": 199
       },
       {
         "tick": 22,
         "actor": "Acechador Sombrío",
         "action": "attack",
         "target": "Nyra Flechana",
-        "value": 182
+        "value": 180
       },
       {
         "tick": 22,
         "actor": "Brujo Ocaso",
         "action": "attack",
         "target": "Nyra Flechana",
-        "value": 167
+        "value": 175
       },
       {
         "tick": 22,
@@ -468,28 +665,21 @@
         "actor": "Talya de Luz",
         "action": "attack",
         "target": "Acechador Sombrío",
-        "value": 89
+        "value": 91
       },
       {
         "tick": 25,
         "actor": "Sylva Umbría",
         "action": "attack",
         "target": "Acechador Sombrío",
-        "value": 193
+        "value": 198
       },
       {
         "tick": 25,
         "actor": "Acechador Sombrío",
         "action": "attack",
         "target": "Nyra Flechana",
-        "value": 170
-      },
-      {
-        "tick": 25,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Nyra Flechana",
-        "value": 163
+        "value": 171
       },
       {
         "tick": 25,
@@ -498,10 +688,17 @@
       },
       {
         "tick": 25,
+        "actor": "Brujo Ocaso",
+        "action": "attack",
+        "target": "Talya de Luz",
+        "value": 165
+      },
+      {
+        "tick": 25,
         "actor": "Asesino Espiral",
         "action": "attack",
         "target": "Talya de Luz",
-        "value": 173
+        "value": 179
       },
       {
         "tick": 28,
@@ -515,14 +712,14 @@
         "actor": "Sylva Umbría",
         "action": "attack",
         "target": "Acechador Sombrío",
-        "value": 188
+        "value": 199
       },
       {
         "tick": 28,
         "actor": "Acechador Sombrío",
         "action": "attack",
         "target": "Talya de Luz",
-        "value": 169
+        "value": 181
       },
       {
         "tick": 28,
@@ -536,206 +733,11 @@
         "actor": "Asesino Espiral",
         "action": "attack",
         "target": "Talya de Luz",
-        "value": 171
-      },
-      {
-        "tick": 31,
-        "actor": "Talya de Luz",
-        "action": "attack",
-        "target": "Acechador Sombrío",
-        "value": 99
-      },
-      {
-        "tick": 31,
-        "actor": "Acechador Sombrío",
-        "action": "defeat"
-      },
-      {
-        "tick": 31,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 188
-      },
-      {
-        "tick": 31,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Talya de Luz",
-        "value": 173
-      },
-      {
-        "tick": 31,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Talya de Luz",
-        "value": 164
-      },
-      {
-        "tick": 34,
-        "actor": "Talya de Luz",
-        "action": "attack",
-        "target": "Talya de Luz",
-        "value": 156
-      },
-      {
-        "tick": 34,
-        "actor": "Sylva Umbría",
-        "action": "ultimate",
-        "target": "Brujo Ocaso",
-        "value": 346
-      },
-      {
-        "tick": 34,
-        "actor": "Brujo Ocaso",
-        "action": "ultimate",
-        "target": "Talya de Luz",
-        "value": 289
-      },
-      {
-        "tick": 34,
-        "actor": "Asesino Espiral",
-        "action": "ultimate",
-        "target": "Talya de Luz",
-        "value": 277
-      },
-      {
-        "tick": 37,
-        "actor": "Talya de Luz",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 88
-      },
-      {
-        "tick": 37,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 193
-      },
-      {
-        "tick": 37,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Talya de Luz",
-        "value": 160
-      },
-      {
-        "tick": 37,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Talya de Luz",
-        "value": 166
-      },
-      {
-        "tick": 37,
-        "actor": "Talya de Luz",
-        "action": "defeat"
-      },
-      {
-        "tick": 40,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 193
-      },
-      {
-        "tick": 40,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 174
-      },
-      {
-        "tick": 40,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 183
-      },
-      {
-        "tick": 43,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 191
-      },
-      {
-        "tick": 43,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 167
-      },
-      {
-        "tick": 43,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 173
-      },
-      {
-        "tick": 46,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 202
-      },
-      {
-        "tick": 46,
-        "actor": "Brujo Ocaso",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 175
-      },
-      {
-        "tick": 46,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 176
-      },
-      {
-        "tick": 49,
-        "actor": "Sylva Umbría",
-        "action": "attack",
-        "target": "Brujo Ocaso",
-        "value": 183
-      },
-      {
-        "tick": 49,
-        "actor": "Brujo Ocaso",
-        "action": "defeat"
-      },
-      {
-        "tick": 49,
-        "actor": "Asesino Espiral",
-        "action": "attack",
-        "target": "Sylva Umbría",
-        "value": 173
-      },
-      {
-        "tick": 52,
-        "actor": "Sylva Umbría",
-        "action": "ultimate",
-        "target": "Asesino Espiral",
-        "value": 312
-      },
-      {
-        "tick": 52,
-        "actor": "Asesino Espiral",
-        "action": "ultimate",
-        "target": "Sylva Umbría",
-        "value": 288
-      },
-      {
-        "tick": 52,
-        "actor": "Sylva Umbría",
-        "action": "defeat"
+        "value": 179
       }
     ]
   },
   "timeline": {
-    "lastTickAt": 1767110771592
+    "lastTickAt": 1767111269217
   }
 }

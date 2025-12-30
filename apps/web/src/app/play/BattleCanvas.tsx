@@ -29,6 +29,9 @@ type UnitVisual = {
   energyBar: Phaser.GameObjects.Graphics;
   label: Phaser.GameObjects.Text;
   fullLabel: Phaser.GameObjects.Text;
+  idleTween?: Phaser.Tweens.Tween;
+  auraTween?: Phaser.Tweens.Tween;
+  ringTween?: Phaser.Tweens.Tween;
   barState: { hp: number; energy: number };
   spec: HeroArtSpec;
 };
@@ -97,6 +100,7 @@ class BattleScene extends Phaser.Scene {
   private midLine?: Phaser.GameObjects.Rectangle;
   private fieldFrame?: Phaser.GameObjects.Graphics;
   private floorPlane?: Phaser.GameObjects.Graphics;
+  private vignette?: Phaser.GameObjects.Graphics;
   private heroArt: Record<string, HeroArtSpec> = {};
   private projectId?: string;
   private projectSeed = "offline";
@@ -119,6 +123,7 @@ class BattleScene extends Phaser.Scene {
 
   create() {
     this.ready = true;
+    this.cameras.main?.setRoundPixels(true);
     this.drawBackground();
     this.drawLaneGuides();
     this.createHud();
@@ -141,6 +146,7 @@ class BattleScene extends Phaser.Scene {
     this.midLine?.destroy();
     this.fieldFrame?.destroy();
     this.floorPlane?.destroy();
+    this.vignette?.destroy();
     const { w, h } = this.layout();
     this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.28).setDepth(2);
     this.midLine.setStrokeStyle(1, 0x25314b, 0.5);
@@ -157,8 +163,8 @@ class BattleScene extends Phaser.Scene {
     this.fieldFrame.fillStyle(0x3a0f16, 0.08);
     this.fieldFrame.fillRect(w * 0.55, h * 0.5, w * 0.43, h * 0.4);
     const floor = this.add.graphics().setDepth(1);
-    floor.fillStyle(0x0c1626, 0.35);
-    floor.fillEllipse(w / 2, h * 0.78, w * 0.74, h * 0.18);
+    floor.fillGradientStyle(0x0f172a, 0x111827, 0x0b1220, 0x0a1020, 0.6, 0.5, 0.45, 0.45);
+    floor.fillEllipse(w / 2, h * 0.78, w * 0.74, h * 0.2);
     floor.lineStyle(1, 0x233149, 0.28);
     const segments = 6;
     for (let i = 1; i < segments; i++) {
@@ -167,6 +173,18 @@ class BattleScene extends Phaser.Scene {
     }
     this.fieldFrame.lineStyle(1, 0x0a0e1c, 0.6);
     this.fieldFrame.strokeEllipse(w / 2, h * 0.55, w * 0.72, h * 0.3);
+    const tint = this.add.graphics().setDepth(0);
+    tint.fillStyle(0x123457, 0.12);
+    tint.fillRect(0, 0, w * 0.22, h);
+    tint.fillStyle(0x401624, 0.1);
+    tint.fillRect(w * 0.78, 0, w * 0.22, h);
+    const vignette = this.add.graphics().setDepth(200);
+    vignette.clear();
+    vignette.fillStyle(0x000000, 0.45);
+    vignette.fillRect(0, 0, w, h);
+    vignette.setBlendMode(Phaser.BlendModes.MULTIPLY);
+    vignette.setAlpha(0.42);
+    this.vignette = vignette;
     this.floorPlane = floor;
   }
 
@@ -312,6 +330,12 @@ class BattleScene extends Phaser.Scene {
       .text(0, 68, unit.name, { fontFamily: "sans-serif", fontSize: "11px", color: "#cbd5f5" })
       .setOrigin(0.5, 0)
       .setAlpha(0);
+    const textResolution =
+      typeof (this.game?.config as any)?.resolution === "number"
+        ? Math.min(2, (this.game?.config as any).resolution)
+        : 1;
+    label.setResolution(textResolution);
+    fullLabel.setResolution(textResolution);
     label.setShadow(0, 2, "#0b0f1a", 3);
     fullLabel.setShadow(0, 2, "#0b0f1a", 3);
 
@@ -333,30 +357,24 @@ class BattleScene extends Phaser.Scene {
       label,
       fullLabel,
     ]);
+    shadow.setDepth(-4);
+    aura.setDepth(-3);
+    ring.setDepth(-2);
+    body.setDepth(-1);
+    armor.setDepth(0);
+    weapon.setDepth(1);
+    token.setDepth(2);
+    role.setDepth(3);
+    hpBar.setDepth(6);
+    energyBar.setDepth(7);
+    label.setDepth(8);
+    fullLabel.setDepth(9);
     container.setSize(96, 96);
     container.setInteractive(new Phaser.Geom.Circle(0, 0, 40), Phaser.Geom.Circle.Contains);
     container.on("pointerover", () => fullLabel.setAlpha(0.95));
     container.on("pointerout", () => fullLabel.setAlpha(0));
 
-    this.tweens.add({
-      targets: container,
-      y: container.y - 6,
-      duration: 1400 + seeded(unit.id, "bob", 0, 220),
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
-    this.tweens.add({
-      targets: aura,
-      alpha: { from: 0.55, to: 0.8 },
-      scale: { from: 0.95, to: 1.05 },
-      duration: 2400 + seeded(unit.id, "aura", 0, 520),
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
-
-    this.units[unit.id] = {
+    const vis: UnitVisual = {
       container,
       token,
       ring,
@@ -373,9 +391,69 @@ class BattleScene extends Phaser.Scene {
       weapon,
       auraFx,
     };
-    this.units[unit.id].spec = spec;
-    this.drawVisualLayers(this.units[unit.id], unit);
-    return this.units[unit.id];
+
+    vis.idleTween = this.tweens.add({
+      targets: container,
+      y: container.y - 6,
+      duration: 1400 + seeded(unit.id, "bob", 0, 220),
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    vis.auraTween = this.tweens.add({
+      targets: aura,
+      alpha: { from: 0.55, to: 0.8 },
+      scale: { from: 0.95, to: 1.05 },
+      duration: 2400 + seeded(unit.id, "aura", 0, 520),
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    vis.spec = spec;
+    this.units[unit.id] = vis;
+    this.drawVisualLayers(vis, unit);
+    return vis;
+  }
+
+  private resetVisualState(vis: UnitVisual) {
+    vis.container.setAlpha(1);
+    vis.container.setScale(1);
+    vis.container.setVisible(true);
+    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => g.clearTint());
+    [vis.ring, vis.token, vis.aura].forEach((g) => g.setAlpha(1));
+    vis.label.setAlpha(1);
+    vis.fullLabel.setAlpha(0);
+    if (vis.idleTween && !vis.idleTween.isPlaying()) vis.idleTween.restart();
+    if (vis.auraTween && !vis.auraTween.isPlaying()) vis.auraTween.restart();
+    if (vis.ringTween && !vis.ringTween.isPlaying()) vis.ringTween.restart();
+  }
+
+  private markDead(vis: UnitVisual) {
+    this.tweens.killTweensOf([
+      vis.container,
+      vis.ring,
+      vis.token,
+      vis.body,
+      vis.armor,
+      vis.weapon,
+      vis.aura,
+      vis.label,
+    ]);
+    vis.idleTween?.stop();
+    vis.auraTween?.stop();
+    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => g.setTint(0x7a7a7a));
+    vis.aura.setAlpha(0.35);
+    vis.token.setAlpha(0.6);
+    vis.label.setAlpha(0.4);
+    this.tweens.add({
+      targets: vis.container,
+      alpha: 0,
+      scale: 0.88,
+      duration: 280,
+      ease: "Quad.easeIn",
+      onComplete: () => vis.container.setVisible(false),
+    });
   }
 
   private drawVisualLayers(vis: UnitVisual, unit: UnitRuntimeState) {
@@ -416,7 +494,7 @@ class BattleScene extends Phaser.Scene {
     ring.strokeCircle(0, 0, 34);
     if (spec.rarityRank >= 2) {
       this.tweens.killTweensOf(ring);
-      this.tweens.add({
+      vis.ringTween = this.tweens.add({
         targets: ring,
         alpha: { from: 0.9, to: 0.5 },
         duration: 1200 + spec.rarityRank * 200,
@@ -598,22 +676,25 @@ class BattleScene extends Phaser.Scene {
     const palette = vis.spec?.palette;
 
     vis.hpBar.clear();
-    vis.hpBar.fillStyle(0x0f172a, 0.78).fillRoundedRect(x, hpY, width, hpHeight, 4);
+    vis.hpBar.fillStyle(0x0f172a, 0.78).fillRoundedRect(x, hpY, Math.round(width), hpHeight, 4);
     vis.hpBar
       .fillStyle(palette?.accent ?? hpColor(vis.barState.hp), 0.95)
-      .fillRoundedRect(x, hpY, width * vis.barState.hp, hpHeight, 4);
-    vis.hpBar.lineStyle(1, 0x233149, 0.8).strokeRoundedRect(x, hpY, width, hpHeight, 4);
+      .fillRoundedRect(x, hpY, Math.round(width * vis.barState.hp), hpHeight, 4);
+    vis.hpBar.lineStyle(1, 0x233149, 0.8).strokeRoundedRect(x, hpY, Math.round(width), hpHeight, 4);
 
     vis.energyBar.clear();
-    vis.energyBar.fillStyle(0x0b1224, 0.75).fillRoundedRect(x, energyY, width, energyHeight, 4);
+    vis.energyBar.fillStyle(0x0b1224, 0.75).fillRoundedRect(x, energyY, Math.round(width), energyHeight, 4);
     vis.energyBar
       .fillStyle(palette?.secondary ?? 0x7c3aed, 0.95)
-      .fillRoundedRect(x, energyY, width * vis.barState.energy, energyHeight, 4);
-    vis.energyBar.lineStyle(1, 0x1f2b46, 0.7).strokeRoundedRect(x, energyY, width, energyHeight, 4);
+      .fillRoundedRect(x, energyY, Math.round(width * vis.barState.energy), energyHeight, 4);
+    vis.energyBar.lineStyle(1, 0x1f2b46, 0.7).strokeRoundedRect(x, energyY, Math.round(width), energyHeight, 4);
   }
 
   private animateAttack(vis: UnitVisual, unit: UnitRuntimeState) {
-    this.tweens.killTweensOf(vis.container);
+    this.tweens.getTweensOf(vis.container).forEach((tween) => {
+      if (tween !== vis.idleTween) tween.stop();
+    });
+    vis.idleTween?.pause();
     const offset = (unit.side === "player" ? 1 : -1) * (8 + seeded(unit.id, "lunge", 0, 8));
     this.tweens.add({
       targets: vis.container,
@@ -621,6 +702,7 @@ class BattleScene extends Phaser.Scene {
       duration: this.tickMs / 1.4,
       yoyo: true,
       ease: "Quad.easeOut",
+      onComplete: () => vis.idleTween?.resume(),
     });
     this.tweens.add({
       targets: vis.container,
@@ -628,12 +710,19 @@ class BattleScene extends Phaser.Scene {
       duration: this.tickMs / 2,
       yoyo: true,
       ease: "Quad.easeOut",
+      onComplete: () => vis.idleTween?.resume(),
     });
   }
 
   private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState, tick = 0) {
-    this.tweens.killTweensOf(vis.container);
-    this.tweens.killTweensOf(vis.ring);
+    this.tweens.getTweensOf(vis.container).forEach((tween) => {
+      if (tween !== vis.idleTween) tween.stop();
+    });
+    this.tweens.getTweensOf(vis.ring).forEach((tween) => {
+      if (tween !== vis.ringTween) tween.stop();
+    });
+    vis.idleTween?.pause();
+    vis.ringTween?.pause();
     const originalScale = vis.container.scale;
     const shakeDir = seeded(unit.id, `shake-${tick}`, -1, 1) >= 0 ? 1 : -1;
     const shakeMag = 2 + seeded(unit.id, `shake-mag-${tick}`, 0, 2);
@@ -645,6 +734,7 @@ class BattleScene extends Phaser.Scene {
       duration: this.tickMs * 0.45,
       yoyo: true,
       ease: "Sine.easeInOut",
+      onComplete: () => vis.idleTween?.resume(),
     });
     vis.token.setAlpha(0.7);
     vis.ring.setAlpha(0.85);
@@ -661,6 +751,8 @@ class BattleScene extends Phaser.Scene {
     this.time.delayedCall(this.tickMs * 0.4, () => {
       vis.token.setAlpha(1);
       vis.ring.setAlpha(1);
+      vis.ringTween?.resume();
+      vis.idleTween?.resume();
     });
     this.spawnImpactParticles(
       vis.container.x,
@@ -703,8 +795,10 @@ class BattleScene extends Phaser.Scene {
     const topClamp = 40;
     const yStart = Math.max(topClamp, Math.min(target.container.y - 60, (this.scale.height || 540) - 140));
     const floatSeed = unitId ?? `target-${tick}`;
+    const posX = Math.round(target.container.x);
+    const posY = Math.round(yStart);
     const txt = this.add
-      .text(target.container.x, yStart, `-${dmg}`, {
+      .text(posX, posY, `-${dmg}`, {
         fontSize: isBig ? "19px" : "15px",
         fontFamily: "sans-serif",
         color: isBig ? "#fde047" : "#fca5a5",
@@ -712,7 +806,7 @@ class BattleScene extends Phaser.Scene {
         strokeThickness: 5,
         fontStyle: "bold",
       })
-      .setDepth(80);
+      .setDepth(120);
     txt.setOrigin(0.5);
     txt.setScale(0.6);
     txt.setAlpha(0);
@@ -831,24 +925,11 @@ class BattleScene extends Phaser.Scene {
       vis.container.setDepth((u.side === "player" ? 10 : 20) + (u.position === "front" ? 2 : 0));
       vis.label.setText(shortLabel(u.name));
       this.drawBars(vis, u);
-      const alpha = u.alive ? 1 : 0.28;
       if (!u.alive) {
-        this.tweens.killTweensOf(vis.container);
-        this.tweens.add({
-          targets: vis.container,
-          alpha: 0,
-          scale: 0.92,
-          duration: 260,
-          ease: "Quad.easeIn",
-          onComplete: () => vis.container.setVisible(false),
-        });
+        this.markDead(vis);
       } else {
-        vis.container.setVisible(true);
-        vis.container.setScale(1);
-        vis.container.setAlpha(alpha);
+        this.resetVisualState(vis);
       }
-      vis.label.setAlpha(u.alive ? 1 : 0.45);
-      vis.fullLabel.setAlpha(0);
       currentIds.add(u.id);
     });
 
@@ -887,6 +968,10 @@ class BattleScene extends Phaser.Scene {
     // remove visuals not present
     Object.keys(this.units).forEach((id) => {
       if (!currentIds.has(id)) {
+        this.tweens.killTweensOf(this.units[id].container);
+        this.tweens.killTweensOf(this.units[id].ring);
+        this.tweens.killTweensOf(this.units[id].aura);
+        this.tweens.killTweensOf(this.units[id].token);
         this.units[id].container.destroy(true);
         delete this.units[id];
       }
@@ -919,6 +1004,11 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
 
   useEffect(() => {
     if (!containerRef.current) return;
+    if (gameRef.current) {
+      gameRef.current.destroy(true);
+      gameRef.current = null;
+      sceneRef.current = null;
+    }
     const resolution = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
     const scene = new BattleScene(tickMs);
     sceneRef.current = scene;
@@ -955,6 +1045,7 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
       resizeObserver.disconnect();
       game.destroy(true);
       sceneRef.current = null;
+      gameRef.current = null;
     };
   }, [tickMs]);
 
