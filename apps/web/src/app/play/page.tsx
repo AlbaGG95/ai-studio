@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { EngineCombatState, EngineState, EngineUnitTemplate } from "@ai-studio/core";
+import { EngineCombatState, EngineItem, EngineState, EngineUnitTemplate } from "@ai-studio/core";
 import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
 import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
@@ -21,6 +21,14 @@ type CombatLogEntry = {
 
 type View = "map" | "roster" | "battle";
 type GameState = "MAP" | "BATTLE_STARTING" | "BATTLE_RUNNING" | "BATTLE_END" | "RETURNING_TO_MAP";
+type ResultInfo = {
+  outcome: "victory" | "defeat";
+  gold: number;
+  xp: number;
+  newItems: EngineItem[];
+  stageFrom: number;
+  stageTo: number;
+};
 
 type ProjectMeta = {
   projectId?: string;
@@ -32,7 +40,8 @@ type ProjectMeta = {
 const AUTO_ENTER_DELAY_MS = 1200;
 const RETURN_COOLDOWN_MS = 2000;
 const MIN_BATTLE_MS = 8000;
-const END_SCREEN_MS = 2000;
+const RESULT_OVERLAY_MS = 2000;
+const VIEW_DEBOUNCE_MS = 150;
 
 async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(buildApiUrl(path), {
@@ -62,6 +71,9 @@ export default function PlayPage() {
   const [logs, setLogs] = useState<CombatLogEntry[]>([]);
   const [battleResult, setBattleResult] = useState<"victory" | "defeat" | null>(null);
   const [teamSlots, setTeamSlots] = useState<(string | null)[]>([null, null, null, null, null]);
+  const [autoContinue, setAutoContinue] = useState(true);
+  const [pendingManualContinue, setPendingManualContinue] = useState(false);
+  const [resultInfo, setResultInfo] = useState<ResultInfo | null>(null);
   const [heroArtMap, setHeroArtMap] = useState<Record<string, HeroArtSpec>>({});
 
   const logCursor = useRef(0);
@@ -70,6 +82,16 @@ export default function PlayPage() {
   const endTimer = useRef<NodeJS.Timeout | null>(null);
   const cooldownUntil = useRef<number>(0);
   const battleStartedAt = useRef<number>(0);
+  const preBattleSnapshot = useRef<{
+    gold: number;
+    xp: number;
+    items: number;
+    stage: number;
+    bestStage: number;
+  } | null>(null);
+  const transitionGuard = useRef(false);
+  const lastViewChangeAt = useRef(0);
+  const battleSession = useRef(0);
 
   const tickMs = engineState?.config.tickMs ?? 400;
   const projectQuery = useMemo(
@@ -83,17 +105,27 @@ export default function PlayPage() {
     if (endTimer.current) clearTimeout(endTimer.current);
   };
 
+  const guardedViewChange = (next: View, force = false) => {
+    const now = Date.now();
+    if (!force && transitionGuard.current) return;
+    if (!force && now - lastViewChangeAt.current < VIEW_DEBOUNCE_MS) return;
+    lastViewChangeAt.current = now;
+    setView(next);
+  };
+
   useEffect(() => {
     clearTimers();
     setEngineState(null);
     setLogs([]);
     setBattleResult(null);
+    setResultInfo(null);
     setStatus(null);
     setError(null);
     setProjectMeta(null);
     setProjectError(null);
     setGameState("MAP");
     setView("map");
+    setPendingManualContinue(false);
 
     if (!projectId) {
       setProjectLoading(false);
@@ -114,6 +146,7 @@ export default function PlayPage() {
 
     return () => {
       cancelled = true;
+      clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -136,22 +169,25 @@ export default function PlayPage() {
   useEffect(() => {
     if (!engineState) return;
     if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
+    const remainingCooldown = Math.max(0, cooldownUntil.current - Date.now());
     const canAuto =
       gameState === "MAP" &&
       view === "map" &&
-      Date.now() >= cooldownUntil.current &&
       !loading &&
       !error &&
       !projectError &&
-      !projectLoading;
+      !projectLoading &&
+      autoContinue &&
+      !transitionGuard.current;
     if (canAuto) {
-      autoStartTimer.current = setTimeout(() => startBattle(), AUTO_ENTER_DELAY_MS);
+      const delay = AUTO_ENTER_DELAY_MS + remainingCooldown;
+      autoStartTimer.current = setTimeout(() => startBattle(), delay);
     }
     return () => {
       if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineState, view, gameState, loading, error, projectError, projectLoading]);
+  }, [engineState, view, gameState, loading, error, projectError, projectLoading, autoContinue]);
 
   useEffect(() => {
     if (!engineState || gameState !== "BATTLE_RUNNING") return;
@@ -237,6 +273,7 @@ export default function PlayPage() {
       setError(err instanceof Error ? err.message : "No se pudo cargar el engine");
       setStatus(null);
     } finally {
+      setPendingManualContinue(false);
       setLoading(false);
     }
   };
@@ -244,32 +281,81 @@ export default function PlayPage() {
   const startBattle = () => {
     if (!engineState || projectError || projectLoading) return;
     if (gameState !== "MAP" || Date.now() < cooldownUntil.current) return;
+    if (transitionGuard.current) return;
+    transitionGuard.current = true;
+    battleSession.current += 1;
+    const sessionId = battleSession.current;
     clearTimers();
     logCursor.current = engineState.combat?.log?.length ?? 0;
     setLogs([]);
     setBattleResult(null);
+    setResultInfo(null);
+    setPendingManualContinue(false);
     battleStartedAt.current = 0;
-    setView("battle");
+    preBattleSnapshot.current = {
+      gold: engineState.player.resources.gold,
+      xp: engineState.player.resources.xp,
+      items: engineState.player.items.length,
+      stage: engineState.player.campaign.currentStage,
+      bestStage: engineState.player.campaign.bestStage,
+    };
+    guardedViewChange("battle", true);
     setGameState("BATTLE_STARTING");
     setStatus("Preparando combate...");
-    setTimeout(() => setGameState("BATTLE_RUNNING"), 150);
+    setTimeout(() => {
+      if (battleSession.current !== sessionId) return;
+      setGameState("BATTLE_RUNNING");
+      transitionGuard.current = false;
+    }, 150);
+  };
+
+  const returnToMapAfterResult = () => {
+    if (endTimer.current) clearTimeout(endTimer.current);
+    setGameState("RETURNING_TO_MAP");
+    guardedViewChange("map", true);
+    cooldownUntil.current = Date.now() + RETURN_COOLDOWN_MS;
+    setBattleResult(null);
+    setResultInfo(null);
+    setStatus("Volviendo al mapa");
+    setTimeout(() => {
+      setStatus(null);
+      setGameState("MAP");
+      transitionGuard.current = false;
+      setPendingManualContinue(!autoContinue);
+    }, 80);
   };
 
   const finishBattle = (result: "victory" | "defeat") => {
+    if (!engineState) return;
+    if (gameState === "BATTLE_END" || gameState === "RETURNING_TO_MAP") return;
+    transitionGuard.current = true;
     setBattleResult(result);
     setStatus(result === "victory" ? "Victoria" : "Derrota");
     setGameState("BATTLE_END");
-    endTimer.current = setTimeout(() => {
-      setGameState("RETURNING_TO_MAP");
-      setView("map");
-      cooldownUntil.current = Date.now() + RETURN_COOLDOWN_MS;
-      setBattleResult(null);
-      setStatus("Volviendo al mapa");
-      setTimeout(() => {
-        setStatus(null);
-        setGameState("MAP");
-      }, 80);
-    }, END_SCREEN_MS);
+    const snapshot = preBattleSnapshot.current;
+    const currentResources = engineState.player.resources;
+    const goldDelta = Math.max(0, currentResources.gold - (snapshot?.gold ?? currentResources.gold));
+    const xpDelta = Math.max(0, currentResources.xp - (snapshot?.xp ?? currentResources.xp));
+    const itemsGained =
+      (engineState.player.items?.length ?? 0) - (snapshot?.items ?? engineState.player.items?.length ?? 0);
+    const newItems =
+      itemsGained > 0 ? engineState.player.items.slice(Math.max(0, engineState.player.items.length - itemsGained)) : [];
+    const stageFrom = snapshot?.stage ?? engineState.combat.stage ?? 1;
+    const stageTo =
+      result === "victory"
+        ? Math.max(stageFrom + 1, engineState.player.campaign.currentStage)
+        : engineState.player.campaign.currentStage ?? stageFrom;
+
+    setResultInfo({
+      outcome: result,
+      gold: goldDelta,
+      xp: xpDelta,
+      newItems,
+      stageFrom,
+      stageTo,
+    });
+
+    endTimer.current = setTimeout(returnToMapAfterResult, RESULT_OVERLAY_MS);
   };
 
   const claimAfk = async () => {
@@ -337,7 +423,7 @@ export default function PlayPage() {
       });
       setEngineState(data.data?.state || data.state);
       setStatus("Equipo guardado");
-      setView("map");
+      guardedViewChange("map");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el equipo");
     }
@@ -355,13 +441,42 @@ export default function PlayPage() {
           <p className={styles.subtle}>Stage actual: {engineState?.player.campaign.currentStage ?? 1}</p>
         </div>
         <div className={styles.actions}>
-          <button onClick={() => setView("roster")} disabled={projectLoading || !!projectError}>
+          <button onClick={() => guardedViewChange("roster")} disabled={projectLoading || !!projectError}>
             Editar equipo
           </button>
           <button onClick={claimAfk} disabled={projectLoading || !!projectError}>
             Reclamar AFK
           </button>
+          {!autoContinue && (
+            <button
+              onClick={startBattle}
+              disabled={
+                gameState !== "MAP" || projectLoading || !!projectError || !engineState
+              }
+            >
+              Continuar stage
+            </button>
+          )}
         </div>
+      </div>
+      <div className={styles.flowControls}>
+        <label className={styles.toggle}>
+          <input
+            type="checkbox"
+            checked={autoContinue}
+            onChange={(e) => {
+              setAutoContinue(e.target.checked);
+              if (e.target.checked) setPendingManualContinue(false);
+            }}
+          />
+          <span className={styles.toggleLabel}>Auto-continue</span>
+        </label>
+        {!autoContinue && (
+          <span className={styles.manualHint}>
+            Avanza manualmente tras ver resultados. Pulsa "Continuar stage" para seguir.
+          </span>
+        )}
+        {pendingManualContinue && !autoContinue && <span className={styles.readyPill}>Listo para continuar</span>}
       </div>
       <div className={styles.stages}>
         {stages.map((stage) => {
@@ -399,7 +514,7 @@ export default function PlayPage() {
         <div className={styles.actions}>
           <button
             onClick={() => {
-              setView("map");
+              guardedViewChange("map");
               setGameState("MAP");
             }}
           >
@@ -469,7 +584,7 @@ export default function PlayPage() {
         <div className={styles.actions}>
           <button
             onClick={() => {
-              setView("map");
+              guardedViewChange("map");
               setGameState("MAP");
             }}
             disabled={
@@ -492,6 +607,45 @@ export default function PlayPage() {
         seed={engineState?.seed}
       />
       {battleResult && <div className={styles.banner}>{battleResult === "victory" ? "Victoria" : "Derrota"}</div>}
+      {resultInfo && gameState !== "BATTLE_RUNNING" && (
+        <div
+          className={`${styles.resultOverlay} ${
+            resultInfo.outcome === "victory" ? styles.victory : styles.defeat
+          }`}
+        >
+          <div className={styles.resultHeader}>
+            <p className={styles.kicker}>Resultado</p>
+            <h3 className={styles.resultTitle}>
+              {resultInfo.outcome === "victory" ? "VICTORIA" : "DERROTA"}
+            </h3>
+            <p className={styles.subtle}>
+              Stage {resultInfo.stageFrom} {resultInfo.outcome === "victory" ? "->" : "(retry)"} {resultInfo.stageTo}
+            </p>
+          </div>
+          <div className={styles.lootRow}>
+            <div className={styles.lootItem}>
+              <span className={styles.lootLabel}>Oro</span>
+              <strong>+{resultInfo.gold}</strong>
+            </div>
+            <div className={styles.lootItem}>
+              <span className={styles.lootLabel}>XP</span>
+              <strong>+{resultInfo.xp}</strong>
+            </div>
+            <div className={styles.lootItem}>
+              <span className={styles.lootLabel}>Items</span>
+              <strong>{resultInfo.newItems.length > 0 ? resultInfo.newItems[0]?.name : "—"}</strong>
+              {resultInfo.newItems.length > 1 && (
+                <span className={styles.subtle}>+{resultInfo.newItems.length - 1} extra</span>
+              )}
+            </div>
+          </div>
+          {!autoContinue && (
+            <div className={styles.resultActions}>
+              <button onClick={returnToMapAfterResult}>Continuar al mapa</button>
+            </div>
+          )}
+        </div>
+      )}
       <div className={styles.logBar}>
         <p className={styles.muted}>Última acción: {logs[logs.length - 1]?.action ?? "..."}</p>
         <p className={styles.muted}>
@@ -520,10 +674,10 @@ export default function PlayPage() {
             <button onClick={() => loadEngine(projectId ?? undefined)} disabled={projectLoading || !!projectError}>
               Refrescar
             </button>
-            <button onClick={() => setView("map")} disabled={projectLoading || !!projectError}>
+            <button onClick={() => guardedViewChange("map")} disabled={projectLoading || !!projectError}>
               Mapa
             </button>
-            <button onClick={() => setView("roster")} disabled={projectLoading || !!projectError || !engineState}>
+            <button onClick={() => guardedViewChange("roster")} disabled={projectLoading || !!projectError || !engineState}>
               Roster
             </button>
             <button onClick={startBattle} disabled={projectLoading || !!projectError || !engineState}>

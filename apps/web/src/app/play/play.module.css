@@ -69,6 +69,46 @@
   border-color: #2f3f63;
 }
 
+.flowControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 6px 0 4px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #7ce4ff;
+}
+
+.toggleLabel {
+  font-size: 14px;
+}
+
+.manualHint {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.readyPill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.08));
+  color: #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .status {
   margin: 6px 0;
   color: #7ce4ff;
@@ -261,6 +301,78 @@
   border-radius: 12px;
   font-weight: 800;
   box-shadow: 0 8px 20px rgba(34, 197, 94, 0.35);
+}
+
+.resultOverlay {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(680px, 92%);
+  border: 1px solid #1f2b46;
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(8, 11, 20, 0.9);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  z-index: 3;
+}
+
+.resultOverlay.victory {
+  border-color: #22c55e;
+  box-shadow: 0 20px 60px rgba(34, 197, 94, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.resultOverlay.defeat {
+  border-color: #f87171;
+  box-shadow: 0 20px 60px rgba(248, 113, 113, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.resultHeader {
+  margin-bottom: 8px;
+}
+
+.resultTitle {
+  margin: 2px 0;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+}
+
+.lootRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lootItem {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(31, 43, 70, 0.8);
+}
+
+.lootLabel {
+  display: block;
+  color: #9ca3af;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.resultActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.resultActions button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #1f2b46;
+  background: linear-gradient(135deg, #1e293b, #111827);
+  color: #e5ecff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
 .logBar {
