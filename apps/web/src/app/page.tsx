@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { buildApiUrl } from "@/lib/api";
@@ -29,6 +30,7 @@ type ProjectListItem = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [creating, setCreating] = useState(false);
@@ -109,6 +111,10 @@ export default function HomePage() {
   };
 
   const handleGenerate = async () => {
+    if (!trimmedName && !trimmedPrompt) {
+      setError("Escribe un nombre o prompt para generar.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     setStatus("Interpretando...");
@@ -132,23 +138,28 @@ export default function HomePage() {
         }),
       });
 
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const message =
+          errData?.error ||
+          errData?.message ||
+          `POST /api/generate respondio ${response.status}`;
+        throw new Error(message);
+      }
+
       const data: GenerationResponse = await response
         .json()
         .catch(() => ({} as GenerationResponse));
 
-      if (!response.ok || data?.ok === false) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            `POST /api/generate respondio ${response.status}`
-        );
+      const projectIdFromResponse = data.projectId ?? data.id ?? data.project?.id;
+      if (!projectIdFromResponse) {
+        throw new Error("Generation failed: no projectId");
       }
-
-      const projectIdFromResponse = data.projectId ?? data.id ?? data.project?.id ?? trimmedName;
-      setLastProjectId(projectIdFromResponse || null);
+      console.log("[GENERATE OK]", data);
+      setLastProjectId(projectIdFromResponse);
       setStatus("Listo");
-      fetchProjects();
-
+      await fetchProjects();
+      router.push(`/play?projectId=${encodeURIComponent(projectIdFromResponse)}`);
     } catch (err) {
       const message =
         err instanceof Error
