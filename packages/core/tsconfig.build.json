@@ -7,6 +7,6 @@
     "declarationMap": false,
     "sourceMap": false
   },
-  "include": ["./index.ts", "./spec/**/*.ts", "./engine/**/*.ts"],
+  "include": ["./index.ts", "./spec/**/*.ts", "./engine/**/*.ts", "./afk/**/*.ts"],
   "exclude": ["./node_modules", "./dist"]
 }
