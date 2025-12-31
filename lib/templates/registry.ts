@@ -60,10 +60,13 @@ const templates: GameTemplate[] = [
     type: "runner",
     canHandle: (spec) => spec.type === "runner",
     build: (spec) => ({
-      route: `/play?templateId=${TemplateId.runner_endless}&fallback=placeholder_basic&title=${encodeURIComponent(
-        spec.title
-      )}`,
-      config: { title: spec.title, content: spec.content },
+      route: `/play?templateId=${TemplateId.runner_endless}&title=${encodeURIComponent(spec.title)}`,
+      config: {
+        title: spec.title,
+        content: spec.content,
+        theme: spec.theme,
+        rules: spec.rules,
+      },
       notes: ["Endless runner template"],
     }),
   },

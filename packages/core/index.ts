@@ -60,6 +60,8 @@ export type {
 export { IdleRpgEngine, DEFAULT_ENGINE_CONFIG } from "./engine/engine.js";
 export type { TriviaQuestion, TriviaState } from "./trivia/types.js";
 export { createTriviaState, answerQuestion } from "./trivia/engine.js";
+export type { RunnerState, RunnerConfig, RunnerObstacle, RunnerPlayer } from "./runner/types.js";
+export { createRunnerState, startRunner, stepRunner, restartRunner, DEFAULT_RUNNER_CONFIG } from "./runner/engine.js";
 export type {
   Hero as AfkHero,
   PlayerState as AfkPlayerState,

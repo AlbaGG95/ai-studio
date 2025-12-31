@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
 import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
 import { TriviaGame } from "./triviaGame";
+import { RunnerGame } from "./runnerGame";
 import styles from "./play.module.css";
 
 const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
@@ -719,7 +720,9 @@ function PlayPageContent() {
               title: searchParams.get("title") || "Trivia",
             }}
           />
-        ) : templateId === "placeholder_basic" || templateId === "runner_endless" ? (
+        ) : templateId === "runner_endless" ? (
+          <RunnerGame title={searchParams.get("title") || projectId || "Runner"} />
+        ) : templateId === "placeholder_basic" ? (
           <PlaceholderGame title={searchParams.get("title") || projectId || "Juego"} templateId={templateId} />
         ) : (
           !loading &&

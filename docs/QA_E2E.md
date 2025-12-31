@@ -8,7 +8,7 @@
 ## Casos probados (scripts/e2e-sim.mjs)
 - **Idle RPG** — title `Dark Mythology`, prompt idle épico → `idle_rpg_afk`, ruta `/afk?configId=fantasy_dark`.
 - **Trivia** — title `Trivia Anime`, prompt quiz casual → `trivia_basic`, ruta `/play?templateId=trivia_basic`.
-- **Runner** — title `Neon Runner`, prompt endless runner → `runner_endless` (ruta placeholder `/play?templateId=runner_endless&fallback=placeholder_basic...`).
+- **Runner** — title `Neon Runner`, prompt endless runner → `runner_endless` (ruta `/play?templateId=runner_endless`) con runtime funcional (salta, esquiva obstáculos).
 - **Ambiguo** — title `Mi juego`, prompt genérico → fallback `idle_rpg_afk`, ruta `/afk?configId=scifi_clean`.
 
 ## Decisiones de fallback / hardening
