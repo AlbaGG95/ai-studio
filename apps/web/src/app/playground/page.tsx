@@ -17,6 +17,7 @@ export default function PlaygroundPage() {
   const [specJson, setSpecJson] = useState<string>("");
   const [generatedRoute, setGeneratedRoute] = useState<string | null>(null);
   const [recent, setRecent] = useState<Recent[]>([]);
+  const isDev = process.env.NODE_ENV !== "production";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -59,6 +60,54 @@ export default function PlaygroundPage() {
       setStatus("Ready. Click Play.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate");
+      setStatus(null);
+    }
+  };
+
+  const resetStorage = () => {
+    if (typeof window === "undefined") return;
+    Object.keys(window.localStorage || {}).forEach((key) => {
+      if (key.startsWith("ai-studio") || key.startsWith("projects") || key.startsWith("project") || key.startsWith("state")) {
+        window.localStorage.removeItem(key);
+      }
+    });
+  };
+
+  const resetAndReload = async () => {
+    try {
+      await fetch("/api/dev/reset", { method: "POST" });
+    } catch {
+      // ignore
+    }
+    resetStorage();
+    if (typeof window !== "undefined") window.location.reload();
+  };
+
+  const runTriviaE2E = async () => {
+    if (!isDev) return;
+    setStatus("Resetting (DEV)...");
+    setError(null);
+    await fetch("/api/dev/reset", { method: "POST" }).catch(() => {});
+    resetStorage();
+    setTitle("Trivia Anime");
+    setPrompt("Juego de preguntas tipo quiz con categorías, tono casual.");
+    setStatus("Generating Trivia (DEV)...");
+    try {
+      const response = await fetch(buildApiUrl("/api/generate"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Trivia Anime", prompt: "Juego de preguntas tipo quiz con categorías, tono casual." }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.error || !data?.projectId) {
+        throw new Error(data?.error || `Request failed ${response.status}`);
+      }
+      setStatus("Opening /play (debug)...");
+      if (typeof window !== "undefined") {
+        window.location.href = `/play?projectId=${encodeURIComponent(data.projectId)}&debug=1`;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run Trivia E2E");
       setStatus(null);
     }
   };
@@ -124,6 +173,16 @@ export default function PlaygroundPage() {
             <Link className={styles.link} href={generatedRoute}>
               Play
             </Link>
+          )}
+          {isDev && (
+            <>
+              <button type="button" onClick={resetAndReload}>
+                Reset (DEV)
+              </button>
+              <button type="button" onClick={runTriviaE2E}>
+                Run E2E: Trivia (DEV)
+              </button>
+            </>
           )}
         </div>
 

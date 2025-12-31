@@ -113,6 +113,13 @@ export async function deleteProject(id: string) {
   }
 }
 
+export async function resetAllProjects() {
+  for (const dir of PROJECT_DIRS) {
+    await rm(dir, { force: true, recursive: true }).catch(() => {});
+  }
+  await ensureProjectDirs();
+}
+
 function readProjectSpec(raw: any, titleFallback: string): GameSpec {
   const candidate = raw?.spec;
   if (candidate) {

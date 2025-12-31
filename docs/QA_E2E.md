@@ -21,3 +21,8 @@
 - `BattleCanvas` tiene fallback/log cuando Phaser falla (sin TypeError).
 - Selector de plantillas siempre retorna algo (placeholder si el spec es inválido); `match3/clicker/platformer` usan placeholder hasta tener runtime.
 - Dev server: busca puerto libre desde 3000 (se puede forzar `PORT`); datos generados (`data/`, `.data/`) fuera de git, seeds en `examples/`.
+
+## Flujos DEV
+- **Reset (DEV)**: POST `/api/dev/reset` (solo dev) borra proyectos en disco; botones "Reset (DEV)" en `/projects` y `/playground` limpian también localStorage (keys ai-studio/projects/state) y recargan. Script: `pnpm dev:reset` (requiere web dev arriba).
+- **Run E2E: Trivia (DEV)** en `/playground` (solo dev): ejecuta reset, rellena título/prompt de trivia, llama `/api/generate` y abre `/play?projectId=...&debug=1`.
+- **Overlay debug (/play?debug=1)** en dev muestra projectId, title, spec.type, templateId, runtime, route, schemaVersion y timestamp. Para Trivia debe verse: `spec.type=trivia`, `templateId=trivia_basic`, `runtime=TriviaGame`.

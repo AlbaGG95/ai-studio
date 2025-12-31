@@ -9,7 +9,8 @@
     "build": "pnpm --filter web build && pnpm --filter api build",
     "lint": "pnpm --filter web lint && pnpm --filter api lint",
     "test:smoke": "node scripts/test-generate.mjs",
-    "gen:template": "node scripts/gen-template.mjs"
+    "gen:template": "node scripts/gen-template.mjs",
+    "dev:reset": "node scripts/dev-reset.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

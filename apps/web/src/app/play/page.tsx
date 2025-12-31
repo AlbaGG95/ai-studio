@@ -43,6 +43,7 @@ type ProjectRecord = {
   spec?: { type?: string };
   route?: string;
   config?: any;
+  schemaVersion?: number;
 };
 
 const AUTO_ENTER_DELAY_MS = 1200;
@@ -68,6 +69,10 @@ function PlayPageContent() {
   const searchParams = useSearchParams();
   const projectId = useMemo(() => searchParams.get("projectId"), [searchParams]);
   const templateFromQuery = useMemo(() => searchParams.get("templateId") || searchParams.get("template"), [searchParams]);
+  const debugMode = useMemo(
+    () => process.env.NODE_ENV !== "production" && searchParams.get("debug") === "1",
+    [searchParams]
+  );
   const [engineState, setEngineState] = useState<EngineState | null>(null);
   const [projectRecord, setProjectRecord] = useState<ProjectRecord | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -86,6 +91,16 @@ function PlayPageContent() {
   const [heroArtMap, setHeroArtMap] = useState<Record<string, HeroArtSpec>>({});
   const templateId = projectRecord?.templateId || templateFromQuery || null;
   const isIdleTemplate = templateId === "idle_rpg_afk";
+  const runtimeComponent =
+    templateId === "idle_rpg_afk"
+      ? "AFKEngine"
+      : templateId === "trivia_basic"
+      ? "TriviaGame"
+      : templateId === "runner_endless"
+      ? "RunnerGame"
+      : templateId === "tower_defense_basic"
+      ? "TowerGame"
+      : "PlaceholderGame";
 
   const logCursor = useRef(0);
   const autoStartTimer = useRef<NodeJS.Timeout | null>(null);
@@ -109,6 +124,15 @@ function PlayPageContent() {
     () => (projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""),
     [projectId]
   );
+
+  useEffect(() => {
+    if (!debugMode) return;
+    console.log(
+      `[PLAY] projectId=${projectId ?? "?"} type=${projectRecord?.spec?.type ?? "?"} template=${
+        templateId ?? "?"
+      } runtime=${runtimeComponent}`
+    );
+  }, [debugMode, projectId, projectRecord?.spec?.type, templateId, runtimeComponent]);
 
   useEffect(() => {
     setProjectRecord(null);
@@ -747,6 +771,32 @@ function PlayPageContent() {
   return (
     <main className={styles.main}>
       <div className={styles.card}>
+        {debugMode && (
+          <div
+            style={{
+              position: "fixed",
+              top: 12,
+              right: 12,
+              padding: "10px 12px",
+              background: "#0b1020",
+              border: "1px solid #1f2b46",
+              borderRadius: 8,
+              zIndex: 2000,
+              minWidth: 200,
+              boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
+            }}
+          >
+            <p className={styles.kicker}>Debug</p>
+            <p className={styles.subtle}>projectId: {projectId ?? "?"}</p>
+            <p className={styles.subtle}>title: {projectRecord?.title ?? "?"}</p>
+            <p className={styles.subtle}>spec.type: {projectRecord?.spec?.type ?? "?"}</p>
+            <p className={styles.subtle}>templateId: {templateId ?? "?"}</p>
+            <p className={styles.subtle}>runtime: {runtimeComponent}</p>
+            <p className={styles.subtle}>route: {projectRecord?.route ?? "?"}</p>
+            <p className={styles.subtle}>schemaVersion: {projectRecord?.schemaVersion ?? "?"}</p>
+            <p className={styles.subtle}>ts: {new Date().toISOString()}</p>
+          </div>
+        )}
         <header className={styles.header}>
           <div>
             <p className={styles.kicker}>Idle RPG</p>

@@ -25,6 +25,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const isDev = process.env.NODE_ENV !== "production";
 
   useEffect(() => {
     fetchProjects();
@@ -110,6 +111,25 @@ export default function ProjectsPage() {
           <Link className={styles.link} href="/">
             Crear proyecto
           </Link>
+          {isDev && (
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch("/api/dev/reset", { method: "POST" }).catch(() => {});
+                if (typeof window !== "undefined") {
+                  Object.keys(window.localStorage || {}).forEach((key) => {
+                    if (key.startsWith("ai-studio") || key.startsWith("projects") || key.startsWith("project") || key.startsWith("state")) {
+                      window.localStorage.removeItem(key);
+                    }
+                  });
+                  window.location.reload();
+                }
+              }}
+              style={{ marginLeft: 8 }}
+            >
+              Reset (DEV)
+            </button>
+          )}
         </header>
 
         {loading && <p className={styles.status}>Cargando proyectos...</p>}
@@ -152,6 +172,18 @@ export default function ProjectsPage() {
                     ) : (
                       <button className={styles.primaryButton} disabled>
                         Jugar
+                      </button>
+                    )}
+                    {project.projectId || project.id ? (
+                      <Link
+                        className={styles.link}
+                        href={`/play?projectId=${encodeURIComponent(project.projectId ?? project.id ?? "")}&debug=1`}
+                      >
+                        Abrir con debug
+                      </Link>
+                    ) : (
+                      <button className={styles.link} disabled>
+                        Abrir con debug
                       </button>
                     )}
                     <a
