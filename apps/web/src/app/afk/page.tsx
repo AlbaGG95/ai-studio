@@ -21,6 +21,10 @@ export default function AfkPage() {
   const [view, setView] = useState<AfkView>("home");
   const [selectedHeroId, setSelectedHeroId] = useState<string | null>(null);
   const [importText, setImportText] = useState("");
+  const [collecting, setCollecting] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+  const [pulse, setPulse] = useState({ gold: false, essence: false, bank: false });
+  const prevResources = useRef({ gold: 0, essence: 0, bankGold: 0, bankEssence: 0 });
   const {
     player,
     loading,
@@ -33,6 +37,8 @@ export default function AfkPage() {
     startBattle,
     upgradeHero,
     buyUpgrade,
+    recruitHero,
+    loadDemoState,
     exportState,
     importState,
     resetState,
@@ -44,12 +50,32 @@ export default function AfkPage() {
     }
   }, [player, selectedHeroId]);
 
+  useEffect(() => {
+    if (!player) return;
+    const nextPulse = { gold: false, essence: false, bank: false };
+    const current = {
+      gold: player.resources.gold,
+      essence: player.resources.essence,
+      bankGold: banked.gold ?? 0,
+      bankEssence: banked.essence ?? 0,
+    };
+    const prev = prevResources.current;
+    if (current.gold > prev.gold) nextPulse.gold = true;
+    if (current.essence > prev.essence) nextPulse.essence = true;
+    if (current.bankGold > prev.bankGold || current.bankEssence > prev.bankEssence) nextPulse.bank = true;
+    setPulse(nextPulse);
+    prevResources.current = current;
+    const timer = setTimeout(() => setPulse({ gold: false, essence: false, bank: false }), 350);
+    return () => clearTimeout(timer);
+  }, [player, banked]);
+
   const selectedHero = useMemo(
     () => player?.heroes.find((h) => h.id === selectedHeroId) ?? null,
     [player, selectedHeroId]
   );
 
   const stageProgress = player?.stage.progress ?? 0;
+  const onboardingHint = !loading && player && player.stage.index <= 1 && stageProgress < 0.05;
 
   return (
     <main className={styles.page}>
@@ -86,7 +112,15 @@ export default function AfkPage() {
               <p className={styles.muted}>Loop, heroes, upgrades y settings persistentes.</p>
             </div>
             <div className={styles.actions}>
-              <button className={styles.buttonGhost} onClick={claimBank} disabled={loading || !player}>
+              <button
+                className={`${styles.buttonGhost} ${styles.collectPulse}`}
+                onClick={() => {
+                  setCollecting(true);
+                  claimBank();
+                  setTimeout(() => setCollecting(false), 500);
+                }}
+                disabled={loading || !player || collecting}
+              >
                 Collect
               </button>
               <button className={styles.buttonPrimary} onClick={startBattle} disabled={loading || !player}>
@@ -95,7 +129,17 @@ export default function AfkPage() {
             </div>
           </div>
 
-          {loading && <p className={styles.muted}>Cargando loop AFK...</p>}
+          {loading && (
+            <div className={styles.grid}>
+              {[1, 2, 3].map((k) => (
+                <div key={k} className={styles.card}>
+                  <div className={styles.skeleton} style={{ width: "60%", marginBottom: 8 }} />
+                  <div className={styles.skeleton} style={{ width: "80%", marginBottom: 6 }} />
+                  <div className={styles.skeleton} style={{ width: "50%" }} />
+                </div>
+              ))}
+            </div>
+          )}
 
           {!loading && player && (
             <>
@@ -107,16 +151,26 @@ export default function AfkPage() {
                       <div className={styles.row}>
                         <div className={styles.stat}>
                           <span className={styles.muted}>Oro</span>
-                          <span className={styles.statValue}>{format(player.resources.gold)}</span>
+                          <span className={`${styles.statValue} ${pulse.gold ? styles.fadeIn : ""}`}>{format(player.resources.gold)}</span>
                         </div>
                         <div className={styles.stat}>
                           <span className={styles.muted}>Esencia</span>
-                          <span className={styles.statValue}>{format(player.resources.essence)}</span>
+                          <span className={`${styles.statValue} ${pulse.essence ? styles.fadeIn : ""}`}>{format(player.resources.essence)}</span>
                         </div>
                       </div>
                       <p className={styles.muted}>Idle por minuto: {format(idlePerMinute.gold)} oro / {format(idlePerMinute.essence)} esencia</p>
                       <div className={styles.actions} style={{ marginTop: 10 }}>
-                        <button className={styles.buttonPrimary} onClick={claimBank}>Collect</button>
+                        <button
+                          className={`${styles.buttonPrimary} ${styles.collectPulse}`}
+                          onClick={() => {
+                            setCollecting(true);
+                            claimBank();
+                            setTimeout(() => setCollecting(false), 500);
+                          }}
+                          disabled={collecting}
+                        >
+                          {collecting ? "Collecting..." : "Collect"}
+                        </button>
                         <span className={styles.pill}>Idle activo</span>
                       </div>
                     </div>
@@ -133,10 +187,18 @@ export default function AfkPage() {
                     </div>
                     <div className={styles.card}>
                       <p className={styles.label}>Banco AFK</p>
-                      <p className={styles.cardTitle}>+{format(banked.gold)} oro / +{format(banked.essence)} esencia</p>
+                      <p className={`${styles.cardTitle} ${pulse.bank ? styles.fadeIn : ""}`}>
+                        +{format(banked.gold)} oro / +{format(banked.essence)} esencia
+                      </p>
                       <p className={styles.muted}>Se acumula mientras estás fuera.</p>
                     </div>
                   </div>
+                  {onboardingHint && (
+                    <div className={styles.card}>
+                      <p className={styles.cardTitle}>Cómo avanzar</p>
+                      <p className={styles.muted}>1) Pulsa Start para auto-combat. 2) Usa Collect para cobrar. 3) Sube de nivel a un héroe y vuelve al combate.</p>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -144,21 +206,30 @@ export default function AfkPage() {
                 <div className={styles.grid} style={{ gridTemplateColumns: "2fr 1fr" }}>
                   <div className={styles.card}>
                     <p className={styles.sectionTitle}>Roster</p>
-                    <div className={styles.list}>
-                      {player.heroes.map((hero) => (
-                        <div key={hero.id} className={styles.heroRow}>
-                          <div className={styles.heroInfo}>
-                            <strong>{hero.name}</strong>
-                            <span className={styles.muted}>Nivel {hero.level} · Poder {format(hero.power)}</span>
-                            <span className={styles.muted}>Rol {hero.role} · {hero.rarity}</span>
-                          </div>
-                          <div className={styles.actions}>
-                            <button className={styles.buttonGhost} onClick={() => setSelectedHeroId(hero.id)}>Detalle</button>
-                            <button className={styles.buttonPrimary} onClick={() => upgradeHero(hero.id)}>Upgrade</button>
-                          </div>
+                    {player.heroes.length === 0 ? (
+                      <div className={styles.emptyState}>
+                        <p>No tienes héroes aún.</p>
+                        <div className={styles.actions} style={{ marginTop: 8 }}>
+                          <button className={styles.buttonPrimary} onClick={recruitHero}>Recruit</button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className={styles.list}>
+                        {player.heroes.map((hero) => (
+                          <div key={hero.id} className={`${styles.heroRow} ${styles.transitionCard}`}>
+                            <div className={styles.heroInfo}>
+                              <strong>{hero.name}</strong>
+                              <span className={styles.muted}>Nivel {hero.level} · Poder {format(hero.power)}</span>
+                              <span className={styles.muted}>Rol {hero.role} · {hero.rarity}</span>
+                            </div>
+                            <div className={styles.actions}>
+                              <button className={styles.buttonGhost} onClick={() => setSelectedHeroId(hero.id)}>Detalle</button>
+                              <button className={styles.buttonPrimary} onClick={() => upgradeHero(hero.id)}>Upgrade</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className={styles.card}>
                     <p className={styles.sectionTitle}>Detalle</p>
@@ -201,12 +272,12 @@ export default function AfkPage() {
                     </div>
                     <p className={styles.muted} style={{ marginTop: 8 }}>Log de combate</p>
                     <div className={styles.combatLog}>
+                      {events.length === 0 && <p className={styles.muted}>Aún sin eventos. Ejecuta un combate para ver actividad.</p>}
                       {events.slice(0, 8).map((ev) => (
-                        <div key={ev.id} className={styles.logLine}>
+                        <div key={ev.id} className={`${styles.logLine} ${styles.fadeIn}`}>
                           {ev.text}
                         </div>
                       ))}
-                      {events.length === 0 && <p className={styles.muted}>Aún sin eventos.</p>}
                     </div>
                   </div>
                   <div className={styles.card}>
@@ -265,6 +336,24 @@ export default function AfkPage() {
                     />
                     <div className={styles.actions} style={{ marginTop: 8 }}>
                       <button className={styles.buttonPrimary} onClick={() => importState(importText)}>Importar</button>
+                    </div>
+                    <div className={styles.actions} style={{ marginTop: 12 }}>
+                      <label className={styles.muted}>
+                        <input
+                          type="checkbox"
+                          checked={demoMode}
+                          onChange={(e) => {
+                            setDemoMode(e.target.checked);
+                            if (e.target.checked) {
+                              loadDemoState();
+                            } else {
+                              resetState();
+                            }
+                          }}
+                          style={{ marginRight: 6 }}
+                        />
+                        Demo mode (rellena estado base)
+                      </label>
                     </div>
                   </div>
                   <div className={styles.card}>

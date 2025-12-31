@@ -50,6 +50,8 @@ export interface AfkStore {
   startBattle: () => void;
   upgradeHero: (heroId: string) => void;
   buyUpgrade: (upgradeId: string) => void;
+  recruitHero: () => void;
+  loadDemoState: () => void;
   exportState: () => string;
   importState: (payload: string) => void;
   resetState: () => void;
@@ -234,6 +236,33 @@ export function useAfkGame(): AfkStore {
     });
   };
 
+  const recruitHero = () => {
+    setPlayer((current) => {
+      const next = current ? structuredClone(current) : createAfkPlayer(Date.now());
+      const id = `hero-${next.heroes.length + 1}`;
+      next.heroes.push({
+        id,
+        name: `Hero ${next.heroes.length + 1}`,
+        level: 1,
+        power: 10 + next.heroes.length * 3,
+        role: "fighter",
+        rarity: "common",
+      });
+      next.activeHeroIds.push(id);
+      recordEvent("Nuevo héroe reclutado");
+      addToast("Heroe reclutado", "success");
+      return next;
+    });
+  };
+
+  const loadDemoState = () => {
+    const demo = createDemoState();
+    stateRef.current = demo;
+    setPlayer(demo);
+    recordEvent("Demo mode activado");
+    addToast("Demo listo", "info");
+  };
+
   const exportState = (): string => {
     if (!player) return "";
     return JSON.stringify(player, null, 2);
@@ -285,6 +314,8 @@ export function useAfkGame(): AfkStore {
     startBattle,
     upgradeHero,
     buyUpgrade,
+    recruitHero,
+    loadDemoState,
     exportState,
     importState,
     resetState,
@@ -305,4 +336,46 @@ function loadState(): AfkPlayerState | null {
 function persistState(state: AfkPlayerState) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function createDemoState(): AfkPlayerState {
+  const now = Date.now();
+  const base = createAfkPlayer(now);
+  base.resources = { gold: 500, essence: 120 };
+  base.stage = {
+    id: "stage-1",
+    index: 1,
+    enemyPower: 20,
+    reward: { gold: 12, essence: 3 },
+    progress: 0.4,
+    milestone: true,
+  };
+  base.heroes = [
+    { id: "demo-1", name: "Nova", level: 3, power: 35, role: "fighter", rarity: "rare", skills: ["Strike"] },
+    { id: "demo-2", name: "Vexa", level: 2, power: 28, role: "mage", rarity: "rare", skills: ["Bolt"] },
+    { id: "demo-3", name: "Tala", level: 1, power: 22, role: "support", rarity: "common", skills: ["Heal"] },
+  ];
+  base.activeHeroIds = ["demo-1", "demo-2", "demo-3"];
+  base.upgrades = [
+    {
+      id: "u-resource",
+      name: "Resource Flow",
+      level: 1,
+      cost: { gold: 10, essence: 1 },
+      effect: { resourceRate: 0.1 },
+      unlocked: true,
+    },
+    {
+      id: "u-combat",
+      name: "Combat Instinct",
+      level: 1,
+      cost: { gold: 15, essence: 2 },
+      effect: { combatPower: 0.15 },
+      unlocked: true,
+    },
+  ];
+  base.unlocks = { home: true, heroes: true, upgrades: true, settings: true };
+  base.afkBank = { gold: 50, essence: 10 };
+  base.lastTickAt = now;
+  return base;
 }
