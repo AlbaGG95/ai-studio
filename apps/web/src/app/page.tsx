@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { buildApiUrl, getApiBaseUrl } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api";
 import styles from "./page.module.css";
 
 type GenerationResponse = {
   id?: string;
   projectId?: string;
+  route?: string;
+  templateId?: string;
   message?: string;
   error?: string;
   ok?: boolean;
@@ -16,6 +18,14 @@ type GenerationResponse = {
   staticPreviewUrl?: string;
   createdAt?: string;
   project?: { id?: string };
+};
+
+type ProjectListItem = {
+  id: string;
+  title?: string;
+  templateId?: string;
+  spec?: { type?: string };
+  route?: string;
 };
 
 export default function HomePage() {
@@ -50,8 +60,8 @@ export default function HomePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: trimmedName,
-          description: trimmedPrompt || undefined,
+          title: trimmedName || "Untitled",
+          prompt: trimmedPrompt || trimmedName || "Idle RPG offline",
         }),
       });
 
@@ -137,7 +147,7 @@ export default function HomePage() {
       const response = await fetch(buildApiUrl("/api/projects"), { cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (response.ok && Array.isArray(data.projects)) {
-        setProjects(data.projects);
+        setProjects(data.projects as ProjectListItem[]);
       }
     } catch {
       // ignore
@@ -223,21 +233,28 @@ export default function HomePage() {
             </div>
             {projects.length === 0 && <p className={styles.muted}>Sin proyectos aún.</p>}
             <div className={styles.heroGrid}>
-              {projects.map((project) => (
+              {projects.map((project) => {
+                const projectId = project.id;
+                const templateId = project.templateId ?? project.spec?.type ?? "?";
+                const playHref = projectId ? `/play?projectId=${encodeURIComponent(projectId)}` : null;
+                return (
                 <div key={project.id} className={styles.heroCard}>
                   <p className={styles.itemTitle}>{project.title || project.id}</p>
                   <p className={styles.subtle}>Tipo: {project.spec?.type ?? "?"}</p>
-                  <p className={styles.subtle}>Template: {project.templateId ?? "?"}</p>
+                  <p className={styles.subtle}>Template: {templateId}</p>
                   <div className={styles.actions}>
-                    <Link
-                      className={styles.link}
-                      href={project.generated?.route ? project.generated.route : `/play?projectId=${project.id}`}
-                    >
-                      Jugar
-                    </Link>
+                    {playHref ? (
+                      <Link className={styles.link} href={playHref}>
+                        Jugar
+                      </Link>
+                    ) : (
+                      <button className={styles.link} disabled>
+                        Jugar
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           </div>
         )}

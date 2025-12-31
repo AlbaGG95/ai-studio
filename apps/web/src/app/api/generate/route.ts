@@ -1,12 +1,10 @@
 "use server";
 
-import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import { interpretToSpec } from "../../../../../../lib/specInterpreter";
 import { validateGameSpec } from "../../../../../../lib/gameSpec";
 import { getTemplates, selectTemplate, TemplateId } from "../../../../../../lib/templates/registry";
+import { buildProjectRecord, persistProject } from "../../../lib/projects";
 
 type GenerateBody = { title?: string; prompt?: string };
 
@@ -61,25 +59,10 @@ export async function POST(request: Request) {
       generated = template.build(spec);
     }
 
-    if (!generated?.route) {
-      return cors(NextResponse.json({ error: "Template build failed" }, { status: 500 }));
-    }
-
-    const projectId = `proj-${randomUUID()}`;
-    const record = {
-      id: projectId,
-      schemaVersion: 1,
-      specVersion: spec.version,
-      title: title || spec.title,
-      prompt,
-      spec,
-      templateId: template.id,
-      generated,
-      createdAt: new Date().toISOString(),
-    };
+    const record = buildProjectRecord(spec, template, generated);
 
     try {
-      await persist(record);
+      await persistProject(record);
     } catch (err) {
       console.warn("Failed to persist project; returning response anyway", err);
     }
@@ -87,10 +70,10 @@ export async function POST(request: Request) {
     return cors(
       NextResponse.json(
         {
-          projectId,
-          spec,
-          templateId: template.id,
-          route: generated.route,
+          projectId: record.id,
+          spec: record.spec,
+          templateId: record.templateId,
+          route: record.route,
         },
         { status: 200 }
       )
@@ -148,20 +131,4 @@ function checkRateLimit(ip: string) {
   }
   bucket.count += 1;
   return true;
-}
-
-async function persist(record: any) {
-  // Attempt to save under repo root data/projects; fallback to local .data
-  const repoRoot = path.resolve(process.cwd(), "../../..");
-  const primaryDir = path.join(repoRoot, "data", "projects");
-  const fallbackDir = path.join(process.cwd(), ".data", "projects");
-
-  try {
-    await mkdir(primaryDir, { recursive: true });
-    await writeFile(path.join(primaryDir, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
-    return;
-  } catch {
-    await mkdir(fallbackDir, { recursive: true });
-    await writeFile(path.join(fallbackDir, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
-  }
 }

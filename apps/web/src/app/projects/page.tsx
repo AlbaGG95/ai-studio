@@ -10,10 +10,13 @@ type Project = {
   projectId?: string;
   id?: string;
   name?: string;
-  description?: string;
   createdAt?: string;
+  title?: string;
+  description?: string;
   previewUrl?: string;
   status?: string;
+  templateId?: string;
+  spec?: { type?: string };
 };
 
 export default function ProjectsPage() {
@@ -124,11 +127,13 @@ export default function ProjectsPage() {
                   className={styles.listItem}
                 >
                   <div>
-                    <p className={styles.itemTitle}>{project.name ?? "Proyecto sin nombre"}</p>
+                    <p className={styles.itemTitle}>{project.title ?? project.name ?? "Proyecto sin nombre"}</p>
                     {project.description && <p className={styles.muted}>{project.description}</p>}
                     {(project.id || project.projectId) && (
                       <p className={styles.subtle}>ID: {project.projectId ?? project.id}</p>
                     )}
+                    {project.templateId && <p className={styles.subtle}>Template: {project.templateId}</p>}
+                    {project.spec?.type && <p className={styles.subtle}>Tipo: {project.spec.type}</p>}
                     {project.createdAt && (
                       <p className={styles.subtle}>
                         Creado: {new Date(project.createdAt).toLocaleString()}

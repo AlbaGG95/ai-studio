@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Phaser from "phaser";
 import { EngineCombatState, UnitRuntimeState } from "@ai-studio/core";
 import styles from "./play.module.css";
@@ -1120,64 +1120,86 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<BattleScene | null>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
+  const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    if (gameRef.current) {
-      gameRef.current.destroy(true);
-      gameRef.current = null;
-      sceneRef.current = null;
+    if (!containerRef.current || fallbackMessage) return;
+    try {
+      if (gameRef.current) {
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+        sceneRef.current = null;
+      }
+      const scene = new BattleScene(tickMs);
+      sceneRef.current = scene;
+      const rect = containerRef.current.getBoundingClientRect();
+      const { width, height } = computeCanvasSize(rect);
+      const game = new Phaser.Game({
+        type: Phaser.AUTO,
+        parent: containerRef.current,
+        width,
+        height,
+        backgroundColor: "#0b0f1a",
+        scene: scene,
+        scale: {
+          mode: Phaser.Scale.NONE,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
+        render: { antialias: true, roundPixels: true, pixelArt: false },
+      });
+      gameRef.current = game;
+      scene.setHeroArt(heroArt, projectId, seed);
+
+      const handleResize = () => {
+        if (!containerRef.current || !game.scale) return;
+        const bounds = containerRef.current.getBoundingClientRect();
+        const { width: w, height: h } = computeCanvasSize(bounds);
+        game.scale.resize(w, h);
+        sceneRef.current?.resize(w, h);
+      };
+      const resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(containerRef.current);
+
+      return () => {
+        resizeObserver.disconnect();
+        game.destroy(true);
+        sceneRef.current = null;
+        gameRef.current = null;
+      };
+    } catch (err) {
+      console.warn("BattleCanvas init failed, falling back to log view", err);
+      setFallbackMessage("Visualizador no disponible. Mostrando log de combate.");
     }
-    const resolution = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
-    const scene = new BattleScene(tickMs);
-    sceneRef.current = scene;
-    const rect = containerRef.current.getBoundingClientRect();
-    const { width, height } = computeCanvasSize(rect);
-    const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: containerRef.current,
-      width,
-      height,
-      backgroundColor: "#0b0f1a",
-      scene: scene,
-      scale: {
-        mode: Phaser.Scale.NONE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-      render: { antialias: true, roundPixels: true, pixelArt: false },
-    });
-    gameRef.current = game;
-    scene.setHeroArt(heroArt, projectId, seed);
-
-    const handleResize = () => {
-      if (!containerRef.current || !game.scale) return;
-      const bounds = containerRef.current.getBoundingClientRect();
-      const { width: w, height: h } = computeCanvasSize(bounds);
-      game.scale.resize(w, h);
-      sceneRef.current?.resize(w, h);
-    };
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-      game.destroy(true);
-      sceneRef.current = null;
-      gameRef.current = null;
-    };
-  }, [tickMs, heroArt, projectId, seed]);
+  }, [tickMs, heroArt, projectId, seed, fallbackMessage]);
 
   useEffect(() => {
+    if (fallbackMessage) return;
     sceneRef.current?.setHeroArt(heroArt, projectId, seed);
     if (combat) {
       sceneRef.current?.updateCombat(combat, []);
     }
-  }, [heroArt, projectId, seed, combat]);
+  }, [heroArt, projectId, seed, combat, fallbackMessage]);
 
   useEffect(() => {
+    if (fallbackMessage) return;
     if (!sceneRef.current) return;
     sceneRef.current.updateCombat(combat, logs);
-  }, [combat, logs]);
+  }, [combat, logs, fallbackMessage]);
+
+  if (fallbackMessage) {
+    return (
+      <div className={styles.battleCanvas}>
+        <p className={styles.error}>{fallbackMessage}</p>
+        <ul className={styles.muted}>
+          {(logs || []).slice(-5).map((log, idx) => (
+            <li key={`${log.tick}-${idx}`}>
+              {log.tick}: {log.actor} {log.action} {log.target ? `-> ${log.target}` : ""}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return <div ref={containerRef} className={styles.battleCanvas} />;
 }

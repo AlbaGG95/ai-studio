@@ -5,7 +5,7 @@ import Link from "next/link";
 import styles from "../page.module.css";
 import { interpretToSpec } from "../../../../../lib/specInterpreter";
 import { selectTemplate } from "../../../../../lib/templates/registry";
-import { buildApiUrl, getApiBaseUrl } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api";
 
 type Recent = { id: string; title: string; templateId: string; route: string };
 
@@ -52,9 +52,10 @@ export default function PlaygroundPage() {
       if (!response.ok || data?.error) {
         throw new Error(data?.error || `Request failed ${response.status}`);
       }
-      const route = data.route || `/play?projectId=${data.projectId}`;
-      setGeneratedRoute(route.startsWith("http") ? route : `${getApiBaseUrl()}${route}`);
-      pushRecent({ id: data.projectId, title: data.spec?.title || trimmedTitle, templateId: data.templateId, route });
+      const playRoute = data.projectId ? `/play?projectId=${encodeURIComponent(data.projectId)}` : data.route;
+      const normalized = playRoute?.startsWith("http") ? playRoute : playRoute;
+      setGeneratedRoute(normalized);
+      pushRecent({ id: data.projectId, title: data.spec?.title || trimmedTitle, templateId: data.templateId, route: playRoute });
       setStatus("Ready. Click Play.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate");
@@ -143,7 +144,7 @@ export default function PlaygroundPage() {
               <div key={r.id} className={styles.heroCard}>
                 <p className={styles.itemTitle}>{r.title}</p>
                 <p className={styles.subtle}>Template: {r.templateId}</p>
-                <Link className={styles.link} href={r.route.startsWith("http") ? r.route : `${getApiBaseUrl()}${r.route}`}>
+                <Link className={styles.link} href={r.route.startsWith("http") ? r.route : r.route}>
                   Play
                 </Link>
               </div>

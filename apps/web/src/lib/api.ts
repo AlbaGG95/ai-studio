@@ -9,8 +9,6 @@ const FALLBACK_PORT = (() => {
 })();
 
 const stripTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-const ensureTrailingSlash = (value: string) =>
-  value.endsWith("/") ? value : `${value}/`;
 
 export function getApiBaseUrl() {
   const envBase =
@@ -31,8 +29,15 @@ export function getApiBaseUrl() {
 }
 
 export function buildApiUrl(path: string) {
-  const base = getApiBaseUrl();
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  const envBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
+  const localPreferred =
+    normalized.startsWith("/api/projects") || normalized.startsWith("/api/generate");
+  if (!envBase && localPreferred) {
+    return normalized;
+  }
+  const base = envBase ? stripTrailingSlash(envBase) : getApiBaseUrl();
+  return `${base}${normalized}`;
 }
 
 type ProjectLike = {
@@ -41,20 +46,7 @@ type ProjectLike = {
   id?: string;
 };
 
-function toAbsoluteUrl(candidate: string, apiBase: string) {
-  if (candidate.startsWith("http")) return candidate;
-  if (candidate.startsWith("/")) return `${apiBase}${candidate}`;
-  return `${apiBase}/${candidate}`;
-}
-
-export function buildPreviewUrl(project: ProjectLike, apiBase?: string) {
-  const base = stripTrailingSlash(apiBase || getApiBaseUrl());
-  const preview = project.previewUrl;
-
-  if (preview && preview.length > 0) {
-    return ensureTrailingSlash(toAbsoluteUrl(preview, base));
-  }
-
+export function buildPreviewUrl(project: ProjectLike) {
   const projectId = project.projectId || project.id || "";
-  return ensureTrailingSlash(`${base}/preview/${projectId}`);
+  return projectId ? `/play?projectId=${encodeURIComponent(projectId)}` : "/";
 }
