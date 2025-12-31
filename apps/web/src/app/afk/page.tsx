@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./afk.module.css";
 import { AfkView, useAfkGame } from "@/lib/afkStore";
+import { GameConfig, gameConfigs, defaultGameConfigId } from "@/config/gameConfigs";
 
 const views: { id: AfkView; label: string; hint: string }[] = [
   { id: "home", label: "Home", hint: "Resumen y claim" },
@@ -24,7 +25,29 @@ export default function AfkPage() {
   const [collecting, setCollecting] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [pulse, setPulse] = useState({ gold: false, essence: false, bank: false });
+  const [configId, setConfigId] = useState<string>(defaultGameConfigId);
   const prevResources = useRef({ gold: 0, essence: 0, bankGold: 0, bankEssence: 0 });
+  const themeStyle = useMemo<CSSProperties>(() => {
+    const colors = config.themeTokens.colors;
+    return {
+      ["--theme-bg-1" as string]: colors.bg1,
+      ["--theme-bg-2" as string]: colors.bg2,
+      ["--theme-panel" as string]: colors.panel,
+      ["--theme-border" as string]: colors.border,
+      ["--theme-text" as string]: colors.text,
+      ["--theme-muted" as string]: colors.muted,
+      ["--theme-accent" as string]: colors.accent,
+      ["--theme-accent-strong" as string]: colors.accentStrong,
+      ["--theme-success" as string]: colors.success,
+      ["--theme-warn" as string]: colors.warn,
+      ["--theme-info" as string]: colors.info,
+      ["--theme-gradient-start" as string]: colors.gradientStart,
+      ["--theme-gradient-end" as string]: colors.gradientEnd,
+      ["--theme-nav-bg" as string]: colors.navBg ?? "rgba(22, 30, 50, 0.9)",
+      fontFamily: config.themeTokens.typography?.body,
+    };
+  }, [config]);
+
   const {
     player,
     loading,
@@ -42,13 +65,29 @@ export default function AfkPage() {
     exportState,
     importState,
     resetState,
-  } = useAfkGame();
+  } = useAfkGame(config);
 
   useEffect(() => {
     if (player && !selectedHeroId && player.heroes.length) {
       setSelectedHeroId(player.heroes[0].id);
     }
   }, [player, selectedHeroId]);
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem("afk-config-id") : null;
+    if (stored) setConfigId(stored);
+  }, []);
+
+  const config = useMemo(() => {
+    const found = gameConfigs.find((c) => c.id === configId) ?? gameConfigs[0];
+    return found;
+  }, [configId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("afk-config-id", config.id);
+    }
+  }, [config.id]);
 
   useEffect(() => {
     if (!player) return;
@@ -78,7 +117,7 @@ export default function AfkPage() {
   const onboardingHint = !loading && player && player.stage.index <= 1 && stageProgress < 0.05;
 
   return (
-    <main className={styles.page}>
+    <main className={styles.page} style={themeStyle}>
       <div className={styles.toastWrap}>
         {toasts.map((toast) => (
           <div key={toast.id} className={`${styles.toast} ${styles[toast.tone]}`}>
@@ -88,7 +127,7 @@ export default function AfkPage() {
       </div>
       <div className={styles.shell}>
         <aside className={styles.nav}>
-          <div className={styles.brand}>AFK Loop</div>
+          <div className={styles.brand}>{config.name}</div>
           <p className={styles.navStats}>Recursos · oro {format(player?.resources.gold)} · esencia {format(player?.resources.essence)}</p>
           <p className={styles.navStats}>Stage · {player?.stage.index ?? 1}</p>
           <div className={styles.navList}>
@@ -107,8 +146,10 @@ export default function AfkPage() {
         <section className={styles.content}>
           <div className={styles.header}>
             <div>
-              <p className={styles.kicker}>Idle RPG</p>
-              <h1 className={styles.title}>AFK Arena-like UI</h1>
+              <p className={styles.kicker}>{config.strings.title}</p>
+              <h1 className={styles.title} style={{ fontFamily: config.themeTokens.typography?.heading }}>
+                {config.strings.tagline}
+              </h1>
               <p className={styles.muted}>Loop, heroes, upgrades y settings persistentes.</p>
             </div>
             <div className={styles.actions}>
@@ -121,10 +162,10 @@ export default function AfkPage() {
                 }}
                 disabled={loading || !player || collecting}
               >
-                Collect
+                {config.strings.collectCta}
               </button>
               <button className={styles.buttonPrimary} onClick={startBattle} disabled={loading || !player}>
-                Start / Auto
+                {config.strings.startCta}
               </button>
             </div>
           </div>
@@ -186,7 +227,7 @@ export default function AfkPage() {
                       </div>
                     </div>
                     <div className={styles.card}>
-                      <p className={styles.label}>Banco AFK</p>
+                      <p className={styles.label}>{config.strings.bankLabel}</p>
                       <p className={`${styles.cardTitle} ${pulse.bank ? styles.fadeIn : ""}`}>
                         +{format(banked.gold)} oro / +{format(banked.essence)} esencia
                       </p>
@@ -264,7 +305,7 @@ export default function AfkPage() {
                         <p className={styles.muted}>Enemy Power {format(player.stage.enemyPower)}</p>
                       </div>
                       <div className={styles.actions}>
-                        <button className={styles.buttonPrimary} onClick={startBattle}>Start</button>
+                        <button className={styles.buttonPrimary} onClick={startBattle}>{config.strings.startCta}</button>
                       </div>
                     </div>
                     <div className={styles.progressBar}>
@@ -324,6 +365,22 @@ export default function AfkPage() {
                 <div className={styles.grid}>
                   <div className={styles.card}>
                     <p className={styles.sectionTitle}>Persistencia</p>
+                    <div className={styles.actions} style={{ marginBottom: 8 }}>
+                      <label className={styles.muted}>
+                        Skin / Config:
+                        <select
+                          value={configId}
+                          onChange={(e) => setConfigId(e.target.value)}
+                          style={{ marginLeft: 8, padding: "6px 8px", borderRadius: 8 }}
+                        >
+                          {gameConfigs.map((cfg) => (
+                            <option key={cfg.id} value={cfg.id}>
+                              {cfg.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                     <div className={styles.actions}>
                       <button className={styles.buttonPrimary} onClick={() => setImportText(exportState())}>Exportar</button>
                       <button className={styles.buttonGhost} onClick={resetState}>Reset (dev)</button>

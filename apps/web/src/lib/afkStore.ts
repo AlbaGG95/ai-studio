@@ -17,6 +17,7 @@ import {
   runAfkTicks,
   simulateAfkCombat,
 } from "@ai-studio/core";
+import { GameConfig } from "@/config/gameConfigs";
 
 const STORAGE_KEY = "afk-state-v1";
 const TICK_MS = 1000;
@@ -59,14 +60,14 @@ export interface AfkStore {
 
 const emptyReward: AfkReward = { gold: 0, essence: 0 };
 
-function baseTickReward(state: AfkPlayerState): AfkReward {
+function baseTickReward(state: AfkPlayerState, config: GameConfig): AfkReward {
   const stageReward = state.stage.reward;
-  const gold = Math.max(1, Math.round(stageReward.gold * 0.15));
-  const essence = Math.max(0, Math.round(stageReward.essence * 0.25));
+  const gold = Math.max(config.balance.baseGoldPerTick, Math.round(stageReward.gold * 0.15 * config.balance.rewardMultiplier));
+  const essence = Math.max(config.balance.baseEssencePerTick, Math.round(stageReward.essence * 0.25 * config.balance.rewardMultiplier));
   return { gold, essence };
 }
 
-export function useAfkGame(): AfkStore {
+export function useAfkGame(config: GameConfig): AfkStore {
   const [player, setPlayer] = useState<AfkPlayerState | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<AfkEvent[]>([]);
@@ -84,14 +85,14 @@ export function useAfkGame(): AfkStore {
   useEffect(() => {
     const saved = loadState();
     const now = Date.now();
-    let initial = saved ?? createAfkPlayer(now);
+    let initial = saved ? applyConfigToState(saved, config) : applyConfigToState(createAfkPlayer(now), config);
     if (saved) {
-      const synced = applyAfkOfflineProgress(saved, now, {
+      const synced = applyAfkOfflineProgress(initial, now, {
         tickMs: TICK_MS,
         offlineCapHours: OFFLINE_CAP_HOURS,
         progressPerTick: PROGRESS_PER_TICK,
       });
-      initial = synced.state;
+      initial = applyConfigToState(synced.state, config);
       if (synced.ticks > 0) {
         addToast("Se aplicaron recompensas offline", "info");
         recordEvent(`Offline: +${synced.ticks} ticks aplicados`);
@@ -100,7 +101,7 @@ export function useAfkGame(): AfkStore {
     stateRef.current = { ...initial, lastTickAt: now };
     setPlayer(stateRef.current);
     setLoading(false);
-  }, []);
+  }, [config]);
 
   useEffect(() => {
     if (!player) return;
@@ -113,12 +114,12 @@ export function useAfkGame(): AfkStore {
     const timer = setInterval(() => {
       const current = stateRef.current;
       if (!current) return;
-      const reward = baseTickReward(current);
+      const reward = baseTickReward(current, config);
       const result = runAfkTicks(current, { ...tickCtx, now: Date.now() }, reward);
       handleTickResult(result);
     }, TICK_MS);
     return () => clearInterval(timer);
-  }, [player, tickCtx]);
+  }, [player, tickCtx, config]);
 
   const addToast = (text: string, tone: ToastTone = "info") => {
     const id = ++toastId.current;
@@ -238,15 +239,22 @@ export function useAfkGame(): AfkStore {
 
   const recruitHero = () => {
     setPlayer((current) => {
-      const next = current ? structuredClone(current) : createAfkPlayer(Date.now());
+      const next = current ? structuredClone(current) : applyConfigToState(createAfkPlayer(Date.now()), config);
+      const template = config.contentData.heroes[next.heroes.length % config.contentData.heroes.length] ?? {
+        name: `Hero ${next.heroes.length + 1}`,
+        role: "fighter",
+        rarity: "common",
+        power: 12,
+        level: 1,
+      };
       const id = `hero-${next.heroes.length + 1}`;
       next.heroes.push({
         id,
-        name: `Hero ${next.heroes.length + 1}`,
-        level: 1,
-        power: 10 + next.heroes.length * 3,
-        role: "fighter",
-        rarity: "common",
+        name: template.name,
+        level: template.level,
+        power: template.power,
+        role: template.role,
+        rarity: template.rarity,
       });
       next.activeHeroIds.push(id);
       recordEvent("Nuevo héroe reclutado");
@@ -256,7 +264,7 @@ export function useAfkGame(): AfkStore {
   };
 
   const loadDemoState = () => {
-    const demo = createDemoState();
+    const demo = createDemoState(config);
     stateRef.current = demo;
     setPlayer(demo);
     recordEvent("Demo mode activado");
@@ -272,8 +280,9 @@ export function useAfkGame(): AfkStore {
     try {
       const parsed = JSON.parse(payload) as AfkPlayerState;
       parsed.lastTickAt = Date.now();
-      stateRef.current = parsed;
-      setPlayer(parsed);
+      const hydrated = applyConfigToState(parsed, config);
+      stateRef.current = hydrated;
+      setPlayer(hydrated);
       addToast("Estado importado", "success");
       recordEvent("Import manual");
     } catch {
@@ -282,7 +291,7 @@ export function useAfkGame(): AfkStore {
   };
 
   const resetState = () => {
-    const fresh = createAfkPlayer(Date.now());
+    const fresh = applyConfigToState(createAfkPlayer(Date.now()), config);
     stateRef.current = fresh;
     setPlayer(fresh);
     recordEvent("Estado reiniciado");
@@ -291,14 +300,14 @@ export function useAfkGame(): AfkStore {
 
   const idlePerMinute = useMemo(() => {
     if (!player) return emptyReward;
-    const base = baseTickReward(player);
+    const base = baseTickReward(player, config);
     const perTick = computeAfkTickIncome(player, base);
     const factor = (60 * 1000) / TICK_MS;
     return {
       gold: Math.round(perTick.gold * factor),
       essence: Math.round(perTick.essence * factor),
     };
-  }, [player]);
+  }, [player, config]);
 
   const banked = useMemo(() => player?.afkBank ?? emptyReward, [player]);
 
@@ -338,44 +347,61 @@ function persistState(state: AfkPlayerState) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function createDemoState(): AfkPlayerState {
+function createDemoState(config: GameConfig): AfkPlayerState {
   const now = Date.now();
-  const base = createAfkPlayer(now);
+  let base = applyConfigToState(createAfkPlayer(now), config);
   base.resources = { gold: 500, essence: 120 };
   base.stage = {
     id: "stage-1",
     index: 1,
-    enemyPower: 20,
-    reward: { gold: 12, essence: 3 },
+    enemyPower: config.contentData.stage.enemyPower,
+    reward: config.contentData.stage.reward,
     progress: 0.4,
     milestone: true,
   };
-  base.heroes = [
-    { id: "demo-1", name: "Nova", level: 3, power: 35, role: "fighter", rarity: "rare", skills: ["Strike"] },
-    { id: "demo-2", name: "Vexa", level: 2, power: 28, role: "mage", rarity: "rare", skills: ["Bolt"] },
-    { id: "demo-3", name: "Tala", level: 1, power: 22, role: "support", rarity: "common", skills: ["Heal"] },
-  ];
-  base.activeHeroIds = ["demo-1", "demo-2", "demo-3"];
-  base.upgrades = [
-    {
-      id: "u-resource",
-      name: "Resource Flow",
-      level: 1,
-      cost: { gold: 10, essence: 1 },
-      effect: { resourceRate: 0.1 },
-      unlocked: true,
-    },
-    {
-      id: "u-combat",
-      name: "Combat Instinct",
-      level: 1,
-      cost: { gold: 15, essence: 2 },
-      effect: { combatPower: 0.15 },
-      unlocked: true,
-    },
-  ];
+  base.heroes = config.contentData.heroes.map((hero, idx) => ({
+    id: `demo-${idx + 1}`,
+    name: hero.name,
+    level: hero.level,
+    power: hero.power,
+    role: hero.role,
+    rarity: hero.rarity,
+  }));
+  base.activeHeroIds = base.heroes.map((h) => h.id);
+  base.upgrades = base.upgrades.map((upg, idx) => ({
+    ...upg,
+    name: config.contentData.upgrades[idx]?.name ?? upg.name,
+  }));
   base.unlocks = { home: true, heroes: true, upgrades: true, settings: true };
   base.afkBank = { gold: 50, essence: 10 };
   base.lastTickAt = now;
   return base;
+}
+
+function applyConfigToState(state: AfkPlayerState, config: GameConfig): AfkPlayerState {
+  const next = structuredClone(state);
+  const heroes = config.contentData.heroes;
+  next.heroes = next.heroes.map((hero, idx) => {
+    const template = heroes[idx % heroes.length];
+    return {
+      ...hero,
+      name: template?.name ?? hero.name,
+      role: template?.role ?? hero.role,
+      rarity: template?.rarity ?? hero.rarity,
+      power: template?.power ?? hero.power,
+      level: template?.level ?? hero.level,
+    };
+  });
+  if (next.stage.index <= 1) {
+    next.stage = {
+      ...next.stage,
+      enemyPower: config.contentData.stage.enemyPower,
+      reward: config.contentData.stage.reward,
+    };
+  }
+  next.upgrades = next.upgrades.map((upg, idx) => ({
+    ...upg,
+    name: config.contentData.upgrades[idx]?.name ?? upg.name,
+  }));
+  return next;
 }

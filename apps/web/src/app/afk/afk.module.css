@@ -1,7 +1,21 @@
 .page {
+  --bg-1: var(--theme-bg-1, #152036);
+  --bg-2: var(--theme-bg-2, #0d1425);
+  --panel: var(--theme-panel, #121a2e);
+  --border: var(--theme-border, #1f2b46);
+  --text: var(--theme-text, #e9edf5);
+  --muted: var(--theme-muted, #9fb1d9);
+  --accent: var(--theme-accent, #6bb5ff);
+  --accent-strong: var(--theme-accent-strong, #4b8bff);
+  --success: var(--theme-success, #4dd48a);
+  --warn: var(--theme-warn, #ffb347);
+  --info: var(--theme-info, #6bb5ff);
+  --gradient-start: var(--theme-gradient-start, #4b8bff);
+  --gradient-end: var(--theme-gradient-end, #68c6ff);
+  --nav-bg: var(--theme-nav-bg, rgba(22, 30, 50, 0.9));
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 20%, #152036, #0d1425 40%);
-  color: #e9edf5;
+  background: radial-gradient(circle at 20% 20%, var(--bg-1), var(--bg-2) 40%);
+  color: var(--text);
   padding: 32px;
 }
 
@@ -14,8 +28,8 @@
 }
 
 .nav {
-  background: rgba(22, 30, 50, 0.9);
-  border: 1px solid #1f2b46;
+  background: var(--nav-bg);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
   position: sticky;
@@ -34,7 +48,7 @@
 
 .navStats {
   font-size: 12px;
-  color: #9fb1d9;
+  color: var(--muted);
   margin-bottom: 12px;
 }
 
@@ -46,9 +60,9 @@
 .navButton {
   width: 100%;
   text-align: left;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   background: linear-gradient(90deg, #192741, #152036);
-  color: #e9edf5;
+  color: var(--text);
   border-radius: 12px;
   padding: 10px 12px;
   font-weight: 600;
@@ -59,12 +73,12 @@
 }
 
 .navButton:hover {
-  border-color: #3f73f7;
+  border-color: var(--accent);
   transform: translateX(2px);
 }
 
 .navButton.active {
-  border-color: #6bb5ff;
+  border-color: var(--accent);
   background: linear-gradient(90deg, #1f335a, #1a2943);
 }
 
@@ -94,7 +108,7 @@
 }
 
 .kicker {
-  color: #7ea4ff;
+  color: var(--accent);
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 1px;
@@ -108,8 +122,8 @@
 }
 
 .card {
-  background: #121a2e;
-  border: 1px solid #1f2b46;
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
@@ -122,7 +136,7 @@
 }
 
 .muted {
-  color: #9fb1d9;
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -140,14 +154,14 @@
   border-radius: 999px;
   background: rgba(111, 184, 255, 0.12);
   border: 1px solid rgba(111, 184, 255, 0.2);
-  color: #e9edf5;
+  color: var(--text);
   font-weight: 600;
 }
 
 .progressBar {
   width: 100%;
   background: #0b1222;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   border-radius: 10px;
   height: 12px;
   overflow: hidden;
@@ -155,7 +169,7 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, #6bb5ff, #7cf0ff);
+  background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
   transition: width 0.2s ease;
 }
 
@@ -171,19 +185,19 @@
 .toast {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   background: #152036;
-  color: #e9edf5;
+  color: var(--text);
   font-weight: 600;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
 }
 
 .toast.success {
-  border-color: #4dd48a;
+  border-color: var(--success);
 }
 
 .toast.warn {
-  border-color: #ffb347;
+  border-color: var(--warn);
 }
 
 .sectionTitle {
@@ -205,7 +219,7 @@
   gap: 12px;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   background: #0f172a;
 }
 
@@ -215,7 +229,7 @@
 }
 
 .label {
-  color: #9fb1d9;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -226,9 +240,9 @@
 }
 
 .buttonGhost {
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   background: transparent;
-  color: #e9edf5;
+  color: var(--text);
   border-radius: 10px;
   padding: 8px 12px;
 }
@@ -244,7 +258,7 @@
 
 .combatLog {
   background: #0d1526;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
   max-height: 220px;
@@ -272,10 +286,10 @@
   width: 100%;
   min-height: 120px;
   background: #0f172a;
-  border: 1px solid #1f2b46;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px;
-  color: #e9edf5;
+  color: var(--text);
 }
 
 .tag {
