@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { buildApiUrl } from "@/lib/api";
 import styles from "./page.module.css";
@@ -39,9 +39,29 @@ export default function HomePage() {
   const [lastProjectName, setLastProjectName] = useState<string | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [showProjects, setShowProjects] = useState(false);
+  const [apiOk, setApiOk] = useState<boolean>(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const trimmedName = useMemo(() => name.trim(), [name]);
   const trimmedPrompt = useMemo(() => prompt.trim(), [prompt]);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch("/api/health", { cache: "no-store" });
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        const data = await res.json().catch(() => ({}));
+        if (!data?.ok) throw new Error("Healthcheck not ok");
+        setApiOk(true);
+        setApiError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "API no disponible";
+        setApiOk(false);
+        setApiError(message);
+      }
+    };
+    checkHealth();
+  }, []);
 
   const handleCreate = async () => {
     if (!trimmedName) {
@@ -216,6 +236,11 @@ export default function HomePage() {
           <p className={styles.subtle}>
             Ultimo proyecto: {lastProjectName}
             {lastProjectId ? ` (${lastProjectId})` : ""}
+          </p>
+        )}
+        {!apiOk && (
+          <p className={styles.error}>
+            API no disponible en este puerto. {process.env.NODE_ENV !== "production" ? `Detalle: ${apiError ?? "network error"}` : ""}
           </p>
         )}
         {error && <p className={styles.error}>{error}</p>}
