@@ -5,6 +5,7 @@ import {
   createAfkPlayer,
   runAfkTicks,
   simulateAfkCombat,
+  applyAfkUpgrade,
 } from "../index.js";
 
 const NOW = Date.now();
@@ -39,4 +40,15 @@ test("offline sync respects cap", () => {
     progressPerTick: 0.1,
   });
   assert(res.ticks <= 4 * 60 * 60, "ticks should be capped by offline hours");
+});
+
+test("upgrades consume resources and increase level", () => {
+  const player = createAfkPlayer(NOW);
+  const withIncome = {
+    ...player,
+    resources: { gold: 100, essence: 20 },
+  };
+  const upgraded = applyAfkUpgrade(withIncome, withIncome.upgrades[0].id);
+  assert(upgraded.upgrades[0].level === withIncome.upgrades[0].level + 1);
+  assert(upgraded.resources.gold < withIncome.resources.gold);
 });

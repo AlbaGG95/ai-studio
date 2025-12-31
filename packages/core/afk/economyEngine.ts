@@ -81,8 +81,9 @@ export function applyUpgrade(state: PlayerState, id: string): PlayerState {
   if (!canAfford(next, cost)) return state;
   if (target.cap && target.level >= target.cap) return state;
 
-  const updated = payCost(next, cost);
+  next.resources.gold = Math.max(0, next.resources.gold - cost.gold);
+  next.resources.essence = Math.max(0, next.resources.essence - cost.essence);
   target.level += 1;
   target.unlocked = true;
-  return updated;
+  return next;
 }
