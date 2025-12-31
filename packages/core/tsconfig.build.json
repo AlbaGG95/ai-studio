@@ -7,6 +7,6 @@
     "declarationMap": false,
     "sourceMap": false
   },
-  "include": ["./index.ts", "./spec/**/*.ts", "./engine/**/*.ts", "./afk/**/*.ts", "./trivia/**/*.ts", "./runner/**/*.ts"],
+  "include": ["./index.ts", "./spec/**/*.ts", "./engine/**/*.ts", "./afk/**/*.ts", "./trivia/**/*.ts", "./runner/**/*.ts", "./tower/**/*.ts"],
   "exclude": ["./node_modules", "./dist"]
 }

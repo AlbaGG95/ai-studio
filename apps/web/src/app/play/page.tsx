@@ -10,6 +10,7 @@ import { buildApiUrl } from "@/lib/api";
 import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
 import { TriviaGame } from "./triviaGame";
 import { RunnerGame } from "./runnerGame";
+import { TowerGame } from "./towerGame";
 import styles from "./play.module.css";
 
 const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
@@ -722,6 +723,8 @@ function PlayPageContent() {
           />
         ) : templateId === "runner_endless" ? (
           <RunnerGame title={searchParams.get("title") || projectId || "Runner"} />
+        ) : templateId === "tower_defense_basic" ? (
+          <TowerGame title={searchParams.get("title") || projectId || "TD"} />
         ) : templateId === "placeholder_basic" ? (
           <PlaceholderGame title={searchParams.get("title") || projectId || "Juego"} templateId={templateId} />
         ) : (

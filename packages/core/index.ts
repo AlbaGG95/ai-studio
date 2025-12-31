@@ -62,6 +62,8 @@ export type { TriviaQuestion, TriviaState } from "./trivia/types.js";
 export { createTriviaState, answerQuestion } from "./trivia/engine.js";
 export type { RunnerState, RunnerConfig, RunnerObstacle, RunnerPlayer } from "./runner/types.js";
 export { createRunnerState, startRunner, stepRunner, restartRunner, DEFAULT_RUNNER_CONFIG } from "./runner/engine.js";
+export type { TowerDefenseState, TowerConfig, Tower, Enemy as TdEnemy } from "./tower/types.js";
+export { createTowerDefenseState, placeTower, startWave as startTowerWave, step as stepTower, DEFAULT_TD_CONFIG } from "./tower/engine.js";
 export type {
   Hero as AfkHero,
   PlayerState as AfkPlayerState,

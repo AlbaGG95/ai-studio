@@ -75,8 +75,13 @@ const templates: GameTemplate[] = [
     type: "tower_defense",
     canHandle: (spec) => spec.type === "tower_defense",
     build: (spec) => ({
-      route: "/play?template=td_basic",
-      config: { title: spec.title, content: spec.content },
+      route: `/play?templateId=${TemplateId.tower_defense_basic}&title=${encodeURIComponent(spec.title)}`,
+      config: {
+        title: spec.title,
+        content: spec.content,
+        theme: spec.theme,
+        rules: spec.rules,
+      },
       notes: ["Tower defense basic template"],
     }),
   },
