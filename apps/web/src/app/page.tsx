@@ -42,7 +42,7 @@ export default function HomePage() {
     setStatus(null);
 
     try {
-      const response = await fetch(buildApiUrl("/projects"), {
+      const response = await fetch(buildApiUrl("/api/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,7 +56,7 @@ export default function HomePage() {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(
-          data?.error || `POST /projects respondio ${response.status}`
+          data?.error || `POST /api/generate respondio ${response.status}`
         );
       }
 

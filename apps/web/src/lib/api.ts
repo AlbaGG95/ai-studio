@@ -1,4 +1,12 @@
-const FALLBACK = "http://localhost:4000";
+const FALLBACK = "http://localhost:4001";
+const FALLBACK_PORT = (() => {
+  try {
+    const url = new URL(FALLBACK);
+    return url.port || "4001";
+  } catch {
+    return "4001";
+  }
+})();
 
 const stripTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 const ensureTrailingSlash = (value: string) =>
@@ -14,7 +22,7 @@ export function getApiBaseUrl() {
   if (typeof window !== "undefined") {
     const { protocol, hostname, port } = window.location;
     if (port === "3000" || port === "") {
-      return `${protocol}//${hostname}:4000`;
+      return `${protocol}//${hostname}:${FALLBACK_PORT}`;
     }
     return `${protocol}//${hostname}${port ? `:${port}` : ""}`;
   }
