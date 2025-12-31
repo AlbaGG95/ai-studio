@@ -154,7 +154,6 @@ class BattleScene extends Phaser.Scene {
     this.floorPlane?.destroy();
     this.vignette?.destroy();
     this.arenaFocus?.destroy();
-    this.focusFloor?.destroy?.();
     const { w, h } = this.layout();
     this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.28).setDepth(2);
     this.midLine.setStrokeStyle(1, 0x25314b, 0.5);
@@ -420,6 +419,7 @@ class BattleScene extends Phaser.Scene {
       armor,
       weapon,
       auraFx,
+      spec,
     };
 
     vis.idleTween = this.tweens.add({
@@ -843,7 +843,8 @@ class BattleScene extends Phaser.Scene {
     if (this.hitStopActive) return;
     const clamped = Math.min(120, Math.max(60, durationMs));
     this.hitStopActive = true;
-    const tweens = this.tweens.getAllTweens();
+    const tweens =
+      (this.tweens as unknown as { getAllTweens?: () => Phaser.Tweens.Tween[] }).getAllTweens?.() || [];
     tweens.forEach((t) => t.pause());
     this.time.delayedCall(clamped, () => {
       tweens.forEach((t) => t.resume());
@@ -1144,7 +1145,6 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
       render: { antialias: true, roundPixels: true, pixelArt: false },
-      resolution,
     });
     gameRef.current = game;
     scene.setHeroArt(heroArt, projectId, seed);
@@ -1165,14 +1165,14 @@ export function BattleCanvas({ combat, logs, tickMs, heroArt, projectId, seed }:
       sceneRef.current = null;
       gameRef.current = null;
     };
-  }, [tickMs]);
+  }, [tickMs, heroArt, projectId, seed]);
 
   useEffect(() => {
     sceneRef.current?.setHeroArt(heroArt, projectId, seed);
     if (combat) {
       sceneRef.current?.updateCombat(combat, []);
     }
-  }, [heroArt, projectId, seed]);
+  }, [heroArt, projectId, seed, combat]);
 
   useEffect(() => {
     if (!sceneRef.current) return;

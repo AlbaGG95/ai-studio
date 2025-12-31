@@ -27,6 +27,10 @@ export default function AfkPage() {
   const [pulse, setPulse] = useState({ gold: false, essence: false, bank: false });
   const [configId, setConfigId] = useState<string>(defaultGameConfigId);
   const prevResources = useRef({ gold: 0, essence: 0, bankGold: 0, bankEssence: 0 });
+  const config = useMemo(() => {
+    const found = gameConfigs.find((c) => c.id === configId) ?? gameConfigs[0];
+    return found;
+  }, [configId]);
   const themeStyle = useMemo<CSSProperties>(() => {
     const colors = config.themeTokens.colors;
     return {
@@ -77,11 +81,6 @@ export default function AfkPage() {
     const stored = typeof window !== "undefined" ? window.localStorage.getItem("afk-config-id") : null;
     if (stored) setConfigId(stored);
   }, []);
-
-  const config = useMemo(() => {
-    const found = gameConfigs.find((c) => c.id === configId) ?? gameConfigs[0];
-    return found;
-  }, [configId]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {

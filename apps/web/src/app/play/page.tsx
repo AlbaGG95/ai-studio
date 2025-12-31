@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { EngineCombatState, EngineItem, EngineState, EngineUnitTemplate } from "@ai-studio/core";
 import dynamic from "next/dynamic";
@@ -56,7 +57,7 @@ async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data;
 }
 
-export default function PlayPage() {
+function PlayPageContent() {
   const searchParams = useSearchParams();
   const projectId = useMemo(() => searchParams.get("projectId"), [searchParams]);
   const [engineState, setEngineState] = useState<EngineState | null>(null);
@@ -473,7 +474,7 @@ export default function PlayPage() {
         </label>
         {!autoContinue && (
           <span className={styles.manualHint}>
-            Avanza manualmente tras ver resultados. Pulsa "Continuar stage" para seguir.
+            Avanza manualmente tras ver resultados. Pulsa Continuar stage para seguir.
           </span>
         )}
         {pendingManualContinue && !autoContinue && <span className={styles.readyPill}>Listo para continuar</span>}
@@ -555,10 +556,13 @@ export default function PlayPage() {
               <span className={styles.tag}>{hero.rarity}</span>
             </div>
             {heroArtMap[hero.id] && (
-              <img
+              <Image
                 src={getPortraitDataUri(heroArtMap[hero.id])}
                 alt={hero.name}
-                style={{ width: "100%", borderRadius: 12, margin: "8px 0", border: "1px solid #1f2b46" }}
+                width={320}
+                height={240}
+                style={{ width: "100%", height: "auto", borderRadius: 12, margin: "8px 0", border: "1px solid #1f2b46" }}
+                unoptimized
               />
             )}
             <p className={styles.subtle}>Rol: {hero.role} · Línea: {hero.position}</p>
@@ -712,5 +716,21 @@ export default function PlayPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className={styles.main}>
+          <div className={styles.card}>
+            <p className={styles.status}>Cargando...</p>
+          </div>
+        </main>
+      }
+    >
+      <PlayPageContent />
+    </Suspense>
   );
 }

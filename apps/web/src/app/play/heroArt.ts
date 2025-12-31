@@ -1,6 +1,5 @@
 "use client";
 
-import * as Phaser from "phaser";
 import { EngineUnitTemplate } from "@ai-studio/core";
 
 export type HeroArtSpec = {
@@ -44,6 +43,19 @@ const RARITY_BORDER: Record<string, number> = {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+const toColor = (value: number) => ({
+  r: (value >> 16) & 255,
+  g: (value >> 8) & 255,
+  b: value & 255,
+  color: value,
+});
+
+const interpolateColor = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }, t: number) => ({
+  r: Math.round(a.r + (b.r - a.r) * t),
+  g: Math.round(a.g + (b.g - a.g) * t),
+  b: Math.round(a.b + (b.b - a.b) * t),
+});
+
 const hashString = (input: string) => {
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
@@ -74,10 +86,10 @@ export function buildHeroArtSpec(hero: Pick<EngineUnitTemplate, "id" | "role" | 
   const rarity = hero.rarity?.toLowerCase() || "common";
   const rank = rarityRank(rarity);
   const uid = `${projectId || "offline"}|${hero.id}|${role}|${hero.faction || "f"}|${rarity}`;
-  const primary = Phaser.Display.Color.ValueToColor(basePalette.primary);
-  const accent = Phaser.Display.Color.ValueToColor(basePalette.accent);
-  const auraColor = Phaser.Display.Color.ValueToColor(factionColor);
-  const secondary = Phaser.Display.Color.Interpolate.ColorWithColor(primary, auraColor, 100, 35 + rank * 8);
+  const primary = toColor(basePalette.primary);
+  const accent = toColor(basePalette.accent);
+  const auraColor = toColor(factionColor);
+  const secondary = interpolateColor(primary, auraColor, clamp01((35 + rank * 8) / 100));
   const borderColor = RARITY_BORDER[rarity] ?? RARITY_BORDER.common;
 
   const silhouetteRoll = seeded(uid, "silhouette", 0, 1);
@@ -111,7 +123,7 @@ export function buildHeroArtSpec(hero: Pick<EngineUnitTemplate, "id" | "role" | 
     rarity: hero.rarity,
     palette: {
       primary: primary.color,
-      secondary: Phaser.Display.Color.GetColor(secondary.r, secondary.g, secondary.b),
+      secondary: (secondary.r << 16) + (secondary.g << 8) + secondary.b,
       accent: accent.color,
       aura: auraColor.color,
       border: borderColor,

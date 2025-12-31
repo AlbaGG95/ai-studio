@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AfkPlayerState,
   AfkReward,
@@ -82,6 +82,35 @@ export function useAfkGame(config: GameConfig): AfkStore {
     []
   );
 
+  const addToast = useCallback((text: string, tone: ToastTone = "info") => {
+    const id = ++toastId.current;
+    setToasts((prev) => [...prev, { id, text, tone }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4200);
+  }, []);
+
+  const recordEvent = useCallback((text: string) => {
+    const id = ++eventId.current;
+    setEvents((prev) => [{ id, text }, ...prev].slice(0, 12));
+  }, []);
+
+  const handleTickResult = useCallback(
+    (result: AfkIdleTickResult) => {
+      const next = { ...result.state };
+      stateRef.current = next;
+      setPlayer(next);
+      if (result.stageCleared) {
+        recordEvent(`Stage ${result.state.stage.index - 1} completado`);
+        addToast("Stage completado", "success");
+      }
+      if (result.combat) {
+        setLastCombat(result.combat);
+      }
+    },
+    [addToast, recordEvent]
+  );
+
   useEffect(() => {
     const saved = loadState();
     const now = Date.now();
@@ -101,7 +130,7 @@ export function useAfkGame(config: GameConfig): AfkStore {
     stateRef.current = { ...initial, lastTickAt: now };
     setPlayer(stateRef.current);
     setLoading(false);
-  }, [config]);
+  }, [config, addToast, recordEvent]);
 
   useEffect(() => {
     if (!player) return;
@@ -119,33 +148,7 @@ export function useAfkGame(config: GameConfig): AfkStore {
       handleTickResult(result);
     }, TICK_MS);
     return () => clearInterval(timer);
-  }, [player, tickCtx, config]);
-
-  const addToast = (text: string, tone: ToastTone = "info") => {
-    const id = ++toastId.current;
-    setToasts((prev) => [...prev, { id, text, tone }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4200);
-  };
-
-  const recordEvent = (text: string) => {
-    const id = ++eventId.current;
-    setEvents((prev) => [{ id, text }, ...prev].slice(0, 12));
-  };
-
-  const handleTickResult = (result: AfkIdleTickResult) => {
-    const next = { ...result.state };
-    stateRef.current = next;
-    setPlayer(next);
-    if (result.stageCleared) {
-      recordEvent(`Stage ${result.state.stage.index - 1} completado`);
-      addToast("Stage completado", "success");
-    }
-    if (result.combat) {
-      setLastCombat(result.combat);
-    }
-  };
+  }, [player, tickCtx, config, handleTickResult]);
 
   const claimBank = () => {
     setPlayer((current) => {
@@ -254,7 +257,7 @@ export function useAfkGame(config: GameConfig): AfkStore {
         level: template.level,
         power: template.power,
         role: template.role,
-        rarity: template.rarity,
+        rarity: (template.rarity as any) || "common",
       });
       next.activeHeroIds.push(id);
       recordEvent("Nuevo héroe reclutado");
@@ -365,7 +368,7 @@ function createDemoState(config: GameConfig): AfkPlayerState {
     level: hero.level,
     power: hero.power,
     role: hero.role,
-    rarity: hero.rarity,
+    rarity: (hero.rarity as any) || "common",
   }));
   base.activeHeroIds = base.heroes.map((h) => h.id);
   base.upgrades = base.upgrades.map((upg, idx) => ({
@@ -387,7 +390,7 @@ function applyConfigToState(state: AfkPlayerState, config: GameConfig): AfkPlaye
       ...hero,
       name: template?.name ?? hero.name,
       role: template?.role ?? hero.role,
-      rarity: template?.rarity ?? hero.rarity,
+      rarity: (template?.rarity as any) ?? hero.rarity,
       power: template?.power ?? hero.power,
       level: template?.level ?? hero.level,
     };
