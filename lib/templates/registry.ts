@@ -1,4 +1,4 @@
-import { GameSpec, GameType } from "../gameSpec";
+import { GameSpec, GameType, validateGameSpec } from "../gameSpec";
 
 export enum TemplateId {
   idle_rpg_afk = "idle_rpg_afk",
@@ -50,7 +50,7 @@ const templates: GameTemplate[] = [
     type: "clicker",
     canHandle: (spec) => spec.type === "clicker",
     build: (spec) => ({
-      route: "/play?template=clicker_basic",
+      route: `/play?templateId=${TemplateId.clicker_basic}&title=${encodeURIComponent(spec.title)}`,
       config: { title: spec.title, content: spec.content },
       notes: ["Clicker basic template"],
     }),
@@ -100,7 +100,7 @@ const templates: GameTemplate[] = [
     type: "match3",
     canHandle: (spec) => spec.type === "match3",
     build: (spec) => ({
-      route: "/play?template=match3_basic",
+      route: `/play?templateId=${TemplateId.match3_basic}&title=${encodeURIComponent(spec.title)}`,
       config: { title: spec.title, content: spec.content },
       notes: ["Match3 basic template"],
     }),
@@ -110,7 +110,7 @@ const templates: GameTemplate[] = [
     type: "platformer_simple",
     canHandle: (spec) => spec.type === "platformer_simple",
     build: (spec) => ({
-      route: "/play?template=platformer_basic",
+      route: `/play?templateId=${TemplateId.platformer_basic}&title=${encodeURIComponent(spec.title)}`,
       config: { title: spec.title, content: spec.content },
       notes: ["Platformer simple template"],
     }),
@@ -128,6 +128,11 @@ const templates: GameTemplate[] = [
 ];
 
 export function selectTemplate(spec: GameSpec): GameTemplate {
+  const validation = validateGameSpec(spec);
+  if (!validation.ok) {
+    const placeholder = templates.find((t) => t.id === TemplateId.placeholder_basic)!;
+    return placeholder;
+  }
   const exact = templates.find((t) => t.type === spec.type && t.canHandle(spec));
   if (exact) return exact;
   const fallback = templates.find((t) => t.id === TemplateId.placeholder_basic)!;

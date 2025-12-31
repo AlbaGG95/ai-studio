@@ -9,7 +9,7 @@
    - Comando de build: `pnpm --filter web build`
    - Directorio de salida: `.next`
 4. Variables de entorno: ninguna obligatoria para web. Opcional:
-   - `NEXT_PUBLIC_API_BASE_URL` si el backend corre en otro host/puerto.
+- `NEXT_PUBLIC_API_BASE_URL` si el backend corre en otro host/puerto.
 5. Deploy: crear un nuevo deploy o “Redeploy” desde la UI de Vercel.
 
 ## Comandos locales (entorno limpio)
@@ -23,3 +23,4 @@ corepack pnpm --filter web build
 ## Notas
 - El endpoint `/api/generate` es serverless-friendly (Next API route) y tiene rate-limit in-memory; para producción con más tráfico, reemplazar con Redis u otro almacén compartido.
 - La app asume `pnpm-lock.yaml`; no mezclar npm/yarn para evitar divergencias.
+- En local, el dev server de `web` busca un puerto libre a partir del 3000; define `PORT` si quieres fijar otro valor (aplica también a `next start`).

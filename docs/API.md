@@ -23,7 +23,7 @@ Genera un proyecto a partir de un título + prompt, elige plantilla y devuelve l
   }
   ```
 - **Errors**
-  - `400` invalid JSON o falta `title/prompt`: `{ "error": "title or prompt required" }`
+  - `400` JSON inválido, inputs demasiado largos o falta `title/prompt`: `{ "error": "title or prompt required" }`
   - `429` rate limit: `{ "error": "Too many requests" }`
   - `500` error inesperado: `{ "error": "Unexpected error" }`
 
@@ -51,3 +51,4 @@ Genera un proyecto a partir de un título + prompt, elige plantilla y devuelve l
 - CORS: habilitado para cualquier origen (`Access-Control-Allow-Origin: *`).
 - Rate limit: 30 solicitudes/minuto por IP (in-memory).
 - Persistencia: guarda `schemaVersion`, `spec`, `templateId` y ruta sugerida en `data/projects/`.
+- Validación: `title` máx. 120 caracteres, `prompt` máx. 6000; si el template falla se usa un placeholder seguro.

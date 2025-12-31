@@ -46,6 +46,15 @@ const RETURN_COOLDOWN_MS = 2000;
 const MIN_BATTLE_MS = 8000;
 const RESULT_OVERLAY_MS = 2000;
 const VIEW_DEBOUNCE_MS = 150;
+const STANDALONE_TEMPLATES = new Set([
+  "trivia_basic",
+  "placeholder_basic",
+  "runner_endless",
+  "tower_defense_basic",
+  "match3_basic",
+  "clicker_basic",
+  "platformer_basic",
+]);
 
 async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(buildApiUrl(path), {
@@ -132,7 +141,9 @@ function PlayPageContent() {
     setView("map");
     setPendingManualContinue(false);
 
-    if (templateId === "trivia_basic" || templateId === "placeholder_basic" || templateId === "runner_endless") {
+    if (templateId && STANDALONE_TEMPLATES.has(templateId)) {
+      setProjectLoading(false);
+      setLoading(false);
       return;
     }
 
@@ -725,6 +736,8 @@ function PlayPageContent() {
           <RunnerGame title={searchParams.get("title") || projectId || "Runner"} />
         ) : templateId === "tower_defense_basic" ? (
           <TowerGame title={searchParams.get("title") || projectId || "TD"} />
+        ) : templateId === "match3_basic" || templateId === "clicker_basic" || templateId === "platformer_basic" ? (
+          <PlaceholderGame title={searchParams.get("title") || projectId || "Juego"} templateId={templateId} />
         ) : templateId === "placeholder_basic" ? (
           <PlaceholderGame title={searchParams.get("title") || projectId || "Juego"} templateId={templateId} />
         ) : (
@@ -759,7 +772,15 @@ export default function PlayPage() {
 }
 
 function PlaceholderGame({ title, templateId }: { title: string; templateId?: string | null }) {
-  const templateLabel = templateId === "runner_endless" ? "Runner placeholder" : "Template placeholder";
+  const labelMap: Record<string, string> = {
+    runner_endless: "Runner placeholder",
+    match3_basic: "Match3 placeholder",
+    clicker_basic: "Clicker placeholder",
+    platformer_basic: "Platformer placeholder",
+    tower_defense_basic: "Tower Defense placeholder",
+    placeholder_basic: "Template placeholder",
+  };
+  const templateLabel = (templateId && labelMap[templateId]) || "Template placeholder";
   return (
     <div className={styles.card}>
       <div className={styles.panelHeader}>
