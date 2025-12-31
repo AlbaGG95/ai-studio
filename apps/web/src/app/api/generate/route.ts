@@ -11,7 +11,12 @@ type GenerateBody = { title?: string; prompt?: string };
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as GenerateBody;
+    let body: GenerateBody = {};
+    try {
+      body = (await request.json()) as GenerateBody;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
     const title = (body?.title || "").trim();
     const prompt = (body?.prompt || "").trim();
 
@@ -26,6 +31,7 @@ export async function POST(request: Request) {
     const projectId = `proj-${randomUUID()}`;
     const record = {
       id: projectId,
+      schemaVersion: 1,
       title: title || spec.title,
       prompt,
       spec,

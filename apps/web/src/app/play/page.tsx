@@ -130,7 +130,7 @@ function PlayPageContent() {
     setView("map");
     setPendingManualContinue(false);
 
-    if (templateId === "trivia_basic") {
+    if (templateId === "trivia_basic" || templateId === "placeholder_basic" || templateId === "runner_endless") {
       return;
     }
 
@@ -719,6 +719,8 @@ function PlayPageContent() {
               title: searchParams.get("title") || "Trivia",
             }}
           />
+        ) : templateId === "placeholder_basic" || templateId === "runner_endless" ? (
+          <PlaceholderGame title={searchParams.get("title") || projectId || "Juego"} templateId={templateId} />
         ) : (
           !loading &&
           engineState && (
@@ -747,5 +749,25 @@ export default function PlayPage() {
     >
       <PlayPageContent />
     </Suspense>
+  );
+}
+
+function PlaceholderGame({ title, templateId }: { title: string; templateId?: string | null }) {
+  const templateLabel = templateId === "runner_endless" ? "Runner placeholder" : "Template placeholder";
+  return (
+    <div className={styles.card}>
+      <div className={styles.panelHeader}>
+        <div>
+          <p className={styles.kicker}>{templateLabel}</p>
+          <h2 className={styles.title}>{title}</h2>
+          <p className={styles.subtle}>Runtime no implementado aún. Usa este placeholder jugable.</p>
+        </div>
+      </div>
+      <div className={styles.card}>
+        <p className={styles.itemTitle}>Cómo jugar</p>
+        <p className={styles.muted}>Prototipo en espera. Implementa el template o redirige a una demo.</p>
+        <p className={styles.muted}>No se han cargado assets; usa los controles descritos en tu diseño.</p>
+      </div>
+    </div>
   );
 }
