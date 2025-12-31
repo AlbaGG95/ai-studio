@@ -1,4 +1,4 @@
 {
-  "apiPort": 4001,
-  "apiUrl": "http://localhost:4001"
+  "apiPort": 4000,
+  "apiUrl": "http://localhost:4000"
 }
