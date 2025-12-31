@@ -29,6 +29,8 @@ type UnitVisual = {
   energyBar: Phaser.GameObjects.Graphics;
   label: Phaser.GameObjects.Text;
   fullLabel: Phaser.GameObjects.Text;
+  side?: "player" | "enemy";
+  isDead?: boolean;
   idleTween?: Phaser.Tweens.Tween;
   auraTween?: Phaser.Tweens.Tween;
   ringTween?: Phaser.Tweens.Tween;
@@ -101,6 +103,10 @@ class BattleScene extends Phaser.Scene {
   private fieldFrame?: Phaser.GameObjects.Graphics;
   private floorPlane?: Phaser.GameObjects.Graphics;
   private vignette?: Phaser.GameObjects.Graphics;
+  private arenaFocus?: Phaser.GameObjects.Graphics;
+  private damageNumbers = { player: [] as Phaser.GameObjects.Text[], enemy: [] as Phaser.GameObjects.Text[] };
+  private pendingLogTimers: ReturnType<typeof setTimeout>[] = [];
+  private hitStopActive = false;
   private heroArt: Record<string, HeroArtSpec> = {};
   private projectId?: string;
   private projectSeed = "offline";
@@ -147,6 +153,8 @@ class BattleScene extends Phaser.Scene {
     this.fieldFrame?.destroy();
     this.floorPlane?.destroy();
     this.vignette?.destroy();
+    this.arenaFocus?.destroy();
+    this.focusFloor?.destroy?.();
     const { w, h } = this.layout();
     this.midLine = this.add.rectangle(w / 2, h / 2, 6, h * 0.82, 0x1b2438, 0.28).setDepth(2);
     this.midLine.setStrokeStyle(1, 0x25314b, 0.5);
@@ -173,6 +181,19 @@ class BattleScene extends Phaser.Scene {
     }
     this.fieldFrame.lineStyle(1, 0x0a0e1c, 0.6);
     this.fieldFrame.strokeEllipse(w / 2, h * 0.55, w * 0.72, h * 0.3);
+    const sideFloor = this.add.graphics().setDepth(2);
+    sideFloor.fillStyle(0x0f1a2d, 0.32);
+    sideFloor.fillEllipse(w * 0.28, h * 0.7, w * 0.26, h * 0.16);
+    sideFloor.fillStyle(0x26121d, 0.28);
+    sideFloor.fillEllipse(w * 0.72, h * 0.7, w * 0.26, h * 0.16);
+    sideFloor.lineStyle(1, 0x1b2438, 0.4);
+    sideFloor.strokeEllipse(w * 0.28, h * 0.7, w * 0.26, h * 0.16);
+    sideFloor.strokeEllipse(w * 0.72, h * 0.7, w * 0.26, h * 0.16);
+    const depthLines = this.add.graphics().setDepth(2);
+    depthLines.lineStyle(1, 0x1e2b44, 0.3);
+    const cols = [0.32, 0.46, 0.54, 0.68];
+    cols.forEach((cx) => depthLines.lineBetween(w * cx, h * 0.35, w * cx, h * 0.85));
+    depthLines.strokePath();
     const tint = this.add.graphics().setDepth(0);
     tint.fillStyle(0x123457, 0.12);
     tint.fillRect(0, 0, w * 0.22, h);
@@ -185,6 +206,14 @@ class BattleScene extends Phaser.Scene {
     vignette.setBlendMode(Phaser.BlendModes.MULTIPLY);
     vignette.setAlpha(0.42);
     this.vignette = vignette;
+    const focus = this.add.graphics().setDepth(5);
+    focus.clear();
+    focus.fillStyle(0x10233d, 0.2);
+    focus.fillEllipse(w / 2, h * 0.52, w * 0.3, h * 0.2);
+    focus.fillStyle(0x0d1222, 0.35);
+    focus.fillEllipse(w / 2, h * 0.55, w * 0.42, h * 0.32);
+    focus.setBlendMode(Phaser.BlendModes.ADD);
+    this.arenaFocus = focus;
     this.floorPlane = floor;
   }
 
@@ -385,6 +414,7 @@ class BattleScene extends Phaser.Scene {
       energyBar,
       label,
       fullLabel,
+      side: unit.side,
       barState,
       body,
       armor,
@@ -420,8 +450,17 @@ class BattleScene extends Phaser.Scene {
     vis.container.setAlpha(1);
     vis.container.setScale(1);
     vis.container.setVisible(true);
-    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => g.clearTint());
-    [vis.ring, vis.token, vis.aura].forEach((g) => g.setAlpha(1));
+    vis.isDead = false;
+    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => {
+      if (g && typeof (g as any).clearTint === "function") {
+        (g as any).clearTint();
+      } else if (g && typeof (g as any).setTint === "function") {
+        (g as any).setTint(0xffffff);
+      }
+      if (g && typeof (g as any).setAlpha === "function") {
+        (g as any).setAlpha(1);
+      }
+    });
     vis.label.setAlpha(1);
     vis.fullLabel.setAlpha(0);
     if (vis.idleTween && !vis.idleTween.isPlaying()) vis.idleTween.restart();
@@ -430,6 +469,8 @@ class BattleScene extends Phaser.Scene {
   }
 
   private markDead(vis: UnitVisual) {
+    if (vis.isDead) return;
+    vis.isDead = true;
     this.tweens.killTweensOf([
       vis.container,
       vis.ring,
@@ -442,17 +483,26 @@ class BattleScene extends Phaser.Scene {
     ]);
     vis.idleTween?.stop();
     vis.auraTween?.stop();
-    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => g.setTint(0x7a7a7a));
+    [vis.body, vis.armor, vis.weapon, vis.token, vis.ring, vis.aura, vis.role].forEach((g) => {
+      if (g && typeof (g as any).setTint === "function") {
+        (g as any).setTint(0x7a7a7a);
+      }
+      if (g && typeof (g as any).setAlpha === "function") {
+        (g as any).setAlpha(0.6);
+      }
+    });
     vis.aura.setAlpha(0.35);
     vis.token.setAlpha(0.6);
     vis.label.setAlpha(0.4);
-    this.tweens.add({
-      targets: vis.container,
-      alpha: 0,
-      scale: 0.88,
-      duration: 280,
-      ease: "Quad.easeIn",
-      onComplete: () => vis.container.setVisible(false),
+    this.time.delayedCall(150, () => {
+      this.tweens.add({
+        targets: vis.container,
+        alpha: 0,
+        scale: 0.86,
+        duration: 320,
+        ease: "Quad.easeIn",
+        onComplete: () => vis.container.setVisible(false),
+      });
     });
   }
 
@@ -690,31 +740,36 @@ class BattleScene extends Phaser.Scene {
     vis.energyBar.lineStyle(1, 0x1f2b46, 0.7).strokeRoundedRect(x, energyY, Math.round(width), energyHeight, 4);
   }
 
-  private animateAttack(vis: UnitVisual, unit: UnitRuntimeState) {
+  private animateAttack(vis: UnitVisual, unit: UnitRuntimeState, actionType: "basic" | "skill" | "ultimate") {
     this.tweens.getTweensOf(vis.container).forEach((tween) => {
       if (tween !== vis.idleTween) tween.stop();
     });
     vis.idleTween?.pause();
-    const offset = (unit.side === "player" ? 1 : -1) * (8 + seeded(unit.id, "lunge", 0, 8));
+    const strength =
+      actionType === "ultimate" ? 1.6 : actionType === "skill" ? 1.15 : 0.9 + seeded(unit.id, "basic-str", 0, 0.1);
+    const offset = (unit.side === "player" ? 1 : -1) * (8 + seeded(unit.id, "lunge", 0, 8)) * strength;
+    const duration = actionType === "ultimate" ? this.tickMs * 1.8 : actionType === "skill" ? this.tickMs : this.tickMs / 1.4;
+    const scaleTarget = actionType === "ultimate" ? 1.12 : actionType === "skill" ? 1.06 : 1.02;
     this.tweens.add({
       targets: vis.container,
       x: vis.container.x + offset,
-      duration: this.tickMs / 1.4,
+      duration,
       yoyo: true,
-      ease: "Quad.easeOut",
+      ease: actionType === "ultimate" ? "Quad.easeInOut" : "Quad.easeOut",
       onComplete: () => vis.idleTween?.resume(),
     });
     this.tweens.add({
       targets: vis.container,
-      scale: 1.02,
-      duration: this.tickMs / 2,
+      scale: scaleTarget,
+      duration: duration / (actionType === "ultimate" ? 1.6 : 2),
       yoyo: true,
       ease: "Quad.easeOut",
       onComplete: () => vis.idleTween?.resume(),
     });
   }
 
-  private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState, tick = 0) {
+  private hitFeedback(vis: UnitVisual, unit: UnitRuntimeState, tick = 0, actionType: "basic" | "skill" | "ultimate" = "basic") {
+    if (vis.isDead || !unit.alive) return;
     this.tweens.getTweensOf(vis.container).forEach((tween) => {
       if (tween !== vis.idleTween) tween.stop();
     });
@@ -725,7 +780,8 @@ class BattleScene extends Phaser.Scene {
     vis.ringTween?.pause();
     const originalScale = vis.container.scale;
     const shakeDir = seeded(unit.id, `shake-${tick}`, -1, 1) >= 0 ? 1 : -1;
-    const shakeMag = 2 + seeded(unit.id, `shake-mag-${tick}`, 0, 2);
+    const baseMag = actionType === "ultimate" ? 4 : actionType === "skill" ? 3 : 2;
+    const shakeMag = baseMag + seeded(unit.id, `shake-mag-${tick}`, 0, 2);
     this.tweens.add({
       targets: vis.container,
       x: vis.container.x + (unit.side === "player" ? -1 : 1) * shakeMag * shakeDir,
@@ -776,43 +832,68 @@ class BattleScene extends Phaser.Scene {
         y: y + Math.sin(angle) * dist + drift * 0.5,
         alpha: 0,
         scale: 0.4,
-        duration: this.tickMs * 0.9,
+        duration: this.tickMs * 0.7,
         ease: "Quad.easeOut",
         onComplete: () => p.destroy(),
       });
     }
   }
 
+  private triggerHitStop(durationMs = 100) {
+    if (this.hitStopActive) return;
+    const clamped = Math.min(120, Math.max(60, durationMs));
+    this.hitStopActive = true;
+    const tweens = this.tweens.getAllTweens();
+    tweens.forEach((t) => t.pause());
+    this.time.delayedCall(clamped, () => {
+      tweens.forEach((t) => t.resume());
+      this.hitStopActive = false;
+    });
+  }
+
   private damageNumber(
     target: UnitVisual,
-    value?: number,
-    action?: CombatLogEntry["action"],
+    value: number | undefined,
+    actionType: "basic" | "skill" | "ultimate",
     tick = 0,
     unitId?: string
   ) {
+    if (target.isDead) return;
     const dmg = value ?? 0;
-    const isBig = action === "ultimate" || dmg > 200;
+    const isBig = actionType === "ultimate" || dmg > 220;
     const topClamp = 40;
     const yStart = Math.max(topClamp, Math.min(target.container.y - 60, (this.scale.height || 540) - 140));
     const floatSeed = unitId ?? `target-${tick}`;
     const posX = Math.round(target.container.x);
     const posY = Math.round(yStart);
+    const color =
+      actionType === "ultimate" ? "#fde047" : actionType === "skill" ? "#7dd3fc" : dmg > 0 ? "#fca5a5" : "#a5b4fc";
+    const stroke = actionType === "ultimate" ? "#0a0a0a" : "#0b0f1a";
+    const fontSize = actionType === "ultimate" ? "22px" : actionType === "skill" ? "17px" : "14px";
+    const scaleBoost = this.hitStopActive ? 1.08 : 1;
+    const sideKey = target.side === "enemy" ? "enemy" : "player";
+    const pool = this.damageNumbers[sideKey];
+    if (pool.length >= 2) {
+      const old = pool.shift();
+      old?.destroy();
+    }
     const txt = this.add
       .text(posX, posY, `-${dmg}`, {
-        fontSize: isBig ? "19px" : "15px",
+        fontSize,
         fontFamily: "sans-serif",
-        color: isBig ? "#fde047" : "#fca5a5",
-        stroke: "#0b0f1a",
+        color,
+        stroke,
         strokeThickness: 5,
         fontStyle: "bold",
       })
       .setDepth(120);
+    pool.push(txt);
     txt.setOrigin(0.5);
-    txt.setScale(0.6);
+    txt.setScale((actionType === "ultimate" ? 0.82 : actionType === "skill" ? 0.7 : 0.6) * scaleBoost);
     txt.setAlpha(0);
     this.tweens.add({
       targets: txt,
-      scale: isBig ? 1.25 : 1.05,
+      scale: isBig ? 1.25 : actionType === "skill" ? 1.1 : 1.02,
       alpha: 1,
       duration: 120,
       ease: "Back.Out",
@@ -821,22 +902,47 @@ class BattleScene extends Phaser.Scene {
       targets: txt,
       y: txt.y - 20 - seeded(floatSeed, `float-${tick}`, 0, 12),
       alpha: 0,
-      duration: this.tickMs * 1.6,
-      delay: 90,
+      duration: this.tickMs * (actionType === "ultimate" ? 1.4 : 1.1),
+      delay: actionType === "ultimate" ? 140 : 90,
       ease: "Quad.easeOut",
-      onComplete: () => txt.destroy(),
+      onComplete: () => {
+        txt.destroy();
+        this.damageNumbers[sideKey] = this.damageNumbers[sideKey].filter((t) => t !== txt);
+      },
     });
   }
 
   private ultimateFlash(caster: UnitVisual) {
     if (!this.hud) return;
-    this.hud.vignette.setAlpha(0.45);
+    this.hud.vignette.setAlpha(0.55);
     this.tweens.add({
       targets: this.hud.vignette,
       alpha: 0,
-      duration: 260,
+      duration: 360,
       ease: "Quad.easeOut",
     });
+    this.vignette?.setAlpha(0.55);
+    if (this.vignette) {
+      this.tweens.add({
+        targets: this.vignette,
+        alpha: 0.42,
+        duration: 480,
+        ease: "Quad.easeOut",
+      });
+    }
+    Object.values(this.units)
+      .filter((u) => u.container !== caster.container)
+      .forEach((u) => {
+        if (u.isDead) return;
+        [u.body, u.armor, u.weapon, u.token, u.ring, u.aura, u.role].forEach((g) => {
+          if (g && typeof (g as any).setTint === "function") (g as any).setTint(0x9aa2b1);
+        });
+        this.time.delayedCall(200, () => {
+          [u.body, u.armor, u.weapon, u.token, u.ring, u.aura, u.role].forEach((g) => {
+            if (g && typeof (g as any).clearTint === "function") (g as any).clearTint();
+          });
+        });
+      });
 
     const wave = this.add
       .circle(caster.container.x, caster.container.y, 28, 0xffffff, 0.16)
@@ -902,6 +1008,8 @@ class BattleScene extends Phaser.Scene {
 
   updateCombat(combat?: EngineCombatState, logs: CombatLogEntry[] = []) {
     if (!combat || !this.ready) return;
+    this.pendingLogTimers.forEach((t) => clearTimeout(t));
+    this.pendingLogTimers = [];
     this.lastCombat = combat;
     const playerTeam = combat.playerTeam || [];
     const enemyTeam = combat.enemyTeam || [];
@@ -934,33 +1042,43 @@ class BattleScene extends Phaser.Scene {
     });
 
     let lastAction: string | undefined;
-    logs.forEach((log) => {
-      const tick = log.tick ?? 0;
-      const actor = [...playerTeam, ...enemyTeam].find((u) => u.name === log.actor || u.id === log.actor);
+    const baseDelay = 110;
+    logs.forEach((log, idx) => {
+      const timer = setTimeout(() => {
+        const tick = log.tick ?? 0;
+        const actionType: "basic" | "skill" | "ultimate" =
+          log.action === "ultimate" ? "ultimate" : log.value && log.value >= 120 ? "skill" : "basic";
+        const actor = [...playerTeam, ...enemyTeam].find((u) => u.name === log.actor || u.id === log.actor);
       const target = [...playerTeam, ...enemyTeam].find((u) => u.name === log.target || u.id === log.target);
+      const isKill = log.action === "defeat" || target?.alive === false;
       if (actor) {
         const vis = this.units[actor.id];
         if (vis && (log.action === "attack" || log.action === "ultimate")) {
-          this.animateAttack(vis, actor);
-          if (log.action === "ultimate") {
-            this.ultimateFlash(vis);
+            this.animateAttack(vis, actor, actionType);
+            if (actionType === "ultimate") {
+              this.ultimateFlash(vis);
+            }
           }
         }
-      }
-      if (target) {
-        const vis = this.units[target.id];
-        if (vis) {
-          this.hitFeedback(vis, target, tick);
-          if (log.value !== undefined) {
-            this.damageNumber(vis, log.value, log.action, tick, target.id);
+        if (target) {
+          const vis = this.units[target.id];
+          if (vis && target.alive && !vis.isDead) {
+            this.hitFeedback(vis, target, tick, actionType);
+            if (log.value !== undefined) {
+              this.damageNumber(vis, log.value, actionType, tick, target.id);
+            }
           }
         }
-      }
-      if (actor) {
-        const targetLabel = target ? shortLabel(target.name) : "";
-        const verb = log.action === "ultimate" ? "ulti" : log.action;
-        lastAction = `${shortLabel(actor.name)} ${verb}${targetLabel ? ` -> ${targetLabel}` : ""}`;
-      }
+        if ((actionType === "ultimate" || isKill) && !this.hitStopActive) {
+          this.triggerHitStop(actionType === "ultimate" ? 110 : 90);
+        }
+        if (actor) {
+          const targetLabel = target ? shortLabel(target.name) : "";
+          const verb = log.action === "ultimate" ? "ulti" : log.action;
+          lastAction = `${shortLabel(actor.name)} ${verb}${targetLabel ? ` -> ${targetLabel}` : ""}`;
+        }
+      }, baseDelay + idx * 35);
+      this.pendingLogTimers.push(timer);
     });
 
     this.updateHud(combat, lastAction);
