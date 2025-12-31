@@ -27,6 +27,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [lastProjectId, setLastProjectId] = useState<string | null>(null);
   const [lastProjectName, setLastProjectName] = useState<string | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [showProjects, setShowProjects] = useState(false);
 
   const trimmedName = useMemo(() => name.trim(), [name]);
   const trimmedPrompt = useMemo(() => prompt.trim(), [prompt]);
@@ -77,25 +79,27 @@ export default function HomePage() {
   };
 
   const handleGenerate = async () => {
-    const payload = {
-      prompt: trimmedPrompt || trimmedName || "Idle RPG offline",
-      language: "es",
-      templateId: "idle-rpg-base",
-      projectName: trimmedName || undefined,
-      description: trimmedPrompt || trimmedName || "Idle RPG offline",
-    };
-
     setGenerating(true);
     setError(null);
-    setStatus(null);
+    setStatus("Interpretando...");
+    const timers: NodeJS.Timeout[] = [];
+    const step = (next: string, delay: number) => {
+      const t = setTimeout(() => setStatus((prev) => (generating && !error ? next : prev)), delay);
+      timers.push(t);
+    };
+    step("Validando...", 400);
+    step("Generando...", 900);
 
     try {
-      const response = await fetch(buildApiUrl("/api/generate/game"), {
+      const response = await fetch(buildApiUrl("/api/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          title: trimmedName || "Untitled",
+          prompt: trimmedPrompt || trimmedName || "Idle RPG offline",
+        }),
       });
 
       const data: GenerationResponse = await response
@@ -110,30 +114,33 @@ export default function HomePage() {
         );
       }
 
-      const projectIdFromResponse =
-        data.projectId ?? data.id ?? data.project?.id ?? lastProjectId ?? trimmedName;
+      const projectIdFromResponse = data.projectId ?? data.id ?? data.project?.id ?? trimmedName;
       setLastProjectId(projectIdFromResponse || null);
-      setStatus("Juego generado.");
+      setStatus("Listo");
+      fetchProjects();
 
-      const previewUrl =
-        data.previewUrl ||
-        data.staticPreviewUrl ||
-        (projectIdFromResponse ? `/preview/${projectIdFromResponse}/` : null);
-
-      if (previewUrl) {
-        const target = previewUrl.startsWith("http")
-          ? previewUrl
-          : `${getApiBaseUrl()}${previewUrl}`;
-        window.location.href = target;
-      }
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : "No se pudo iniciar la generacion.";
       setError(message);
+      setStatus(null);
     } finally {
+      timers.forEach((t) => clearTimeout(t));
       setGenerating(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch(buildApiUrl("/api/projects"), { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && Array.isArray(data.projects)) {
+        setProjects(data.projects);
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -145,9 +152,20 @@ export default function HomePage() {
             <p className={styles.kicker}>Home</p>
             <h1 className={styles.title}>AI Studio</h1>
           </div>
-          <Link className={styles.link} href="/projects">
-            Ver proyectos
-          </Link>
+          <div className={styles.actions}>
+            <Link className={styles.link} href="/projects">
+              Ir a proyectos
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setShowProjects((p) => !p);
+                if (!projects.length) fetchProjects();
+              }}
+            >
+              Ver proyectos
+            </button>
+          </div>
         </header>
 
         <div className={styles.field}>
@@ -191,6 +209,38 @@ export default function HomePage() {
           </p>
         )}
         {error && <p className={styles.error}>{error}</p>}
+
+        {showProjects && (
+          <div className={styles.card} style={{ marginTop: 12 }}>
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.kicker}>Proyectos</p>
+                <h3 className={styles.title}>Generados</h3>
+              </div>
+              <button type="button" onClick={fetchProjects}>
+                Refrescar
+              </button>
+            </div>
+            {projects.length === 0 && <p className={styles.muted}>Sin proyectos aún.</p>}
+            <div className={styles.heroGrid}>
+              {projects.map((project) => (
+                <div key={project.id} className={styles.heroCard}>
+                  <p className={styles.itemTitle}>{project.title || project.id}</p>
+                  <p className={styles.subtle}>Tipo: {project.spec?.type ?? "?"}</p>
+                  <p className={styles.subtle}>Template: {project.templateId ?? "?"}</p>
+                  <div className={styles.actions}>
+                    <Link
+                      className={styles.link}
+                      href={project.generated?.route ? project.generated.route : `/play?projectId=${project.id}`}
+                    >
+                      Jugar
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
