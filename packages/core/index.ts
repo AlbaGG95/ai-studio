@@ -58,6 +58,8 @@ export type {
   Rarity as EngineRarity,
 } from "./engine/types.js";
 export { IdleRpgEngine, DEFAULT_ENGINE_CONFIG } from "./engine/engine.js";
+export type { TriviaQuestion, TriviaState } from "./trivia/types.js";
+export { createTriviaState, answerQuestion } from "./trivia/engine.js";
 export type {
   Hero as AfkHero,
   PlayerState as AfkPlayerState,

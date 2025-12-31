@@ -80,6 +80,11 @@ export default function AfkPage() {
   useEffect(() => {
     const stored = typeof window !== "undefined" ? window.localStorage.getItem("afk-config-id") : null;
     if (stored) setConfigId(stored);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("configId") || params.get("config");
+      if (fromQuery) setConfigId(fromQuery);
+    }
   }, []);
 
   useEffect(() => {

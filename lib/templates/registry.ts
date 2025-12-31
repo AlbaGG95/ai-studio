@@ -29,16 +29,20 @@ const templates: GameTemplate[] = [
     id: TemplateId.idle_rpg_afk,
     type: "idle_rpg",
     canHandle: (spec) => spec.type === "idle_rpg",
-    build: (spec) => ({
-      route: "/afk",
-      config: {
-        title: spec.title,
-        theme: spec.theme,
-        rules: spec.rules,
-        content: spec.content,
-      },
-      notes: ["AFK/idle RPG base template"],
-    }),
+    build: (spec) => {
+      const configId = pickAfkConfigId(spec);
+      return {
+        route: `/afk?configId=${configId}`,
+        config: {
+          title: spec.title,
+          theme: spec.theme,
+          rules: spec.rules,
+          content: spec.content,
+          configId,
+        },
+        notes: ["AFK/idle RPG base template"],
+      };
+    },
   },
   {
     id: TemplateId.clicker_basic,
@@ -75,8 +79,8 @@ const templates: GameTemplate[] = [
     type: "trivia",
     canHandle: (spec) => spec.type === "trivia",
     build: (spec) => ({
-      route: "/play?template=trivia_basic",
-      config: { title: spec.title, content: spec.content },
+      route: "/play?templateId=trivia_basic",
+      config: { title: spec.title, content: spec.content, questions: spec.content.entities },
       notes: ["Trivia basic template"],
     }),
   },
@@ -111,4 +115,10 @@ export function selectTemplate(spec: GameSpec): GameTemplate {
 
 export function getTemplates() {
   return templates.slice();
+}
+
+function pickAfkConfigId(spec: GameSpec): string {
+  const tone = spec.theme?.tone || "casual";
+  if (tone === "dark" || tone === "epic") return "fantasy_dark";
+  return "scifi_clean";
 }

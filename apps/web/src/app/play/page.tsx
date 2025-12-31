@@ -8,6 +8,7 @@ import { EngineCombatState, EngineItem, EngineState, EngineUnitTemplate } from "
 import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
 import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
+import { TriviaGame } from "./triviaGame";
 import styles from "./play.module.css";
 
 const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
@@ -60,6 +61,7 @@ async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
 function PlayPageContent() {
   const searchParams = useSearchParams();
   const projectId = useMemo(() => searchParams.get("projectId"), [searchParams]);
+  const templateId = useMemo(() => searchParams.get("templateId") || searchParams.get("template"), [searchParams]);
   const [engineState, setEngineState] = useState<EngineState | null>(null);
   const [projectMeta, setProjectMeta] = useState<ProjectMeta | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
@@ -128,6 +130,10 @@ function PlayPageContent() {
     setView("map");
     setPendingManualContinue(false);
 
+    if (templateId === "trivia_basic") {
+      return;
+    }
+
     if (!projectId) {
       setProjectLoading(false);
       setLoading(false);
@@ -150,7 +156,7 @@ function PlayPageContent() {
       clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, templateId]);
 
   useEffect(() => {
     if (!engineState) return;
@@ -707,12 +713,21 @@ function PlayPageContent() {
         )}
         {status && <p className={styles.status}>{status}</p>}
 
-        {!loading && engineState && (
-          <>
-            {view === "map" && renderMap()}
-            {view === "roster" && renderRoster()}
-            {view === "battle" && renderBattle()}
-          </>
+        {templateId === "trivia_basic" ? (
+          <TriviaGame
+            config={{
+              title: searchParams.get("title") || "Trivia",
+            }}
+          />
+        ) : (
+          !loading &&
+          engineState && (
+            <>
+              {view === "map" && renderMap()}
+              {view === "roster" && renderRoster()}
+              {view === "battle" && renderBattle()}
+            </>
+          )
         )}
       </div>
     </main>
