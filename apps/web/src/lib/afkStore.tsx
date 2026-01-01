@@ -50,21 +50,28 @@ export type BattleSession = {
 
 const AfkContext = createContext<AfkContextValue | null>(null);
 
-function stageById(stageId: string): AfkStage {
+function stageById(stageId: string | undefined): AfkStage {
+  if (!stageId) return AFK_STAGES[0];
   return AFK_STAGES.find((s) => s.id === stageId) ?? AFK_STAGES[0];
 }
 
 function recalcIdleRate(state: AfkPlayerState): AfkPlayerState {
-  const stage = stageById(state.campaign.currentStageId);
+  const stageId = state.campaign?.currentStageId ?? AFK_STAGES[0].id;
+  const stage = stageById(stageId);
   const idleUpgrade = state.upgrades.find((u) => u.id === "idle-rate");
   const boost = idleUpgrade ? (idleUpgrade.effect.idleBoost ?? 0) * (idleUpgrade.level + 1) : 0;
   const rate = computeAfkIdleRate(stage, boost, state.heroes);
   return { ...state, idle: { ...state.idle, ratePerMinute: rate } };
 }
 
-function normalizeState(raw: Partial<AfkPlayerState> | null, now: number): AfkPlayerState {
+export function normalizeAfkState(raw: Partial<AfkPlayerState> | null, now: number): AfkPlayerState {
   const base = createAfkPlayer(now);
   if (!raw) return base;
+
+  const campaign = raw.campaign && typeof raw.campaign === "object" ? { ...raw.campaign } : base.campaign;
+  const fallbackStageId = AFK_STAGES[0].id;
+  const currentStageId = AFK_STAGES.some((s) => s.id === campaign.currentStageId) ? (campaign.currentStageId as string) : fallbackStageId;
+
   const merged: AfkPlayerState = {
     ...base,
     ...raw,
@@ -80,12 +87,13 @@ function normalizeState(raw: Partial<AfkPlayerState> | null, now: number): AfkPl
         ? raw.activeHeroIds
         : (raw.heroes ?? base.heroes).slice(0, 5).map((h) => h.id),
     campaign: {
-      ...base.campaign,
-      ...(raw.campaign ?? {}),
-      unlockedStageIds: raw.campaign?.unlockedStageIds?.length
-        ? raw.campaign.unlockedStageIds
-        : base.campaign.unlockedStageIds,
-      completedStageIds: raw.campaign?.completedStageIds ?? [],
+      chapter: campaign.chapter ?? base.campaign.chapter,
+      currentStageId,
+      unlockedStageIds:
+        campaign.unlockedStageIds && campaign.unlockedStageIds.length
+          ? campaign.unlockedStageIds
+          : base.campaign.unlockedStageIds,
+      completedStageIds: campaign.completedStageIds ?? base.campaign.completedStageIds,
     },
     upgrades: raw.upgrades ?? base.upgrades,
     idle: {
@@ -96,6 +104,21 @@ function normalizeState(raw: Partial<AfkPlayerState> | null, now: number): AfkPl
       lastClaimAt: raw.idle?.lastClaimAt ?? now,
     },
   };
+
+  // Guard against missing required buckets
+  merged.resources = merged.resources ?? { ...base.resources };
+  merged.heroes = merged.heroes?.length ? merged.heroes : base.heroes;
+  merged.upgrades = merged.upgrades?.length ? merged.upgrades : base.upgrades;
+  merged.idle = merged.idle ?? base.idle;
+  merged.idle.bank = merged.idle.bank ?? base.idle.bank;
+
+  // Ensure current stage is unlocked
+  if (!merged.campaign.unlockedStageIds.includes(merged.campaign.currentStageId)) {
+    merged.campaign.unlockedStageIds = Array.from(
+      new Set([...merged.campaign.unlockedStageIds, merged.campaign.currentStageId])
+    );
+  }
+
   return recalcIdleRate(merged);
 }
 
@@ -116,7 +139,7 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     const saved = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
     const parsed = saved ? (JSON.parse(saved) as Partial<AfkPlayerState>) : null;
-    const base = normalizeState(parsed, now);
+    const base = normalizeAfkState(parsed, now);
     const offline = applyAfkOfflineProgress(base, now, {
       tickMs: TICK_MS,
       offlineCapHours: OFFLINE_CAP_HOURS,
