@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { EngineCombatState, EngineItem, EngineState, EngineUnitTemplate } from "@ai-studio/core";
 import dynamic from "next/dynamic";
 import { buildApiUrl } from "@/lib/api";
 import { buildHeroArtSpec, getPortraitDataUri, HeroArtSpec } from "./heroArt";
+import { TriviaGame } from "./triviaGame";
+import { RunnerGame } from "./runnerGame";
+import { TowerGame } from "./towerGame";
 import styles from "./play.module.css";
 
 const BattleCanvas = dynamic(() => import("./BattleCanvas").then((m) => m.BattleCanvas), { ssr: false });
@@ -30,11 +34,16 @@ type ResultInfo = {
   stageTo: number;
 };
 
-type ProjectMeta = {
-  projectId?: string;
-  name?: string;
+type ProjectRecord = {
+  id: string;
+  title?: string;
   description?: string;
-  previewUrl?: string;
+  createdAt?: string;
+  templateId?: string;
+  spec?: { type?: string };
+  route?: string;
+  config?: any;
+  schemaVersion?: number;
 };
 
 const AUTO_ENTER_DELAY_MS = 1200;
@@ -56,11 +65,16 @@ async function apiCall<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data;
 }
 
-export default function PlayPage() {
+function PlayPageContent() {
   const searchParams = useSearchParams();
   const projectId = useMemo(() => searchParams.get("projectId"), [searchParams]);
+  const templateFromQuery = useMemo(() => searchParams.get("templateId") || searchParams.get("template"), [searchParams]);
+  const debugMode = useMemo(
+    () => process.env.NODE_ENV !== "production" && searchParams.get("debug") === "1",
+    [searchParams]
+  );
   const [engineState, setEngineState] = useState<EngineState | null>(null);
-  const [projectMeta, setProjectMeta] = useState<ProjectMeta | null>(null);
+  const [projectRecord, setProjectRecord] = useState<ProjectRecord | null>(null);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectLoading, setProjectLoading] = useState<boolean>(true);
   const [view, setView] = useState<View>("map");
@@ -75,6 +89,18 @@ export default function PlayPage() {
   const [pendingManualContinue, setPendingManualContinue] = useState(false);
   const [resultInfo, setResultInfo] = useState<ResultInfo | null>(null);
   const [heroArtMap, setHeroArtMap] = useState<Record<string, HeroArtSpec>>({});
+  const templateId = projectRecord?.templateId || templateFromQuery || null;
+  const isIdleTemplate = templateId === "idle_rpg_afk";
+  const runtimeComponent =
+    templateId === "idle_rpg_afk"
+      ? "AFKEngine"
+      : templateId === "trivia_basic"
+      ? "TriviaGame"
+      : templateId === "runner_endless"
+      ? "RunnerGame"
+      : templateId === "tower_defense_basic"
+      ? "TowerGame"
+      : "PlaceholderGame";
 
   const logCursor = useRef(0);
   const autoStartTimer = useRef<NodeJS.Timeout | null>(null);
@@ -99,6 +125,35 @@ export default function PlayPage() {
     [projectId]
   );
 
+  useEffect(() => {
+    if (!debugMode) return;
+    console.log(
+      `[PLAY] projectId=${projectId ?? "?"} type=${projectRecord?.spec?.type ?? "?"} template=${
+        templateId ?? "?"
+      } runtime=${runtimeComponent}`
+    );
+  }, [debugMode, projectId, projectRecord?.spec?.type, templateId, runtimeComponent]);
+
+  useEffect(() => {
+    setProjectRecord(null);
+    setProjectError(null);
+    if (!projectId) {
+      setProjectLoading(false);
+      setLoading(false);
+      setProjectError("Falta projectId en la URL. Selecciona un proyecto para jugar.");
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      await loadProject(projectId, cancelled);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
   const clearTimers = () => {
     if (autoStartTimer.current) clearTimeout(autoStartTimer.current);
     if (battleTimer.current) clearInterval(battleTimer.current);
@@ -121,11 +176,15 @@ export default function PlayPage() {
     setResultInfo(null);
     setStatus(null);
     setError(null);
-    setProjectMeta(null);
     setProjectError(null);
     setGameState("MAP");
     setView("map");
     setPendingManualContinue(false);
+
+    if (!isIdleTemplate) {
+      setLoading(false);
+      return;
+    }
 
     if (!projectId) {
       setProjectLoading(false);
@@ -137,9 +196,9 @@ export default function PlayPage() {
     let cancelled = false;
 
     const init = async () => {
-      const ok = await loadProject(projectId);
-      if (!ok || cancelled) return;
+      if (!projectRecord) return;
       await loadEngine(projectId);
+      if (cancelled) return;
     };
 
     init();
@@ -149,7 +208,7 @@ export default function PlayPage() {
       clearTimers();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, isIdleTemplate, projectRecord]);
 
   useEffect(() => {
     if (!engineState) return;
@@ -232,30 +291,35 @@ export default function PlayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engineState, gameState, tickMs]);
 
-  const loadProject = async (id: string) => {
+  const loadProject = async (id: string, cancelled?: boolean) => {
     setProjectLoading(true);
     setProjectError(null);
     setStatus("Cargando proyecto...");
     try {
-      const response = await fetch(buildApiUrl(`/api/projects/${id}`), { cache: "no-store" });
+      const response = await fetch(buildApiUrl(`/api/projects/${encodeURIComponent(id)}`), { cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false || !data?.project) {
         throw new Error(data?.error || `No se pudo cargar el proyecto ${id}`);
       }
-      setProjectMeta(data.project);
+      if (cancelled) return false;
+      setProjectRecord(data.project);
       setProjectError(null);
-      setStatus(`Proyecto ${data.project?.name ?? id} listo`);
+      setStatus(`Proyecto ${data.project?.title ?? id} listo`);
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : "No se pudo cargar el proyecto.";
-      setProjectMeta(null);
-      setProjectError(message);
-      setError(message);
-      setStatus(null);
-      setLoading(false);
+      if (!cancelled) {
+        setProjectRecord(null);
+        setProjectError(message);
+        setError(message);
+        setStatus(null);
+      }
       return false;
     } finally {
-      setProjectLoading(false);
+      if (!cancelled) {
+        setProjectLoading(false);
+        setLoading(false);
+      }
     }
   };
 
@@ -436,7 +500,7 @@ export default function PlayPage() {
           <p className={styles.kicker}>Mapa de campaña</p>
           <h2 className={styles.title}>Capítulo 1</h2>
           <p className={styles.subtle}>
-            Proyecto: {projectMeta?.name ?? projectId ?? "sin seleccionar"}
+            Proyecto: {projectRecord?.title ?? projectId ?? "sin seleccionar"}
           </p>
           <p className={styles.subtle}>Stage actual: {engineState?.player.campaign.currentStage ?? 1}</p>
         </div>
@@ -473,7 +537,7 @@ export default function PlayPage() {
         </label>
         {!autoContinue && (
           <span className={styles.manualHint}>
-            Avanza manualmente tras ver resultados. Pulsa "Continuar stage" para seguir.
+            Avanza manualmente tras ver resultados. Pulsa Continuar stage para seguir.
           </span>
         )}
         {pendingManualContinue && !autoContinue && <span className={styles.readyPill}>Listo para continuar</span>}
@@ -555,10 +619,13 @@ export default function PlayPage() {
               <span className={styles.tag}>{hero.rarity}</span>
             </div>
             {heroArtMap[hero.id] && (
-              <img
+              <Image
                 src={getPortraitDataUri(heroArtMap[hero.id])}
                 alt={hero.name}
-                style={{ width: "100%", borderRadius: 12, margin: "8px 0", border: "1px solid #1f2b46" }}
+                width={320}
+                height={240}
+                style={{ width: "100%", height: "auto", borderRadius: 12, margin: "8px 0", border: "1px solid #1f2b46" }}
+                unoptimized
               />
             )}
             <p className={styles.subtle}>Rol: {hero.role} · Línea: {hero.position}</p>
@@ -578,7 +645,7 @@ export default function PlayPage() {
           <h2 className={styles.title}>Combate automático</h2>
           <p className={styles.subtle}>Mira la batalla, el engine decide el resultado</p>
           <p className={styles.subtle}>
-            Proyecto: {projectMeta?.name ?? projectId ?? "sin seleccionar"}
+            Proyecto: {projectRecord?.title ?? projectId ?? "sin seleccionar"}
           </p>
         </div>
         <div className={styles.actions}>
@@ -656,9 +723,80 @@ export default function PlayPage() {
     </div>
   );
 
+  const renderIdleView = () => {
+    if (loading) return <p className={styles.status}>Cargando engine...</p>;
+    if (!engineState) return <p className={styles.error}>Engine no disponible.</p>;
+    return (
+      <>
+        {view === "map" && renderMap()}
+        {view === "roster" && renderRoster()}
+        {view === "battle" && renderBattle()}
+      </>
+    );
+  };
+
+  const renderTemplateView = () => {
+    if (projectLoading) return <p className={styles.status}>Cargando proyecto...</p>;
+    if (projectError) return <p className={styles.error}>{projectError}</p>;
+    if (!projectRecord) return <p className={styles.error}>Proyecto no disponible.</p>;
+    if (!projectId) {
+      return <p className={styles.error}>Falta projectId en la URL. Selecciona un proyecto para jugar.</p>;
+    }
+    switch (templateId) {
+      case "trivia_basic":
+        return (
+          <TriviaGame
+            config={{
+              title: projectRecord?.title || searchParams.get("title") || "Trivia",
+              questions: projectRecord?.config?.questions || projectRecord?.config?.content?.entities,
+            }}
+          />
+        );
+      case "runner_endless":
+        return <RunnerGame title={projectRecord?.title || projectId || "Runner"} config={projectRecord?.config} />;
+      case "tower_defense_basic":
+        return <TowerGame title={projectRecord?.title || projectId || "TD"} config={projectRecord?.config} />;
+      case "match3_basic":
+      case "clicker_basic":
+      case "platformer_basic":
+      case "placeholder_basic":
+        return <PlaceholderGame title={projectRecord?.title || projectId || "Juego"} templateId={templateId} />;
+      case "idle_rpg_afk":
+        return renderIdleView();
+      default:
+        return <PlaceholderGame title={projectRecord?.title || projectId || "Juego"} templateId={templateId} />;
+    }
+  };
+
   return (
     <main className={styles.main}>
       <div className={styles.card}>
+        {debugMode && (
+          <div
+            style={{
+              position: "fixed",
+              top: 12,
+              right: 12,
+              padding: "10px 12px",
+              background: "#0b1020",
+              border: "1px solid #1f2b46",
+              borderRadius: 8,
+              zIndex: 2000,
+              minWidth: 200,
+              boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
+            }}
+          >
+            <p className={styles.kicker}>Debug</p>
+            <p className={styles.subtle}>projectId: {projectId ?? "?"}</p>
+            <p className={styles.subtle}>title: {projectRecord?.title ?? "?"}</p>
+            <p className={styles.subtle}>spec.type: {projectRecord?.spec?.type ?? "?"}</p>
+            <p className={styles.subtle}>templateId: {templateId ?? "?"}</p>
+            <p className={styles.subtle}>runtime: {runtimeComponent}</p>
+            <p className={styles.subtle}>route: {projectRecord?.route ?? "?"}</p>
+            <p className={styles.subtle}>schemaVersion: {projectRecord?.schemaVersion ?? "?"}</p>
+            <p className={styles.subtle}>ts: {new Date().toISOString()}</p>
+          </div>
+        )}
         <header className={styles.header}>
           <div>
             <p className={styles.kicker}>Idle RPG</p>
@@ -666,7 +804,7 @@ export default function PlayPage() {
             <p className={styles.subtle}>Todo ocurre en vivo aunque no toques nada</p>
             {projectId && (
               <p className={styles.subtle}>
-                Proyecto: {projectMeta?.name ?? (projectLoading ? "Cargando..." : "Desconocido")} ({projectId})
+                Proyecto: {projectRecord?.title ?? (projectLoading ? "Cargando..." : "Desconocido")} ({projectId})
               </p>
             )}
           </div>
@@ -703,14 +841,52 @@ export default function PlayPage() {
         )}
         {status && <p className={styles.status}>{status}</p>}
 
-        {!loading && engineState && (
-          <>
-            {view === "map" && renderMap()}
-            {view === "roster" && renderRoster()}
-            {view === "battle" && renderBattle()}
-          </>
-        )}
+        {renderTemplateView()}
       </div>
     </main>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className={styles.main}>
+          <div className={styles.card}>
+            <p className={styles.status}>Cargando...</p>
+          </div>
+        </main>
+      }
+    >
+      <PlayPageContent />
+    </Suspense>
+  );
+}
+
+function PlaceholderGame({ title, templateId }: { title: string; templateId?: string | null }) {
+  const labelMap: Record<string, string> = {
+    runner_endless: "Runner placeholder",
+    match3_basic: "Match3 placeholder",
+    clicker_basic: "Clicker placeholder",
+    platformer_basic: "Platformer placeholder",
+    tower_defense_basic: "Tower Defense placeholder",
+    placeholder_basic: "Template placeholder",
+  };
+  const templateLabel = (templateId && labelMap[templateId]) || "Template placeholder";
+  return (
+    <div className={styles.card}>
+      <div className={styles.panelHeader}>
+        <div>
+          <p className={styles.kicker}>{templateLabel}</p>
+          <h2 className={styles.title}>{title}</h2>
+          <p className={styles.subtle}>Runtime no implementado aún. Usa este placeholder jugable.</p>
+        </div>
+      </div>
+      <div className={styles.card}>
+        <p className={styles.itemTitle}>Cómo jugar</p>
+        <p className={styles.muted}>Prototipo en espera. Implementa el template o redirige a una demo.</p>
+        <p className={styles.muted}>No se han cargado assets; usa los controles descritos en tu diseño.</p>
+      </div>
+    </div>
   );
 }

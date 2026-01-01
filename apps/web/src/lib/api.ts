@@ -1,38 +1,11 @@
-const FALLBACK = "http://localhost:4001";
-const FALLBACK_PORT = (() => {
-  try {
-    const url = new URL(FALLBACK);
-    return url.port || "4001";
-  } catch {
-    return "4001";
-  }
-})();
-
-const stripTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-const ensureTrailingSlash = (value: string) =>
-  value.endsWith("/") ? value : `${value}/`;
-
 export function getApiBaseUrl() {
-  const envBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (envBase && envBase.length > 0) {
-    return stripTrailingSlash(envBase);
-  }
-
-  if (typeof window !== "undefined") {
-    const { protocol, hostname, port } = window.location;
-    if (port === "3000" || port === "") {
-      return `${protocol}//${hostname}:${FALLBACK_PORT}`;
-    }
-    return `${protocol}//${hostname}${port ? `:${port}` : ""}`;
-  }
-
-  return FALLBACK;
+  // Keep relative in dev; return empty string to use same-origin.
+  return "";
 }
 
 export function buildApiUrl(path: string) {
-  const base = getApiBaseUrl();
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return normalized;
 }
 
 type ProjectLike = {
@@ -41,20 +14,7 @@ type ProjectLike = {
   id?: string;
 };
 
-function toAbsoluteUrl(candidate: string, apiBase: string) {
-  if (candidate.startsWith("http")) return candidate;
-  if (candidate.startsWith("/")) return `${apiBase}${candidate}`;
-  return `${apiBase}/${candidate}`;
-}
-
-export function buildPreviewUrl(project: ProjectLike, apiBase?: string) {
-  const base = stripTrailingSlash(apiBase || getApiBaseUrl());
-  const preview = project.previewUrl;
-
-  if (preview && preview.length > 0) {
-    return ensureTrailingSlash(toAbsoluteUrl(preview, base));
-  }
-
+export function buildPreviewUrl(project: ProjectLike) {
   const projectId = project.projectId || project.id || "";
-  return ensureTrailingSlash(`${base}/preview/${projectId}`);
+  return projectId ? `/play?projectId=${encodeURIComponent(projectId)}` : "/";
 }
