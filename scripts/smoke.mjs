@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { interpretToSpec } from "../lib/specInterpreter.js";
-import { selectTemplate } from "../lib/templates/registry.js";
+import { normalizeTriviaQuestions, selectTemplate, TemplateId } from "../lib/templates/registry.js";
 
 const cases = [
   { name: "Idle RPG", title: "Dark Mythology", prompt: "Idle RPG AFK con heroes y progreso por stages." },
@@ -25,6 +25,18 @@ for (const test of cases) {
     if (!template?.id) throw new Error("templateId vacío");
     if (!generated?.route || typeof generated.route !== "string") throw new Error("route inválida");
     if (!generated.config) throw new Error("config faltante");
+    if (template.id === TemplateId.trivia_basic) {
+      const questions = normalizeTriviaQuestions(
+        generated.config?.questions || generated.config?.content?.entities,
+        spec.title
+      );
+      if (questions.length === 0) throw new Error("trivia sin preguntas normalizadas");
+      if (questions.some((q) => !Array.isArray(q.options) || q.options.length < 4)) {
+        throw new Error("trivia sin opciones (>=4)");
+      }
+      const answerOutOfRange = questions.some((q) => q.answerIndex < 0 || q.answerIndex >= q.options.length);
+      if (answerOutOfRange) throw new Error("trivia answerIndex fuera de rango");
+    }
 
     console.log(
       `[ok] ${test.name}: type=${spec.type} template=${template.id} route=${generated.route}`

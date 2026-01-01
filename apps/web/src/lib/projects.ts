@@ -3,7 +3,14 @@ import { mkdir, readdir, readFile, rm, writeFile, stat } from "fs/promises";
 import path from "path";
 import { interpretToSpec } from "../../../../lib/specInterpreter";
 import { GameSpec, validateGameSpec } from "../../../../lib/gameSpec";
-import { GeneratedGame, GameTemplate, getTemplates, selectTemplate, TemplateId } from "../../../../lib/templates/registry";
+import {
+  GeneratedGame,
+  GameTemplate,
+  getTemplates,
+  normalizeTriviaQuestions,
+  selectTemplate,
+  TemplateId,
+} from "../../../../lib/templates/registry";
 
 export type ProjectRecord = {
   schemaVersion: number;
@@ -156,7 +163,26 @@ export function migrateProject(raw: any, filenameId?: string): { record: Project
     : selectTemplate(spec);
   const generated = raw.generated || safeTemplateBuild(template, spec);
   const route = `/play?projectId=${encodeURIComponent(id)}`;
-  const config = raw.config ?? generated?.config ?? {};
+  const templateId = (raw.templateId as TemplateId) || template.id;
+  let config: any = raw.config ?? generated?.config ?? {};
+  if (!config || typeof config !== "object") config = {};
+  if (templateId === TemplateId.trivia_basic) {
+    const rawQuestions =
+      config?.questions ??
+      config?.content?.entities ??
+      raw?.config?.content?.entities ??
+      spec?.content?.entities ??
+      [];
+    const normalizedQuestions = normalizeTriviaQuestions(rawQuestions, spec.title);
+    if (normalizedQuestions.length > 0) {
+      const previousQuestions = JSON.stringify(config?.questions || []);
+      const nextQuestions = JSON.stringify(normalizedQuestions);
+      if (previousQuestions !== nextQuestions) changedFields.add("config.questions");
+      const nextContent = { ...(config.content || {}), entities: normalizedQuestions };
+      config = { ...config, questions: normalizedQuestions, content: nextContent };
+      spec.content = { ...(spec.content || { entities: [] }), entities: normalizedQuestions };
+    }
+  }
   const schemaVersion = raw.schemaVersion ?? 1;
   if (!raw.schemaVersion) changedFields.add("schemaVersion");
   if (!raw.route || raw.route !== route) changedFields.add("route");
@@ -170,7 +196,7 @@ export function migrateProject(raw: any, filenameId?: string): { record: Project
     title,
     createdAt: raw.createdAt || new Date().toISOString(),
     spec,
-    templateId: (raw.templateId as TemplateId) || template.id,
+    templateId,
     route,
     config,
   };

@@ -24,6 +24,7 @@
 - Healthcheck: `GET /api/health` devuelve `{ ok: true, time, version }`.
 - Cliente usa rutas relativas `/api/*` (sin hosts hardcodeados); en Home se muestra banner si la API no responde en el puerto actual.
 - Generate flow ahora refresca proyectos y navega automáticamente a `/play?projectId=...` tras un `POST /api/generate` exitoso.
+- Trivia normaliza preguntas a 4 opciones; si una viene vacía el runtime muestra placeholder seguro con Siguiente/Reiniciar en /play.
 
 ## Flujos DEV
 - **Reset (DEV)**: POST `/api/dev/reset` (solo dev) borra proyectos en disco; botones "Reset (DEV)" en `/projects` y `/playground` limpian también localStorage (keys ai-studio/projects/state) y recargan. Script: `pnpm dev:reset` (requiere web dev arriba).
