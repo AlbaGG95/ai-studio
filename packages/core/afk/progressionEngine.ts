@@ -1,51 +1,40 @@
 import { combineRewards, grantReward } from "./economyEngine.js";
+import { BASE_STAGES, upgradeIdleRate } from "./state.js";
 import { PlayerState, Reward, Stage } from "./types.js";
 
-export interface StageProgressResult {
-  stage: Stage;
-  cleared: boolean;
-}
-
-export function applyStageProgress(stage: Stage, delta: number): StageProgressResult {
-  const progress = Math.min(1, stage.progress + delta);
-  const cleared = progress >= 1;
-  return {
-    stage: { ...stage, progress },
-    cleared,
-  };
-}
-
-export function advanceStage(current: Stage): Stage {
-  const nextIndex = current.index + 1;
-  const reward: Reward = {
-    gold: Math.round(current.reward.gold * 1.1 + nextIndex),
-    essence: Math.round(current.reward.essence * 1.05 + 1),
-  };
-  return {
-    id: `stage-${nextIndex}`,
-    index: nextIndex,
-    enemyPower: Math.round(current.enemyPower * 1.12 + 5),
-    reward,
-    progress: 0,
-    milestone: nextIndex % 5 === 0,
-  };
-}
-
 export function applyStageReward(state: PlayerState, reward: Reward): PlayerState {
-  const combined = combineRewards(reward, { gold: 0, essence: 0 });
-  return grantReward(state, combined, "bank");
+  const combined = combineRewards(reward, undefined);
+  return grantReward(state, combined, "direct");
 }
 
-export function handleMilestoneUnlocks(state: PlayerState): PlayerState {
-  const next = { ...state, unlocks: { ...state.unlocks } };
-  if (state.stage.milestone) {
-    next.unlocks.upgrades = true;
-    if (state.stage.index >= 3) {
-      next.unlocks.heroes = true;
+export function unlockNextStage(state: PlayerState, stage: Stage): PlayerState {
+  const stages = BASE_STAGES;
+  const idx = stages.findIndex((s) => s.id === stage.id);
+  if (idx === -1) return state;
+  const nextStage = stages[idx + 1];
+  const next = { ...state, campaign: { ...state.campaign } };
+  if (nextStage) {
+    if (!next.campaign.unlockedStageIds.includes(nextStage.id)) {
+      next.campaign.unlockedStageIds = [...next.campaign.unlockedStageIds, nextStage.id];
     }
-    if (state.stage.index >= 5) {
-      next.unlocks.settings = true;
-    }
+    next.campaign.currentStageId = nextStage.id;
   }
+  if (!next.campaign.completedStageIds.includes(stage.id)) {
+    next.campaign.completedStageIds = [...next.campaign.completedStageIds, stage.id];
+  }
+  return next;
+}
+
+export function setStage(state: PlayerState, stageId: string): PlayerState {
+  const next = { ...state, campaign: { ...state.campaign } };
+  next.campaign.currentStageId = stageId;
+  return next;
+}
+
+export function applyVictory(state: PlayerState, stage: Stage): PlayerState {
+  let next = applyStageReward(state, stage.reward);
+  next = unlockNextStage(next, stage);
+  const updatedStage = BASE_STAGES.find((s) => s.id === next.campaign.currentStageId) ?? stage;
+  next = upgradeIdleRate(next, updatedStage);
   return next;
 }

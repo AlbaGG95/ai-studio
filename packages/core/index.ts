@@ -24,19 +24,27 @@ export {
   combineRewards as combineAfkRewards,
   grantReward as grantAfkReward,
   tickIncome as computeAfkTickIncome,
-  getUpgradeMultiplier as getAfkUpgradeMultiplier,
   canAfford as canAffordAfkUpgrade,
   payCost as payAfkCost,
   upgradeCost as computeAfkUpgradeCost,
   applyUpgrade as applyAfkUpgrade,
 } from "./afk/economyEngine.js";
 export {
-  applyStageProgress as applyAfkStageProgress,
-  advanceStage as advanceAfkStage,
   applyStageReward as applyAfkStageReward,
-  handleMilestoneUnlocks as handleAfkMilestones,
+  unlockNextStage as unlockAfkStage,
+  setStage as setAfkStage,
+  applyVictory as applyAfkVictory,
 } from "./afk/progressionEngine.js";
-export { createInitialState as createInitialAfkState, clonePlayerState as cloneAfkPlayerState } from "./afk/state.js";
+export {
+  createInitialState as createInitialAfkState,
+  clonePlayerState as cloneAfkPlayerState,
+  computeIdleRate as computeAfkIdleRate,
+  BASE_STAGES as AFK_STAGES,
+  DEFAULT_REWARD as AFK_EMPTY_REWARD,
+} from "./afk/state.js";
+export { buildHeroVisual as buildAfkHeroVisual, generateRoster as generateAfkRoster, rarityScale as afkRarityScale } from "./afk/heroFactory.js";
+export { levelUpHero as levelUpAfkHero, levelUpCost as afkLevelUpCost } from "./afk/heroProgression.js";
+export { buildStages as buildAfkStages, findStage as findAfkStage, nextStageId as nextAfkStageId } from "./afk/stages.js";
 export type {
   EngineConfig,
   EngineState,
@@ -71,6 +79,9 @@ export type {
   Reward as AfkReward,
   Upgrade as AfkUpgrade,
   CombatSummary as AfkCombatSummary,
+  CombatEvent as AfkCombatEvent,
   IdleTickResult as AfkIdleTickResult,
   TickContext as AfkTickContext,
+  HeroVisual as AfkHeroVisual,
+  BattleUnit as AfkBattleUnit,
 } from "./afk/types.js";
