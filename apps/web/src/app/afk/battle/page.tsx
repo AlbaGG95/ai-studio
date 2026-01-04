@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AfkCombatEvent, AfkCombatSummary, buildAfkHeroVisual } from "@ai-studio/core";
 import styles from "../afk.module.css";
 import { HeroPortrait } from "../components/HeroPortrait";
 import { PhaserBattle, RenderUnit } from "../components/PhaserBattle";
 import { BattleSession, useAfk } from "@/lib/afkStore";
+import { ProceduralIcon } from "../components/ProceduralIcon";
+import { generateIcon } from "@/lib/afkProcedural";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -24,6 +26,9 @@ function buildUnits(session: BattleSession, visuals: Record<string, any>): Rende
       hp: unit.maxHp,
       maxHp: unit.maxHp,
       energy: 0,
+      role: unit.role,
+      rarity: unit.rarity,
+      visualSeed: unit.heroId,
       visual: visuals[unit.heroId] ?? buildAfkHeroVisual(unit.heroId),
     })) ?? [];
   const enemyUnits =
@@ -35,6 +40,9 @@ function buildUnits(session: BattleSession, visuals: Record<string, any>): Rende
       hp: unit.maxHp,
       maxHp: unit.maxHp,
       energy: 0,
+      role: unit.role,
+      rarity: unit.rarity,
+      visualSeed: unit.heroId,
       visual: buildAfkHeroVisual(unit.heroId),
     })) ?? [];
   return [...allyUnits, ...enemyUnits];
@@ -63,7 +71,6 @@ function applyEvent(units: RenderUnit[], ev: AfkCombatEvent): RenderUnit[] {
 export default function BattlePage() {
   const { state, heroVisuals, startBattle, completeBattle } = useAfk();
   const params = useSearchParams();
-  const router = useRouter();
   const [session, setSession] = useState<BattleSession | null>(null);
   const [units, setUnits] = useState<RenderUnit[]>([]);
   const [eventIndex, setEventIndex] = useState(0);
@@ -144,31 +151,36 @@ export default function BattlePage() {
 
   return (
     <div className={styles.battleShell}>
-      <div className={styles.card}>
+      <div className={`${styles.card} ${styles.battleCard}`}>
         <div className={styles.header}>
           <div>
             <p className={styles.kicker}>Stage {session.stage.id}</p>
             <h1 className={styles.title}>5v5 auto-battle</h1>
             <p className={styles.muted}>
-              Poder enemigo {format(session.stage.enemyPower)} · Recompensa {format(session.stage.reward.gold)} oro /{" "}
+              Poder enemigo {format(session.stage.enemyPower)} 嫉 Recompensa {format(session.stage.reward.gold)} oro /{" "}
               {format(session.stage.reward.exp)} exp / {format(session.stage.reward.materials)} mats
             </p>
           </div>
           <div className={styles.actions}>
-            <button className={styles.buttonGhost} onClick={() => setRunning((v) => !v)}>
-              Auto {running ? "ON" : "OFF"}
-            </button>
+            <span className={styles.pill}>Auto ON</span>
             <button className={styles.buttonPrimary} onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}>
               Velocidad x{speed}
             </button>
           </div>
         </div>
         <div className={styles.battleBoard}>
-          <PhaserBattle units={units} lastEvent={lastEvent} speed={speed} height={480} />
+          <PhaserBattle units={units} lastEvent={lastEvent} speed={speed} height={520} stageId={session.stage.id} />
           <div className={styles.bottomHud}>
             {allies.map((unit) => (
               <div key={unit.id} className={styles.portraitCard}>
-                <HeroPortrait visual={unit.visual} seed={unit.id} />
+                <HeroPortrait
+                  visual={unit.visual}
+                  seed={unit.id}
+                  role={unit.role}
+                  rarity={unit.rarity}
+                  name={unit.name}
+                  label={unit.rarity?.toUpperCase()}
+                />
                 <div className={styles.portraitBars}>
                   <div className={styles.hpRow}>
                     <span className={styles.muted}>{unit.name}</span>
@@ -192,16 +204,16 @@ export default function BattlePage() {
               </div>
             ))}
           </div>
-        {result && (
-          <div className={styles.battleOverlay}>
-            <p className={styles.sectionTitle}>
-              {result.result === "win" ? "Victoria" : result.result === "timeout" ? "Tiempo agotado" : "Derrota"}
-            </p>
-            <p className={styles.muted}>
-              Turnos {result.turns} · Daño {format(result.damageDealt)} · Recibido {format(result.damageTaken)}
-            </p>
-            {result.result === "win" && (
+          {result && (
+            <div className={styles.battleOverlay}>
+              <p className={styles.sectionTitle}>
+                {result.result === "win" ? "Victoria" : result.result === "timeout" ? "Tiempo agotado" : "Derrota"}
+              </p>
               <p className={styles.muted}>
+                Turnos {result.turns} 嫉 Daño {format(result.damageDealt)} 嫉 Recibido {format(result.damageTaken)}
+              </p>
+              {result.result === "win" && (
+                <p className={styles.muted}>
                   Recompensas: +{format(session.stage.reward.gold)} oro / +{format(session.stage.reward.exp)} exp / +
                   {format(session.stage.reward.materials)} mats
                 </p>
@@ -216,6 +228,17 @@ export default function BattlePage() {
               </div>
             </div>
           )}
+        </div>
+        <div className={styles.rewardStrip}>
+          <div className={styles.pill}>Capítulo {session.stage.chapter}</div>
+          <div className={styles.rewardIcons}>
+            <ProceduralIcon icon={generateIcon(`${session.stage.id}-gold`)} label={`+${format(session.stage.reward.gold)} oro`} />
+            <ProceduralIcon icon={generateIcon(`${session.stage.id}-exp`)} label={`+${format(session.stage.reward.exp)} exp`} />
+            <ProceduralIcon
+              icon={generateIcon(`${session.stage.id}-mat`)}
+              label={`+${format(session.stage.reward.materials)} mats`}
+            />
+          </div>
         </div>
       </div>
     </div>

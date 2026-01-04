@@ -6,10 +6,11 @@ import styles from "./afk.module.css";
 import { AfkProvider, useAfk } from "@/lib/afkStore";
 
 const nav = [
-  { href: "/afk", label: "Mapa", hint: "Capítulos y stages" },
+  { href: "/afk", label: "Campaña", hint: "Capítulos y stages" },
   { href: "/afk/battle", label: "Batalla", hint: "Auto 5v5" },
-  { href: "/afk/heroes", label: "Héroes", hint: "Mejora y equipo" },
+  { href: "/afk/heroes", label: "Héroes", hint: "Roster y skills" },
   { href: "/afk/idle", label: "Idle", hint: "Botín offline" },
+  { href: "/afk/inventory", label: "Inventario", hint: "Botín y equipo" },
 ];
 
 function format(num: number | undefined) {
@@ -23,25 +24,34 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={styles.page}>
-      <div className={styles.shell}>
-        <aside className={styles.nav}>
-          <div className={styles.brand}>AFK Vertical Slice</div>
-          <p className={styles.navStats}>
-            Oro {format(state?.resources.gold)} · EXP {format(state?.resources.exp)} · Materiales {format(state?.resources.materials)}
-          </p>
-          <p className={styles.navStats}>
-            Stage actual {state?.campaign.currentStageId ?? "1-1"} · Botín AFK +{format(bank.gold)} oro
-          </p>
-          <div className={styles.navList}>
-            {nav.map((item) => (
-              <Link key={item.href} href={item.href} className={`${styles.navButton} ${pathname === item.href ? styles.active : ""}`}>
-                <span>{item.label}</span>
-                <span className={styles.muted}>{item.hint}</span>
-              </Link>
-            ))}
+      <div className={styles.skyLayer} />
+      <div className={styles.pageInner}>
+        <header className={styles.topHud}>
+          <div>
+            <div className={styles.brand}>AFK Arena-like</div>
+            <p className={styles.muted}>Auto idle RPG con renderer 2.5D</p>
           </div>
-        </aside>
+          <div className={styles.hudStats}>
+            <span>Oro {format(state?.resources.gold)}</span>
+            <span>EXP {format(state?.resources.exp)}</span>
+            <span>Materiales {format(state?.resources.materials)}</span>
+          </div>
+          <div className={styles.idleChip}>
+            AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp / {format(bank.materials)} mats
+          </div>
+        </header>
         <section className={styles.content}>{children}</section>
+        <nav className={styles.bottomNav}>
+          {nav.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
+                <span className={styles.navLabel}>{item.label}</span>
+                <span className={styles.navHint}>{item.hint}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import styles from "../afk.module.css";
+import { ProceduralIcon } from "../components/ProceduralIcon";
+import { generateIcon } from "@/lib/afkProcedural";
 import { useAfk } from "@/lib/afkStore";
 
 function format(num: number | undefined) {
@@ -32,25 +34,33 @@ export default function IdlePage() {
 
   return (
     <div className={styles.grid}>
-      <div className={styles.card}>
-        <p className={styles.sectionTitle}>Botín offline</p>
-        <p className={styles.cardTitle}>
-          {format(bank.gold)} oro · {format(bank.exp)} exp · {format(bank.materials)} mats
-        </p>
-        <p className={styles.muted}>Cap de acumulación: 8h · Progreso {capPct}%</p>
-        <div className={styles.progressBar} style={{ marginTop: 10 }}>
-          <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
+      <div className={`${styles.card} ${styles.heroBanner}`}>
+        <div>
+          <p className={styles.kicker}>Idle Rewards</p>
+          <h1 className={styles.title}>Botín offline listo</h1>
+          <p className={styles.muted}>
+            Cap de acumulación 8h · progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir generando.
+          </p>
+          <div className={styles.progressBar} style={{ marginTop: 12 }}>
+            <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
+          </div>
+          <div className={styles.actions} style={{ marginTop: 12 }}>
+            <button className={styles.buttonPrimary} onClick={claimIdle}>
+              Reclamar
+            </button>
+          </div>
+          <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
+            Último claim: {new Date(state.idle.lastClaimAt).toLocaleTimeString()} · Última vista:{" "}
+            {new Date(state.idle.lastSeenAt).toLocaleTimeString()}
+          </p>
         </div>
-        <div className={styles.actions} style={{ marginTop: 12 }}>
-          <button className={styles.buttonPrimary} onClick={claimIdle}>
-            Reclamar
-          </button>
+        <div className={styles.rewardIcons}>
+          <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(bank.gold)} oro`} />
+          <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(bank.exp)} exp`} />
+          <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(bank.materials)} mats`} />
         </div>
-        <p className={styles.muted} style={{ marginTop: 8 }}>
-          Último claim: {new Date(state.idle.lastClaimAt).toLocaleTimeString()} · Última vista:{" "}
-          {new Date(state.idle.lastSeenAt).toLocaleTimeString()}
-        </p>
       </div>
+
       <div className={styles.card}>
         <p className={styles.sectionTitle}>Tasa por minuto</p>
         <p className={styles.muted}>
