@@ -1,9 +1,13 @@
 "use client";
+/* eslint-disable react-hooks/exhaustive-deps */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Application } from "pixi.js";
+import { useRouter } from "next/navigation";
 import { generateCampaignGraph, CampaignNode } from "@ai-studio/core";
 import { MapRenderer } from "@ai-studio/render-pixi";
+
+type ProgressState = { currentNodeId: string; cleared: Record<string, true> };
 
 export default function AfkMapPage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -11,11 +15,57 @@ export default function AfkMapPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mapRendererRef = useRef<MapRenderer | null>(null);
   const initialSelectedRef = useRef<string | null>(null);
+  const progressRef = useRef<ProgressState | null>(null);
+  const router = useRouter();
 
   const graph = useMemo(() => generateCampaignGraph({ seed: 12345, chaptersCount: 8, nodesPerChapter: 10 }), []);
+  const [progress, setProgress] = useState<ProgressState>(() => ({
+    currentNodeId: graph.startNodeId,
+    cleared: {},
+  }));
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(graph.startNodeId);
   initialSelectedRef.current = initialSelectedRef.current ?? graph.startNodeId;
+  const [queryNodeId, setQueryNodeId] = useState<string | null>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const saved = loadProgress();
+    if (saved) {
+      setProgress(saved);
+      setSelectedNodeId(saved.currentNodeId);
+      initialSelectedRef.current = saved.currentNodeId;
+    }
+  }, []);
+
+  useEffect(() => {
+    saveProgress(progress);
+    progressRef.current = progress;
+  }, [progress]);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const paramNode = params.get("nodeId");
+    if (paramNode) setQueryNodeId(paramNode);
+  }, []);
+
+  useEffect(() => {
+    if (queryNodeId) {
+      setSelectedNodeId(queryNodeId);
+    }
+  }, [queryNodeId]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return undefined;
@@ -24,6 +74,7 @@ export default function AfkMapPage() {
     let disposed = false;
     let layout: () => void = () => {};
     let lastY: number | null = null;
+    let viewCleanup: (() => void) | null = null;
 
     const onResize = () => layout();
 
@@ -69,7 +120,9 @@ export default function AfkMapPage() {
         horizontalSpread: 110,
       });
       mapRendererRef.current = mapRenderer;
-      mapRenderer.setSelectedId(initialSelectedRef.current);
+      const initialProgress = progressRef.current ?? progress;
+      mapRenderer.setProgress(initialProgress);
+      mapRenderer.setSelectedNodeId(queryNodeId ?? initialSelectedRef.current);
       mapRenderer.render();
 
       layout = () => {
@@ -112,14 +165,14 @@ export default function AfkMapPage() {
 
       const onSelect = (node: CampaignNode) => {
         setSelectedNodeId(node.id);
-        mapRenderer.setSelectedId(node.id);
+        mapRenderer.setSelectedNodeId(node.id);
         mapRenderer.render();
       };
       mapRenderer.onSelect(onSelect);
 
       window.addEventListener("resize", onResize);
 
-      return () => {
+      viewCleanup = () => {
         view.removeEventListener("wheel", onWheel);
         view.removeEventListener("pointerdown", onPointerDown);
         view.removeEventListener("pointermove", onPointerMove);
@@ -128,18 +181,14 @@ export default function AfkMapPage() {
       };
     };
 
-    let cleanupViewListeners: (() => void) | void;
-    boot().then((cleanup) => {
-      cleanupViewListeners = cleanup;
-    });
-    window.addEventListener("resize", onResize);
+    boot();
 
     return () => {
       disposed = true;
       window.removeEventListener("resize", onResize);
-      if (cleanupViewListeners) {
+      if (viewCleanup) {
         try {
-          cleanupViewListeners();
+          viewCleanup();
         } catch {
           // ignore
         }
@@ -175,15 +224,24 @@ export default function AfkMapPage() {
       appRef.current = null;
       canvasRef.current = null;
     };
-  }, [graph]);
+  }, [graph, queryNodeId]);
 
   useEffect(() => {
     const renderer = mapRendererRef.current;
     if (renderer) {
-      renderer.setSelectedId(selectedNodeId);
+      renderer.setSelectedNodeId(selectedNodeId);
+      renderer.setProgress(progress);
       renderer.render();
     }
-  }, [selectedNodeId]);
+  }, [selectedNodeId, progress]);
+
+  const nodeOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    graph.chapters.forEach((chapter) =>
+      chapter.nodes.forEach((node, idx) => map.set(node.id, chapter.index * 1000 + idx))
+    );
+    return map;
+  }, [graph.chapters]);
 
   const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -193,6 +251,19 @@ export default function AfkMapPage() {
     }
     return null;
   }, [graph.chapters, selectedNodeId]);
+
+  const selectedState = useMemo<"locked" | "current" | "cleared">(() => {
+    if (!selectedNode) return "locked";
+    if (selectedNode.id === progress.currentNodeId) return "current";
+    const order = nodeOrder.get(selectedNode.id) ?? 0;
+    const currentOrder = nodeOrder.get(progress.currentNodeId) ?? 0;
+    if (progress.cleared[selectedNode.id] || order < currentOrder) return "cleared";
+    return "locked";
+  }, [selectedNode, progress, nodeOrder]);
+
+  const recommendedPower =
+    selectedNode?.recommendedPower ?? Math.max(400, (nodeOrder.get(selectedNodeId ?? "") ?? 0) * 5 + 400);
+  const rewards = selectedNode?.rewards ?? { gold: 50, exp: 45, items: [{ id: "mat", qty: 2 }] };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#0b1224" }}>
@@ -213,24 +284,75 @@ export default function AfkMapPage() {
             <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", letterSpacing: "0.08em" }}>Nodo seleccionado</p>
             <h3 style={{ margin: "2px 0 0", fontSize: 18 }}>{selectedNode?.id ?? "Ninguno"}</h3>
             <p style={{ margin: 0, color: "#cbd5e1" }}>Tipo: {selectedNode?.type ?? "-"}</p>
+            <p style={{ margin: 0, color: "#cbd5e1" }}>Power recomendado: {recommendedPower}</p>
+            <p style={{ margin: 0, color: "#cbd5e1" }}>
+              Recompensas: oro {rewards.gold ?? 0} · exp {rewards.exp ?? 0}
+            </p>
           </div>
-          <button
-            type="button"
-            disabled
-            style={{
-              padding: "10px 16px",
-              background: "#1d4ed8",
-              color: "#e2e8f0",
-              border: "none",
-              borderRadius: 10,
-              opacity: 0.5,
-              cursor: "not-allowed",
-            }}
-          >
-            FIGHT
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {selectedNode?.type === "treasure" && (
+              <button
+                type="button"
+                disabled
+                style={{
+                  padding: "8px 12px",
+                  background: "#10b981",
+                  color: "#e2e8f0",
+                  border: "none",
+                  borderRadius: 8,
+                  opacity: 0.6,
+                  cursor: "not-allowed",
+                }}
+              >
+                Claim
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={selectedState === "locked" || !selectedNodeId}
+              onClick={() => {
+                if (!selectedNodeId) return;
+                router.push(`/afk/battle?nodeId=${encodeURIComponent(selectedNodeId)}&seed=${graph.seed}`);
+              }}
+              style={{
+                padding: "10px 16px",
+                background: selectedState === "locked" ? "#1f2a44" : "#1d4ed8",
+                color: "#e2e8f0",
+                border: "none",
+                borderRadius: 10,
+                opacity: selectedState === "locked" ? 0.5 : 1,
+                cursor: selectedState === "locked" ? "not-allowed" : "pointer",
+              }}
+            >
+              FIGHT
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function loadProgress(): ProgressState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("afk_progress_v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const currentNodeId = typeof parsed.currentNodeId === "string" ? parsed.currentNodeId : "";
+    const cleared = typeof parsed.cleared === "object" && parsed.cleared ? parsed.cleared : {};
+    return { currentNodeId: currentNodeId || "", cleared };
+  } catch {
+    return null;
+  }
+}
+
+function saveProgress(state: ProgressState) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("afk_progress_v1", JSON.stringify(state));
+  } catch {
+    // ignore
+  }
 }

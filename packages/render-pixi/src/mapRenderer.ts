@@ -39,6 +39,8 @@ type NodeVisual = {
   y: number;
 };
 
+type ProgressState = { currentNodeId: string; cleared: Record<string, true> };
+
 export class MapRenderer {
   private readonly app: Application;
   private readonly graph: CampaignGraph;
@@ -54,6 +56,7 @@ export class MapRenderer {
   private targetScroll = 0;
   private pulsePhase = 0;
   private ticking = false;
+  private progress: ProgressState;
 
   constructor(app: Application, graph: CampaignGraph, options: MapRenderOptions = {}) {
     this.app = app;
@@ -66,6 +69,7 @@ export class MapRenderer {
       horizontalSpread: options.horizontalSpread ?? 110,
       paddingTop: options.paddingTop ?? 80,
     };
+    this.progress = { currentNodeId: graph.startNodeId, cleared: {} };
     this.root = new Container();
     this.world = new Container();
     this.app.stage.addChild(this.root);
@@ -78,6 +82,18 @@ export class MapRenderer {
 
   setSelectedId(id: string | null) {
     this.selectedId = id;
+    this.applyVisuals();
+  }
+
+  setSelectedNodeId(id: string | null) {
+    this.setSelectedId(id);
+  }
+
+  setProgress(progress: ProgressState) {
+    this.progress = progress;
+    if (!this.selectedId) {
+      this.selectedId = progress.currentNodeId;
+    }
     this.applyVisuals();
   }
 
@@ -122,10 +138,13 @@ export class MapRenderer {
       });
     });
 
-    const startParts = this.graph.startNodeId.split("_");
-    const startChapterIdx = Number(startParts[0]?.replace(/[^\d]/g, "") || 0);
-    const startNodeIdx = Number(startParts[1]?.replace(/[^\d]/g, "") || 0);
-    const currentOrder = startChapterIdx * 1000 + startNodeIdx;
+    const orderMap = new Map<string, number>();
+    this.graph.chapters.forEach((chapter) => {
+      chapter.nodes.forEach((node, idx) => {
+        orderMap.set(node.id, chapter.index * 1000 + idx);
+      });
+    });
+    const currentOrder = orderMap.get(this.progress.currentNodeId) ?? 0;
 
     const background = new Graphics();
     background.beginFill(0x0b1224);
@@ -147,11 +166,12 @@ export class MapRenderer {
       chapter.nodes.forEach((node, idx) => {
         const from = positions.get(node.id);
         if (!from) return;
-        const fromOrder = chapter.index * 1000 + idx;
+        const fromOrder = orderMap.get(node.id) ?? 0;
         node.edges.forEach((targetId) => {
           const to = positions.get(targetId);
           if (!to) return;
-          const isClearedPath = fromOrder <= currentOrder;
+          const toOrder = orderMap.get(targetId) ?? fromOrder;
+          const isClearedPath = Math.min(fromOrder, toOrder) <= currentOrder;
           if (isClearedPath) {
             edgesGlow.lineStyle(8, 0x7dd3fc, 0.2);
             edgesGlow.moveTo(from.x, from.y);
@@ -170,7 +190,8 @@ export class MapRenderer {
       chapter.nodes.forEach((node, idx) => {
         const point = positions.get(node.id);
         if (!point) return;
-        const state = this.resolveState(node, chapter.index, idx, startChapterIdx, startNodeIdx);
+        const order = orderMap.get(node.id) ?? 0;
+        const state = this.resolveState(node, order, currentOrder);
         const nodeContainer = new Container();
         nodeContainer.position.set(point.x, point.y);
         nodeContainer.eventMode = state === "locked" ? "none" : "static";
@@ -203,7 +224,7 @@ export class MapRenderer {
           circle,
           icon,
           state,
-          order: chapter.index * 1000 + idx,
+          order,
           y: point.y,
         };
         this.nodes.push(visual);
@@ -221,11 +242,7 @@ export class MapRenderer {
     const viewHeight = height;
     this.maxScroll = 0;
     this.minScroll = Math.min(0, viewHeight - contentHeight);
-    const currentVisual = this.nodes.find((n) => n.node.id === this.graph.startNodeId);
-    if (currentVisual) {
-      const desired = -(currentVisual.y - viewHeight * 0.45);
-      this.targetScroll = Math.max(this.minScroll, Math.min(this.maxScroll, desired));
-    }
+    this.focusOnCurrent(viewHeight);
     this.setScroll(this.cameraY);
   }
 
@@ -246,9 +263,9 @@ export class MapRenderer {
     this.world.position.set(width / 2, paddingTop + this.cameraY);
   }
 
-  private resolveState(node: CampaignNode, chapterIdx: number, nodeIdx: number, startChapterIdx: number, startNodeIdx: number): NodeState {
-    if (chapterIdx < startChapterIdx || (chapterIdx === startChapterIdx && nodeIdx < startNodeIdx)) return "cleared";
-    if (node.id === this.graph.startNodeId) return "current";
+  private resolveState(node: CampaignNode, order: number, currentOrder: number): NodeState {
+    if (node.id === this.progress.currentNodeId) return "current";
+    if (this.progress.cleared[node.id] || order < currentOrder) return "cleared";
     return "locked";
   }
 
@@ -278,10 +295,41 @@ export class MapRenderer {
     const baseScale = visual.state === "current" ? 1.2 : visual.state === "cleared" ? 0.9 : 1;
     visual.container.scale.set(isSelected ? baseScale * 1.08 : baseScale);
     visual.container.alpha = visual.state === "locked" ? 0.25 : visual.state === "cleared" ? 0.4 : 1;
+
+    if (visual.state === "cleared") {
+      const check = new Graphics();
+      check.lineStyle(3, 0x22c55e, 0.9);
+      check.moveTo(-4, -2);
+      check.lineTo(-1, 4);
+      check.lineTo(6, -6);
+      visual.container.addChild(check);
+    } else if (visual.state === "locked") {
+      const lock = new Graphics();
+      lock.lineStyle(2, 0xe2e8f0, 0.9);
+      lock.drawRoundedRect(-5, -3, 10, 8, 2);
+      lock.moveTo(-3, -3);
+      lock.quadraticCurveTo(0, -8, 3, -3);
+      visual.container.addChild(lock);
+    }
+
+    if (isSelected && visual.state !== "current") {
+      const ring = new Graphics();
+      ring.lineStyle(2, 0x7dd3fc, 0.9);
+      ring.drawCircle(0, 0, this.options.nodeRadius + 6);
+      visual.container.addChild(ring);
+    }
   }
 
   private applyVisuals() {
     this.nodes.forEach((n) => this.applyNodeVisual(n));
+  }
+
+  private focusOnCurrent(viewHeight: number) {
+    const currentVisual = this.nodes.find((n) => n.node.id === this.progress.currentNodeId);
+    if (currentVisual) {
+      const desired = -(currentVisual.y - viewHeight * 0.45);
+      this.targetScroll = Math.max(this.minScroll, Math.min(this.maxScroll, desired));
+    }
   }
 
   private tick = (ticker: Ticker) => {

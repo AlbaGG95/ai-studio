@@ -45,15 +45,33 @@ function buildVisuals(allies: GeneratedHero[], enemyStageId: string) {
   return visuals;
 }
 
+function parseStageIndex(nodeId: string | null, fallback: number) {
+  if (!nodeId) return fallback;
+  const match = nodeId.match(/\d+/g);
+  if (!match || !match.length) return fallback;
+  const num = Number(match[match.length - 1]);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 export default function AfkBattlePage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<BattleRenderer | null>(null);
   const appRef = useRef<Application | null>(null);
   const speedRef = useRef(1);
+  const [nodeIdParam, setNodeIdParam] = useState<string | null>(null);
+  const [seedParam, setSeedParam] = useState<string | null>(null);
+  const initialStageIndex = parseStageIndex(nodeIdParam, 1);
   const [speed, setSpeed] = useState(1);
-  const [stageIndex, setStageIndex] = useState(1);
+  const [stageIndex, setStageIndex] = useState(initialStageIndex);
   const [status, setStatus] = useState("Ready");
   const [result, setResult] = useState<"win" | "loss" | "timeout" | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setNodeIdParam(params.get("nodeId"));
+    setSeedParam(params.get("seed"));
+  }, []);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -73,12 +91,15 @@ export default function AfkBattlePage() {
       }
 
       mount.innerHTML = "";
-      mount.appendChild(app.canvas);
+      const view = (app as any).canvas ?? (app as any).view;
+      if (!view) throw new Error("Pixi view missing");
+      mount.appendChild(view);
       appRef.current = app;
 
-      const allies = generateTeam(`demo-ally-${stageIndex}`, 5);
-      const stage = buildStage(stageIndex);
-      const seed = `afk-${stageIndex}`;
+      const nodeId = nodeIdParam ?? `1-${stageIndex}`;
+      const seed = seedParam ?? `afk-${nodeId}`;
+      const allies = generateTeam(`demo-ally-${nodeId}`, 5);
+      const stage = buildStage(parseStageIndex(nodeId, stageIndex));
       const timeline = simulateCombatTimeline(allies, stage, [], { tickMs: 620 }, seed);
       const frames = timeline.frames;
       if (!frames.length) return;
@@ -92,7 +113,7 @@ export default function AfkBattlePage() {
 
       renderer.renderFrame(frames[0]);
       setResult(null);
-      setStatus(`Stage ${stage.id} running...`);
+      setStatus(`Stage ${nodeId} running...`);
 
       let frameIdx = 0;
       let elapsed = 0;
@@ -125,7 +146,7 @@ export default function AfkBattlePage() {
       appRef.current?.destroy(true);
       appRef.current = null;
     };
-  }, [stageIndex]);
+  }, [stageIndex, nodeIdParam, seedParam]);
 
   return (
     <div className={styles.page}>
@@ -136,6 +157,7 @@ export default function AfkBattlePage() {
           <p className={styles.subtle}>
             Combate 5v5 generado proceduralmente. El renderer solo consume snapshots y eventos del engine.
           </p>
+          <p className={styles.subtle}>Stage: {nodeIdParam ?? `1-${stageIndex}`}</p>
         </div>
         <div className={styles.controls}>
           <button onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}>
@@ -155,7 +177,7 @@ export default function AfkBattlePage() {
         <div ref={mountRef} className={styles.canvas} />
         <div className={styles.overlay}>
           <div>
-            <p className={styles.status}>Stage {stageIndex}</p>
+            <p className={styles.status}>Stage {nodeIdParam ?? stageIndex}</p>
             <p className={styles.statusDetail}>{status}</p>
           </div>
           <div className={styles.badges}>
