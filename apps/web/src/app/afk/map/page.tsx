@@ -5,13 +5,16 @@ import { Application, Graphics, Text } from "pixi.js";
 
 export default function AfkMapPage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const appRef = useRef<Application | null>(null);
 
   useEffect(() => {
     let disposed = false;
+    let resizeBound = false;
     const mount = mountRef.current;
     if (!mount) return undefined;
 
-    const app = new Application();
+    appRef.current = new Application();
+    const app = appRef.current;
 
     const background = new Graphics();
     const label = new Text("AFK MAP", {
@@ -23,9 +26,11 @@ export default function AfkMapPage() {
     label.anchor.set(0.5);
 
     const layout = () => {
+      const currentApp = appRef.current;
+      if (!currentApp) return;
       const width = mount.clientWidth || window.innerWidth || 360;
       const height = mount.clientHeight || window.innerHeight || 640;
-      app.renderer.resize(width, height);
+      currentApp.renderer.resize(width, height);
       background.clear();
       background.beginFill("#0b1224");
       background.drawRect(0, 0, width, height);
@@ -34,30 +39,42 @@ export default function AfkMapPage() {
     };
 
     const boot = async () => {
-      await app.init({
+      const currentApp = appRef.current;
+      if (!currentApp) return;
+      await currentApp.init({
         width: mount.clientWidth || window.innerWidth || 360,
         height: mount.clientHeight || window.innerHeight || 640,
         background: "#0b1224",
         antialias: true,
       });
       if (disposed) {
-        app.destroy(true);
+        currentApp.destroy(true);
+        appRef.current = null;
         return;
       }
       mount.innerHTML = "";
-      mount.appendChild(app.canvas);
-      app.stage.addChild(background, label);
+      mount.appendChild(currentApp.canvas);
+      currentApp.stage.addChild(background, label);
       layout();
     };
 
     boot();
     const onResize = () => layout();
     window.addEventListener("resize", onResize);
+    resizeBound = true;
 
     return () => {
       disposed = true;
-      window.removeEventListener("resize", onResize);
-      app.destroy(true);
+      if (resizeBound) {
+        window.removeEventListener("resize", onResize);
+      }
+      if (appRef.current) {
+        if (mount.contains(appRef.current.canvas)) {
+          mount.removeChild(appRef.current.canvas);
+        }
+        appRef.current.destroy(true);
+        appRef.current = null;
+      }
     };
   }, []);
 
