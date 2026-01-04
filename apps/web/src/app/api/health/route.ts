@@ -6,6 +6,7 @@ import pkg from "../../../../package.json";
 export async function GET() {
   return NextResponse.json({
     ok: true,
+    status: "ok",
     time: new Date().toISOString(),
     version: pkg.version || "dev",
   });

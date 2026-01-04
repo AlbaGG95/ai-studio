@@ -473,9 +473,12 @@ app.get<{ Params: { id: string; "*": string } }>(
   }
 );
 
-app.get("/health", async (_request, reply) => {
-  return reply.send({ status: "ok" });
-});
+const respondHealth = async (_request: any, reply: any) => {
+  return reply.send({ ok: true, status: "ok" });
+};
+
+app.get("/health", respondHealth);
+app.get("/api/health", respondHealth);
 
 const start = async () => {
   const startPort = Number(process.env.PORT) || 4000;
