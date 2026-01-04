@@ -1,4 +1,4 @@
-import { BattleUnit, VisualDNA, HeroSkill } from "@ai-studio/core";
+import { AfkBattleUnit as BattleUnit, VisualDNA, HeroSkill } from "@ai-studio/core";
 
 export type TeamSide = "ally" | "enemy";
 

@@ -1,8 +1,8 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { CombatFrame, VisualDNA } from "@ai-studio/core";
-import { ActiveFx, FloatingText, HitSpark, ScreenShake } from "./fx.js";
-import { SlotPosition, TeamSide } from "./types.js";
-import { UnitView } from "./unitView.js";
+import { ActiveFx, FloatingText, HitSpark, ScreenShake } from "./fx";
+import { SlotPosition, TeamSide } from "./types";
+import { UnitView } from "./unitView";
 
 interface BattleRendererOptions {
   width: number;
@@ -144,17 +144,12 @@ export class BattleRenderer {
   }
 
   private spawnFloatingText(target: { x: number; y: number }, text: string, color: string) {
-    const label = new Text({
-      text,
-      style: {
-        fill: color,
-        fontSize: 16,
-        fontWeight: "600",
-        dropShadow: true,
-        dropShadowBlur: 2,
-        dropShadowAlpha: 0.4,
-      },
-    });
+    const label = new Text(text);
+    label.style = {
+      fill: color,
+      fontSize: 16,
+      fontWeight: "600",
+    } as any;
     label.anchor.set(0.5);
     label.position.set(target.x, target.y - 48);
     this.layers.fx.addChild(label);

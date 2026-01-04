@@ -78,9 +78,7 @@ function applyEvent(event: CombatEvent, allies: BattleUnit[], enemies: BattleUni
   if (event.kind === "attack" || event.kind === "ultimate") {
     if (target) {
       target.hp = Math.max(0, target.hp - event.amount);
-      if (target.hp <= 0 || event.kind === "death") {
-        target.alive = false;
-      }
+      if (target.hp <= 0) target.alive = false;
     }
   } else if (event.kind === "heal") {
     if (target) {

@@ -1,6 +1,6 @@
 "use client";
 
-import type Phaser from "phaser";
+import Phaser from "phaser";
 import { useEffect, useMemo, useRef } from "react";
 import { AfkCombatEvent, AfkHeroVisual } from "@ai-studio/core";
 import { biomeForStage, buildHeroArtProfile, HeroArtProfile } from "@/lib/afkProcedural";

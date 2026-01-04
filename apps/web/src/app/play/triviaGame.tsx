@@ -52,7 +52,7 @@ function normalizeTriviaQuestions(raw: any, title: string): TriviaQuestion[] {
         : typeof entry?.correct === "number"
         ? entry.correct
         : typeof entry?.answer === "string"
-        ? options.findIndex((opt) => opt.toLowerCase() === entry.answer.toLowerCase())
+        ? options.findIndex((opt: string) => opt.toLowerCase() === entry.answer.toLowerCase())
         : 0;
     const answerIndex = Math.min(Math.max(Number.isFinite(answer) ? answer : 0, 0), Math.max(options.length - 1, 0));
     return {

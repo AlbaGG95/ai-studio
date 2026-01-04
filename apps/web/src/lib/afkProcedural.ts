@@ -141,7 +141,7 @@ export function generateIcon(seed: string, role?: AfkHero["role"]): IconSpec {
   const rng = seeded(seed);
   const glyph = pick(rng, ["\u2605", "\u25C6", "\u2698", "\u2726", "\u2736", "\u2740"]);
   const shape = pick(rng, ["diamond", "hex", "circle"] as const);
-  const tones =
+  const tones: [string, string] =
     role === "fighter"
       ? ["#ef4444", "#fb7185"]
       : role === "tank"

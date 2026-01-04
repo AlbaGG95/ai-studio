@@ -1,6 +1,6 @@
 import { Container, Graphics, Text } from "pixi.js";
-import { BattleUnit, VisualDNA } from "@ai-studio/core";
-import { SlotPosition, TeamSide } from "./types.js";
+import { AfkBattleUnit as BattleUnit, VisualDNA } from "@ai-studio/core";
+import { SlotPosition, TeamSide } from "./types";
 
 interface UnitViewOptions {
   side: TeamSide;

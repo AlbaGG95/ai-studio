@@ -122,7 +122,7 @@ export default function AfkBattlePage() {
       disposed = true;
       rendererRef.current?.destroy();
       rendererRef.current = null;
-      appRef.current?.destroy(true, { children: true, texture: true, baseTexture: true });
+      appRef.current?.destroy(true);
       appRef.current = null;
     };
   }, [stageIndex]);
