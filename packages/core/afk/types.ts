@@ -1,6 +1,19 @@
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 export type Role = "tank" | "fighter" | "ranger" | "support" | "mage";
 
+export type VisualSilhouette = "vanguard" | "assassin" | "mystic" | "warden" | "trickster";
+export type VisualFxStyle = "spark" | "slash" | "bloom" | "ember" | "pulse";
+
+export interface VisualDNA {
+  silhouette: VisualSilhouette;
+  palette: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+  vfxStyle: VisualFxStyle;
+}
+
 export interface HeroStats {
   hp: number;
   atk: number;
@@ -17,6 +30,8 @@ export interface Hero {
   power: number;
   stats: HeroStats;
   visualSeed: string;
+  visuals?: VisualDNA;
+  skills?: HeroSkill[];
 }
 
 export interface HeroVisual {
@@ -25,6 +40,14 @@ export interface HeroVisual {
   secondary: string;
   detail: string;
   pattern: "stripes" | "bars" | "rings" | "none";
+}
+
+export interface HeroSkill {
+  id: string;
+  name: string;
+  kind: "basic" | "ultimate" | "support";
+  power: number;
+  element: "physical" | "arcane" | "nature";
 }
 
 export interface BattleUnit {

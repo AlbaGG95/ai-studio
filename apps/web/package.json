@@ -14,6 +14,8 @@
     "react-dom": "^18.2.0",
     "next": "^14.0.4",
     "@ai-studio/core": "workspace:*",
+    "@ai-studio/render-pixi": "workspace:*",
+    "pixi.js": "^8.5.1",
     "phaser": "^3.70.0"
   },
   "devDependencies": {

@@ -1,0 +1,11 @@
+{
+  "name": "@ai-studio/render-pixi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@ai-studio/core": "workspace:*",
+    "pixi.js": "^8.5.1"
+  }
+}

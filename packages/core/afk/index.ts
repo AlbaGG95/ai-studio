@@ -10,9 +10,15 @@ export type {
   TickContext,
   HeroVisual,
   BattleUnit,
+  VisualDNA,
+  HeroSkill,
+  VisualFxStyle,
+  VisualSilhouette,
 } from "./types.js";
 export { bootstrapPlayer, runIdleTicks, applyOfflineProgress } from "./idleEngine.js";
 export { simulateCombat } from "./combatEngine.js";
+export { simulateCombatTimeline, buildInitialUnits } from "./engineAdapter.js";
+export type { CombatFrame, CombatTimeline } from "./engineAdapter.js";
 export {
   combineRewards,
   grantReward,
@@ -37,5 +43,8 @@ export {
   BASE_STAGES,
 } from "./state.js";
 export { generateRoster, buildHeroVisual, rarityScale } from "./heroFactory.js";
+export { generateHero, generateTeam } from "./content/heroGenerator.js";
+export type { GeneratedHero } from "./content/heroGenerator.js";
+export { makeRng, mulberry32, hashString } from "./seed.js";
 export { buildStages, findStage, nextStageId } from "./stages.js";
 export { levelUpHero, levelUpCost } from "./heroProgression.js";

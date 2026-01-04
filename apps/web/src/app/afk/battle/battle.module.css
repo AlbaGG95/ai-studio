@@ -1,0 +1,135 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 28px;
+  color: #e8ecf4;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6da7ff;
+  margin: 0 0 4px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.subtle {
+  margin: 4px 0 0;
+  color: #a7b6d9;
+  max-width: 640px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.controls button {
+  background: linear-gradient(135deg, #243352, #1a62f8);
+  border: none;
+  color: #e8ecf4;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(16, 70, 255, 0.25);
+}
+
+.controls button:nth-child(2) {
+  background: linear-gradient(135deg, #233042, #3ec7c2);
+  box-shadow: 0 8px 24px rgba(33, 206, 187, 0.22);
+}
+
+.controls button:hover {
+  filter: brightness(1.07);
+}
+
+.canvasShell {
+  position: relative;
+  background: radial-gradient(circle at 20% 20%, #17223a, #0c1426 65%);
+  border-radius: 18px;
+  border: 1px solid #1f2a44;
+  overflow: hidden;
+}
+
+.canvas {
+  min-height: 580px;
+}
+
+.overlay {
+  position: absolute;
+  inset: 12px 12px auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.status {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.statusDetail {
+  margin: 4px 0 0;
+  color: #a7b6d9;
+  font-size: 14px;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #192338;
+  color: #dce7ff;
+  border: 1px solid #2a3b5f;
+}
+
+.win {
+  background: #153826;
+  border-color: #1c9b63;
+  color: #a8ffd6;
+}
+
+.loss {
+  background: #3b1d1d;
+  border-color: #e34e56;
+  color: #ffd6d9;
+}
+
+.timeout {
+  background: #2f2a3f;
+  border-color: #a18be7;
+  color: #e9ddff;
+}
+
+.hint {
+  margin: 0;
+  color: #7f8db1;
+  font-size: 14px;
+}
