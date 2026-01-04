@@ -6,8 +6,7 @@ import { Application } from "pixi.js";
 import { useRouter } from "next/navigation";
 import { generateCampaignGraph, CampaignNode } from "@ai-studio/core";
 import { MapRenderer } from "@ai-studio/render-pixi";
-
-type ProgressState = { currentNodeId: string; cleared: Record<string, true> };
+import { loadProgress, saveProgress, type ProgressState } from "@/lib/afk/storage";
 
 export default function AfkMapPage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -331,28 +330,4 @@ export default function AfkMapPage() {
       </div>
     </div>
   );
-}
-
-function loadProgress(): ProgressState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("afk_progress_v1");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const currentNodeId = typeof parsed.currentNodeId === "string" ? parsed.currentNodeId : "";
-    const cleared = typeof parsed.cleared === "object" && parsed.cleared ? parsed.cleared : {};
-    return { currentNodeId: currentNodeId || "", cleared };
-  } catch {
-    return null;
-  }
-}
-
-function saveProgress(state: ProgressState) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem("afk_progress_v1", JSON.stringify(state));
-  } catch {
-    // ignore
-  }
 }
