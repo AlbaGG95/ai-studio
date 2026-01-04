@@ -15,15 +15,17 @@ export default function AfkMapPage() {
     let app: Application | null = null;
     let disposed = false;
 
-    app = new Application({
+    const createdApp = new Application({
       width: mount.clientWidth || window.innerWidth || 360,
       height: mount.clientHeight || window.innerHeight || 640,
       backgroundAlpha: 0,
       antialias: true,
     });
-    appRef.current = app;
 
-    const view = app.view as HTMLCanvasElement;
+    app = createdApp;
+    appRef.current = createdApp;
+
+    const view = createdApp.view as HTMLCanvasElement;
     canvasRef.current = view;
     mount.appendChild(view);
 
