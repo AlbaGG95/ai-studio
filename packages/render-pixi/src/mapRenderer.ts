@@ -1,4 +1,4 @@
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, Ticker } from "pixi.js";
 import { CampaignGraph, CampaignNode, AfkNodeType as NodeType } from "@ai-studio/core";
 
 export interface MapRenderOptions {
@@ -53,6 +53,7 @@ export class MapRenderer {
   private nodes: NodeVisual[] = [];
   private targetScroll = 0;
   private pulsePhase = 0;
+  private ticking = false;
 
   constructor(app: Application, graph: CampaignGraph, options: MapRenderOptions = {}) {
     this.app = app;
@@ -69,7 +70,10 @@ export class MapRenderer {
     this.world = new Container();
     this.app.stage.addChild(this.root);
     this.root.addChild(this.world);
-    this.app.ticker.add(this.tick);
+    if (!this.ticking) {
+      this.app.ticker.add(this.tick);
+      this.ticking = true;
+    }
   }
 
   setSelectedId(id: string | null) {
@@ -230,7 +234,10 @@ export class MapRenderer {
     this.world.removeChildren();
     this.root.destroy({ children: true });
     this.world.destroy({ children: true });
-    this.app.ticker.remove(this.tick);
+    if (this.ticking) {
+      this.app.ticker.remove(this.tick);
+      this.ticking = false;
+    }
   }
 
   private updateWorldPosition() {
@@ -277,7 +284,8 @@ export class MapRenderer {
     this.nodes.forEach((n) => this.applyNodeVisual(n));
   }
 
-  private tick = (delta: number) => {
+  private tick = (ticker: Ticker) => {
+    const delta = Math.max(0.001, ticker.deltaMS / 16.6667);
     if (this.nodes.length === 0) return;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
     this.cameraY = lerp(this.cameraY, this.targetScroll, 0.08 * Math.min(delta, 2));
