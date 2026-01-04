@@ -45,6 +45,7 @@ export {
 export { buildHeroVisual as buildAfkHeroVisual, generateRoster as generateAfkRoster, rarityScale as afkRarityScale } from "./afk/heroFactory.js";
 export { levelUpHero as levelUpAfkHero, levelUpCost as afkLevelUpCost } from "./afk/heroProgression.js";
 export { buildStages as buildAfkStages, findStage as findAfkStage, nextStageId as nextAfkStageId } from "./afk/stages.js";
+export { generateCampaignGraph } from "./afk/campaign/generator.js";
 export { generateHero, generateTeam } from "./afk/content/heroGenerator.js";
 export { simulateCombatTimeline, buildInitialUnits } from "./afk/engineAdapter.js";
 export type {
@@ -90,3 +91,10 @@ export type {
 export type { Stage, VisualDNA, HeroSkill, VisualFxStyle, VisualSilhouette } from "./afk/types.js";
 export type { GeneratedHero } from "./afk/content/heroGenerator.js";
 export type { CombatFrame, CombatTimeline } from "./afk/engineAdapter.js";
+export type {
+  CampaignGraph,
+  CampaignChapter,
+  CampaignNode,
+  NodeType as AfkNodeType,
+  RewardBundle as AfkRewardBundle,
+} from "./afk/campaign/types.js";

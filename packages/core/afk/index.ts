@@ -48,3 +48,4 @@ export type { GeneratedHero } from "./content/heroGenerator.js";
 export { makeRng, mulberry32, hashString } from "./seed.js";
 export { buildStages, findStage, nextStageId } from "./stages.js";
 export { levelUpHero, levelUpCost } from "./heroProgression.js";
+export * from "./campaign/index.js";
