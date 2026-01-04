@@ -9,13 +9,23 @@ export default function AfkMapPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    let disposed = false;
-    let resizeBound = false;
     const mount = mountRef.current;
     if (!mount) return undefined;
 
-    appRef.current = new Application();
-    const app = appRef.current;
+    let app: Application | null = null;
+    let disposed = false;
+
+    app = new Application({
+      width: mount.clientWidth || window.innerWidth || 360,
+      height: mount.clientHeight || window.innerHeight || 640,
+      backgroundAlpha: 0,
+      antialias: true,
+    });
+    appRef.current = app;
+
+    const view = app.view as HTMLCanvasElement;
+    canvasRef.current = view;
+    mount.appendChild(view);
 
     const background = new Graphics();
     const label = new Text("AFK MAP", {
@@ -27,11 +37,10 @@ export default function AfkMapPage() {
     label.anchor.set(0.5);
 
     const layout = () => {
-      const currentApp = appRef.current;
-      if (!currentApp) return;
-      const width = mount.clientWidth || window.innerWidth || 360;
-      const height = mount.clientHeight || window.innerHeight || 640;
-      currentApp.renderer.resize(width, height);
+      if (disposed || !app) return;
+      const width = mount.clientWidth || window.innerWidth;
+      const height = mount.clientHeight || window.innerHeight;
+      app.renderer.resize(width, height);
       background.clear();
       background.beginFill("#0b1224");
       background.drawRect(0, 0, width, height);
@@ -39,60 +48,40 @@ export default function AfkMapPage() {
       label.position.set(width / 2, height / 2);
     };
 
-    const boot = async () => {
-      const currentApp = appRef.current;
-      if (!currentApp) return;
-      await currentApp.init({
-        width: mount.clientWidth || window.innerWidth || 360,
-        height: mount.clientHeight || window.innerHeight || 640,
-        background: "#0b1224",
-        antialias: true,
-      });
-      if (disposed) {
-        currentApp.destroy(true);
-        appRef.current = null;
-        return;
-      }
-      const view = currentApp.view as HTMLCanvasElement;
-      canvasRef.current = view;
-      mount.innerHTML = "";
-      mount.appendChild(view);
-      currentApp.stage.addChild(background, label);
+    app.stage.addChild(background, label);
+    layout();
+
+    const onResize = () => {
       layout();
     };
-
-    boot();
-    const onResize = () => layout();
     window.addEventListener("resize", onResize);
-    resizeBound = true;
 
     return () => {
       disposed = true;
-      if (resizeBound) {
-        window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResize);
+
+      const canvas = canvasRef.current;
+      if (mount && canvas && mount.contains(canvas)) {
+        try {
+          mount.removeChild(canvas);
+        } catch {
+          // ignore removal errors
+        }
       }
-      if (mount && canvasRef.current && mount.contains(canvasRef.current)) {
-        mount.removeChild(canvasRef.current);
+
+      if (app) {
+        try {
+          app.destroy(true);
+        } catch {
+          // ignore destroy errors
+        }
+        app = null;
       }
-      if (appRef.current) {
-        appRef.current.destroy(true);
-        appRef.current = null;
-      }
+
+      appRef.current = null;
       canvasRef.current = null;
     };
   }, []);
 
-  return (
-    <div
-      ref={mountRef}
-      style={{
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        display: "flex",
-        alignItems: "stretch",
-        justifyContent: "center",
-      }}
-    />
-  );
+  return <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />;
 }
