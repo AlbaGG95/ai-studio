@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Application, Graphics, Text } from "pixi.js";
+import { Application } from "pixi.js";
+import { generateCampaignGraph } from "@ai-studio/core";
+import { MapRenderer } from "@ai-studio/render-pixi";
 
 export default function AfkMapPage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -15,6 +17,7 @@ export default function AfkMapPage() {
     let app: Application | null = null;
     let disposed = false;
     let layout: () => void = () => {};
+    let mapRenderer: MapRenderer | null = null;
 
     const onResize = () => {
       layout();
@@ -56,29 +59,24 @@ export default function AfkMapPage() {
       canvasRef.current = view;
       mount.appendChild(view);
 
-      const background = new Graphics();
-      const label = new Text("AFK MAP", {
-        fill: "#e8ecf4",
-        fontSize: 48,
-        fontWeight: "800",
-        fontFamily: "Inter, sans-serif",
+      const graph = generateCampaignGraph({ seed: 12345, chaptersCount: 8, nodesPerChapter: 10 });
+      mapRenderer = new MapRenderer(createdApp, graph, {
+        nodeRadius: 12,
+        chapterSpacing: 170,
+        nodeSpacing: 80,
+        padding: 32,
+        horizontalSpread: 90,
       });
-      label.anchor.set(0.5);
 
       layout = () => {
         if (disposed || !app) return;
         const width = mount.clientWidth || window.innerWidth;
         const height = mount.clientHeight || window.innerHeight;
         app.renderer.resize(width, height);
-        background.clear();
-        background.beginFill("#0b1224");
-        background.drawRect(0, 0, width, height);
-        background.endFill();
-        label.position.set(width / 2, height / 2);
+        mapRenderer?.render();
       };
 
-      app.stage.addChild(background, label);
-      layout();
+      mapRenderer.render();
     };
 
     boot();
@@ -95,6 +93,15 @@ export default function AfkMapPage() {
         } catch {
           // ignore removal errors
         }
+      }
+
+      if (mapRenderer) {
+        try {
+          mapRenderer.destroy();
+        } catch {
+          // ignore destroy errors
+        }
+        mapRenderer = null;
       }
 
       if (app) {
