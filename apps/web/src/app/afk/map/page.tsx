@@ -6,6 +6,7 @@ import { Application, Graphics, Text } from "pixi.js";
 export default function AfkMapPage() {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -52,8 +53,10 @@ export default function AfkMapPage() {
         appRef.current = null;
         return;
       }
+      const view = currentApp.view as HTMLCanvasElement;
+      canvasRef.current = view;
       mount.innerHTML = "";
-      mount.appendChild(currentApp.canvas);
+      mount.appendChild(view);
       currentApp.stage.addChild(background, label);
       layout();
     };
@@ -68,13 +71,14 @@ export default function AfkMapPage() {
       if (resizeBound) {
         window.removeEventListener("resize", onResize);
       }
+      if (mount && canvasRef.current && mount.contains(canvasRef.current)) {
+        mount.removeChild(canvasRef.current);
+      }
       if (appRef.current) {
-        if (mount.contains(appRef.current.canvas)) {
-          mount.removeChild(appRef.current.canvas);
-        }
         appRef.current.destroy(true);
         appRef.current = null;
       }
+      canvasRef.current = null;
     };
   }, []);
 
