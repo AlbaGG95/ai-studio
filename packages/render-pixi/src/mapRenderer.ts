@@ -27,7 +27,17 @@ function hashToUnit(input: string): number {
   return ((hash >>> 0) % 1000) / 999;
 }
 
-type NodeState = "locked" | "next" | "cleared" | "selected";
+type NodeState = "locked" | "current" | "cleared";
+type NodeVisual = {
+  node: CampaignNode;
+  container: Container;
+  glow: Graphics;
+  circle: Graphics;
+  icon: Graphics;
+  state: NodeState;
+  order: number;
+  y: number;
+};
 
 export class MapRenderer {
   private readonly app: Application;
@@ -40,6 +50,9 @@ export class MapRenderer {
   private maxScroll = 0;
   private selectedId: string | null = null;
   private selectCb: ((node: CampaignNode) => void) | null = null;
+  private nodes: NodeVisual[] = [];
+  private targetScroll = 0;
+  private pulsePhase = 0;
 
   constructor(app: Application, graph: CampaignGraph, options: MapRenderOptions = {}) {
     this.app = app;
@@ -56,10 +69,12 @@ export class MapRenderer {
     this.world = new Container();
     this.app.stage.addChild(this.root);
     this.root.addChild(this.world);
+    this.app.ticker.add(this.tick);
   }
 
   setSelectedId(id: string | null) {
     this.selectedId = id;
+    this.applyVisuals();
   }
 
   onSelect(cb: (node: CampaignNode) => void) {
@@ -77,6 +92,7 @@ export class MapRenderer {
 
   render() {
     this.world.removeChildren();
+    this.nodes = [];
     const edgesGlow = new Graphics();
     const edges = new Graphics();
     const nodesLayer = new Container();
@@ -105,6 +121,7 @@ export class MapRenderer {
     const startParts = this.graph.startNodeId.split("_");
     const startChapterIdx = Number(startParts[0]?.replace(/[^\d]/g, "") || 0);
     const startNodeIdx = Number(startParts[1]?.replace(/[^\d]/g, "") || 0);
+    const currentOrder = startChapterIdx * 1000 + startNodeIdx;
 
     const background = new Graphics();
     background.beginFill(0x0b1224);
@@ -114,22 +131,33 @@ export class MapRenderer {
     const drawEdge = (from: Point, to: Point) => {
       const ctrlX = (from.x + to.x) / 2 + (from.x - to.x) * 0.1;
       const ctrlY = (from.y + to.y) / 2 - 40;
-      edgesGlow.lineStyle(7, 0x94a3b8, 0.16);
+      edgesGlow.lineStyle(7, 0x94a3b8, 0.14);
       edgesGlow.moveTo(from.x, from.y);
       edgesGlow.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
-      edges.lineStyle(4, 0x475569, 0.45);
+      edges.lineStyle(5, 0x475569, 0.32);
       edges.moveTo(from.x, from.y);
       edges.quadraticCurveTo(ctrlX, ctrlY, to.x, to.y);
     };
 
     this.graph.chapters.forEach((chapter) => {
-      chapter.nodes.forEach((node) => {
+      chapter.nodes.forEach((node, idx) => {
         const from = positions.get(node.id);
         if (!from) return;
+        const fromOrder = chapter.index * 1000 + idx;
         node.edges.forEach((targetId) => {
           const to = positions.get(targetId);
           if (!to) return;
-          drawEdge(from, to);
+          const isClearedPath = fromOrder <= currentOrder;
+          if (isClearedPath) {
+            edgesGlow.lineStyle(8, 0x7dd3fc, 0.2);
+            edgesGlow.moveTo(from.x, from.y);
+            edgesGlow.quadraticCurveTo((from.x + to.x) / 2, (from.y + to.y) / 2 - 40, to.x, to.y);
+            edges.lineStyle(5, 0x38bdf8, 0.55);
+            edges.moveTo(from.x, from.y);
+            edges.quadraticCurveTo((from.x + to.x) / 2, (from.y + to.y) / 2 - 40, to.x, to.y);
+          } else {
+            drawEdge(from, to);
+          }
         });
       });
     });
@@ -141,32 +169,42 @@ export class MapRenderer {
         const state = this.resolveState(node, chapter.index, idx, startChapterIdx, startNodeIdx);
         const nodeContainer = new Container();
         nodeContainer.position.set(point.x, point.y);
-        nodeContainer.eventMode = "static";
-        nodeContainer.cursor = "pointer";
-        nodeContainer.on("pointertap", () => {
-          const select = this.selectCb;
-          if (select) select(node);
-        });
+        nodeContainer.eventMode = state === "locked" ? "none" : "static";
+        nodeContainer.cursor = state === "locked" ? "default" : "pointer";
+        if (state !== "locked") {
+          nodeContainer.on("pointertap", () => {
+            const select = this.selectCb;
+            if (select) select(node);
+          });
+        }
 
         const color = TYPE_COLOR[node.type] ?? TYPE_COLOR.normal;
         const glow = new Graphics();
-        glow.beginFill(color, state === "selected" ? 0.25 : 0.16);
-        glow.drawCircle(0, 0, nodeRadius + 10);
+        glow.beginFill(color, state === "current" ? 0.3 : 0.12);
+        glow.drawCircle(0, 0, nodeRadius + 12);
         glow.endFill();
 
         const circle = new Graphics();
-        circle.beginFill(color, state === "locked" ? 0.45 : 0.95);
+        circle.beginFill(color, state === "locked" ? 0.3 : 0.95);
         circle.lineStyle(3, 0xe2e8f0, 0.9);
         circle.drawCircle(0, 0, nodeRadius);
         circle.endFill();
 
         const icon = this.drawIcon(node.type, color);
 
-        const isSelected = state === "selected";
-        const isLocked = state === "locked";
-        const scale = isSelected ? 1.15 : isLocked ? 0.92 : 1;
-        nodeContainer.scale.set(scale);
-        nodeContainer.alpha = isLocked ? 0.65 : 1;
+        const visual: NodeVisual = {
+          node,
+          container: nodeContainer,
+          glow,
+          circle,
+          icon,
+          state,
+          order: chapter.index * 1000 + idx,
+          y: point.y,
+        };
+        this.nodes.push(visual);
+
+        this.applyNodeVisual(visual);
 
         nodeContainer.addChild(glow, circle, icon);
         nodesLayer.addChild(nodeContainer);
@@ -179,6 +217,11 @@ export class MapRenderer {
     const viewHeight = height;
     this.maxScroll = 0;
     this.minScroll = Math.min(0, viewHeight - contentHeight);
+    const currentVisual = this.nodes.find((n) => n.node.id === this.graph.startNodeId);
+    if (currentVisual) {
+      const desired = -(currentVisual.y - viewHeight * 0.45);
+      this.targetScroll = Math.max(this.minScroll, Math.min(this.maxScroll, desired));
+    }
     this.setScroll(this.cameraY);
   }
 
@@ -187,6 +230,7 @@ export class MapRenderer {
     this.world.removeChildren();
     this.root.destroy({ children: true });
     this.world.destroy({ children: true });
+    this.app.ticker.remove(this.tick);
   }
 
   private updateWorldPosition() {
@@ -196,9 +240,8 @@ export class MapRenderer {
   }
 
   private resolveState(node: CampaignNode, chapterIdx: number, nodeIdx: number, startChapterIdx: number, startNodeIdx: number): NodeState {
-    if (node.id === this.selectedId) return "selected";
     if (chapterIdx < startChapterIdx || (chapterIdx === startChapterIdx && nodeIdx < startNodeIdx)) return "cleared";
-    if (node.id === this.graph.startNodeId) return "next";
+    if (node.id === this.graph.startNodeId) return "current";
     return "locked";
   }
 
@@ -222,6 +265,34 @@ export class MapRenderer {
     g.tint = color;
     return g;
   }
+
+  private applyNodeVisual(visual: NodeVisual) {
+    const isSelected = this.selectedId === visual.node.id;
+    const baseScale = visual.state === "current" ? 1.2 : visual.state === "cleared" ? 0.9 : 1;
+    visual.container.scale.set(isSelected ? baseScale * 1.08 : baseScale);
+    visual.container.alpha = visual.state === "locked" ? 0.25 : visual.state === "cleared" ? 0.4 : 1;
+  }
+
+  private applyVisuals() {
+    this.nodes.forEach((n) => this.applyNodeVisual(n));
+  }
+
+  private tick = (delta: number) => {
+    if (this.nodes.length === 0) return;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    this.cameraY = lerp(this.cameraY, this.targetScroll, 0.08 * Math.min(delta, 2));
+    this.cameraY = Math.max(this.minScroll, Math.min(this.maxScroll, this.cameraY));
+    this.updateWorldPosition();
+
+    this.pulsePhase += delta * 0.08;
+    const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
+    this.nodes.forEach((visual) => {
+      if (visual.state === "current") {
+        const baseScale = 1.2 * (this.selectedId === visual.node.id ? 1.08 : 1);
+        visual.container.scale.set(baseScale * pulse);
+      }
+    });
+  };
 
   private getViewport() {
     const renderer: any = this.app.renderer as any;
