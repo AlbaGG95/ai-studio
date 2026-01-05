@@ -6,7 +6,14 @@ import type PhaserLib from "phaser";
 
 type PhaserModule = typeof import("phaser");
 
-export default function GameCanvas() {
+export type SceneFactory = (Phaser: PhaserModule) => Phaser.Types.Scenes.SceneType;
+
+type GameCanvasProps = {
+  sceneFactory?: SceneFactory;
+  backgroundColor?: string;
+};
+
+export default function GameCanvas({ sceneFactory, backgroundColor }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -19,7 +26,8 @@ export default function GameCanvas() {
       const Phaser = phaserModule.default as PhaserModule;
       if (!containerRef.current) return;
 
-      const BootScene = createBootScene(Phaser);
+      const factory = sceneFactory ?? createBootScene;
+      const SceneClass = factory(Phaser);
 
       const getSize = () => {
         const rect = containerRef.current?.getBoundingClientRect();
@@ -36,14 +44,14 @@ export default function GameCanvas() {
         width,
         height,
         parent: containerRef.current,
-        backgroundColor: "#030712",
+        backgroundColor: backgroundColor ?? "#030712",
         scale: {
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
           width,
           height,
         },
-        scene: [BootScene],
+        scene: [SceneClass],
         disableContextMenu: true,
       });
 
@@ -76,7 +84,7 @@ export default function GameCanvas() {
         game = null;
       }
     };
-  }, []);
+  }, [sceneFactory, backgroundColor]);
 
   return (
     <div
