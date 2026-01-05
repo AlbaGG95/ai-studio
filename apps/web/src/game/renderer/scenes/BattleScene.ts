@@ -1,6 +1,10 @@
 import type PhaserLib from "phaser";
 
 import { getCombatReplay } from "../adapters/combatAdapter";
+import { hitFlash, healFlash } from "../fx/HitFlash";
+import { FloatingTextManager } from "../fx/FloatingText";
+import { screenShake } from "../fx/ScreenShake";
+import { createBattleEndOverlay, type BattleEndOverlay } from "../ui/BattleEndOverlay";
 import { CombatEvent, CombatReplay, CombatUnitSnapshot } from "../types/combat";
 import { EventQueue } from "../utils/EventQueue";
 
@@ -39,6 +43,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private hudBack?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
     private statusText?: PhaserLib.GameObjects.Text;
     private overlay?: PhaserLib.GameObjects.Text;
+    private overlayCard?: BattleEndOverlay;
+    private floats!: FloatingTextManager;
     private queue = new EventQueue<CombatEvent>({ baseDelayMs: 520 });
     private speed: 1 | 2 = 1;
     private autoEnabled = false;
@@ -50,6 +56,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     create() {
       this.createBackground();
       this.layout(this.scale.gameSize);
+      this.floats = new FloatingTextManager(this);
       this.statusText = this.add.text(18, this.scale.height - 32, "Loading battle...", {
         fontFamily: "Chakra Petch, sans-serif",
         fontSize: "14px",
@@ -63,6 +70,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
         this.queue.clear();
         this.scale.off("resize", handleResize);
+        this.floats?.clear();
+        this.overlayCard?.destroy();
       });
 
       this.bootReplay();
@@ -195,10 +204,10 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const hpBg = this.add.rectangle(0, tileHeight * 0.2, tileWidth * 0.7, 12, HP_BG, 0.9).setOrigin(0.5);
       hpBg.setStrokeStyle(1, TILE_BORDER, 0.8);
 
-    const baseHpWidth = hpBg.width;
-    const hpFill = this.add
-      .rectangle(hpBg.x - baseHpWidth / 2, hpBg.y, baseHpWidth * (spec.hp / spec.maxHp), 10, HP_COLOR, 0.9)
-      .setOrigin(0, 0.5);
+      const baseHpWidth = hpBg.width;
+      const hpFill = this.add
+        .rectangle(hpBg.x - baseHpWidth / 2, hpBg.y, baseHpWidth * (spec.hp / spec.maxHp), 10, HP_COLOR, 0.9)
+        .setOrigin(0, 0.5);
 
       const hpText = this.add.text(hpBg.x, hpBg.y, `${Math.round((spec.hp / spec.maxHp) * 100)}%`, {
         fontFamily: "Chakra Petch, sans-serif",
@@ -223,6 +232,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.layoutHud(width, height);
       if (this.overlay) {
         this.overlay.setPosition(width / 2, height / 2);
+      }
+      if (this.overlayCard) {
+        this.overlayCard.layout(width, height);
       }
       if (this.statusText) {
         this.statusText.setPosition(18, height - 32);
@@ -275,10 +287,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         case "hit":
         case "crit": {
           this.applyDelta(evt.targetId, -evt.value);
+          this.spawnFloat(evt.type, evt.targetId, evt.value);
+          this.flashTarget(evt.targetId, evt.type === "crit");
+          if (evt.type === "crit") {
+            screenShake(this, 0.006, 140, this.speed);
+          }
           break;
         }
         case "heal": {
           this.applyDelta(evt.targetId, evt.value);
+          this.spawnFloat("heal", evt.targetId, evt.value);
+          this.healPulse(evt.targetId);
           break;
         }
         case "death": {
@@ -311,11 +330,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private fadeOut(targetId: string) {
       const unit = this.units.get(targetId);
       if (!unit) return;
+      const sx = unit.container.scaleX || 1;
+      const sy = unit.container.scaleY || 1;
       this.tweens.add({
         targets: unit.container,
         alpha: 0.2,
-        duration: 220,
-        ease: Phaser.Math.Easing.Quadratic.InOut,
+        y: unit.container.y + 12,
+        scaleX: sx * 0.9,
+        scaleY: sy * 0.9,
+        duration: Math.max(180, Math.round(260 / this.speed)),
+        ease: "Quad.easeInOut",
         onComplete: () => {
           unit.container.setVisible(false);
         },
@@ -338,26 +362,54 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           x: dashX,
           y: dashY,
           yoyo: true,
-          duration: 160,
-          ease: Phaser.Math.Easing.Sine.InOut,
+          duration: Math.max(90, Math.round(160 / this.speed)),
+          ease: "Sine.easeInOut",
           onComplete: () => resolve(),
         });
       });
     }
 
     private showResult(result: "victory" | "defeat") {
-      if (this.overlay) {
-        this.overlay.destroy();
-      }
-      const text = this.add.text(this.scale.width / 2, this.scale.height * 0.3, result === "victory" ? "Victory" : "Defeat", {
-        fontFamily: "Space Grotesk, sans-serif",
-        fontSize: "28px",
-        color: result === "victory" ? "#86ff78" : "#fda4af",
-        align: "center",
+      this.overlay?.destroy();
+      this.overlayCard?.destroy();
+
+      const goBack = () => {
+        if (options.onBack) {
+          options.onBack();
+          return;
+        }
+        if (typeof window !== "undefined") {
+          const target = "/afk/map";
+          window.location.href = target;
+        }
+      };
+
+      this.overlayCard = createBattleEndOverlay(this, {
+        onContinue: goBack,
+        result,
+        width: this.scale.width,
+        height: this.scale.height,
       });
-      text.setOrigin(0.5);
-      this.overlay = text;
       this.statusText?.setText(`Result: ${result}`);
+    }
+
+    private spawnFloat(kind: "hit" | "crit" | "heal", targetId: string, value: number) {
+      const unit = this.units.get(targetId);
+      if (!unit) return;
+      const pos = unit.container;
+      this.floats.spawn(kind, Math.round(value), targetId, pos.x, pos.y - 24, this.speed);
+    }
+
+    private flashTarget(targetId: string, isCrit: boolean) {
+      const unit = this.units.get(targetId);
+      if (!unit) return;
+      hitFlash(this, unit.container, { shake: true, speed: this.speed, duration: isCrit ? 160 : 120 });
+    }
+
+    private healPulse(targetId: string) {
+      const unit = this.units.get(targetId);
+      if (!unit) return;
+      healFlash(this, unit.container, this.speed);
     }
   };
 }
