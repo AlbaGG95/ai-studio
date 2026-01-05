@@ -1,19 +1,23 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createBootScene } from "./scenes/BootScene";
 import type PhaserLib from "phaser";
+import { createBootScene } from "./scenes/BootScene";
 
 type PhaserModule = typeof import("phaser");
 
-export type SceneFactory = (Phaser: PhaserModule) => Phaser.Types.Scenes.SceneType;
+export type SceneFactory<TOptions = unknown> = (
+  Phaser: PhaserModule,
+  options?: TOptions
+) => Phaser.Types.Scenes.SceneType;
 
 type GameCanvasProps = {
   sceneFactory?: SceneFactory;
+  sceneOptions?: unknown;
   backgroundColor?: string;
 };
 
-export default function GameCanvas({ sceneFactory, backgroundColor }: GameCanvasProps) {
+export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -27,7 +31,7 @@ export default function GameCanvas({ sceneFactory, backgroundColor }: GameCanvas
       if (!containerRef.current) return;
 
       const factory = sceneFactory ?? createBootScene;
-      const SceneClass = factory(Phaser);
+      const SceneClass = factory(Phaser, sceneOptions);
 
       const getSize = () => {
         const rect = containerRef.current?.getBoundingClientRect();
@@ -84,7 +88,7 @@ export default function GameCanvas({ sceneFactory, backgroundColor }: GameCanvas
         game = null;
       }
     };
-  }, [sceneFactory, backgroundColor]);
+  }, [sceneFactory, backgroundColor, sceneOptions]);
 
   return (
     <div

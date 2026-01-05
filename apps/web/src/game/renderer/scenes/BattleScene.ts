@@ -1,22 +1,21 @@
 import type PhaserLib from "phaser";
 
+import { getCombatReplay } from "../adapters/combatAdapter";
+import { CombatEvent, CombatReplay, CombatUnitSnapshot } from "../types/combat";
+import { EventQueue } from "../utils/EventQueue";
+
 type PhaserModule = typeof import("phaser");
 
-type UnitSide = "ally" | "enemy";
-
-type UnitSpec = {
-  id: string;
-  name: string;
-  side: UnitSide;
-  hp: number;
-  maxHp: number;
+type BattleSceneOptions = {
+  onBack?: () => void;
 };
 
 type UnitView = {
-  spec: UnitSpec;
+  spec: CombatUnitSnapshot;
   container: PhaserLib.GameObjects.Container;
   hpFill: PhaserLib.GameObjects.Rectangle;
-  slot: PhaserLib.GameObjects.Rectangle;
+  hpText: PhaserLib.GameObjects.Text;
+  hpWidth: number;
 };
 
 const ALLY_COLOR = 0x7ce4ff;
@@ -29,31 +28,19 @@ const SKY = 0x0a1226;
 const MID = 0x0c172d;
 const GROUND = 0x0a1322;
 
-const MOCK_ALLIES: UnitSpec[] = [
-  { id: "a1", name: "Nova", side: "ally", hp: 820, maxHp: 1000 },
-  { id: "a2", name: "Rook", side: "ally", hp: 640, maxHp: 900 },
-  { id: "a3", name: "Vex", side: "ally", hp: 540, maxHp: 800 },
-  { id: "a4", name: "Mina", side: "ally", hp: 720, maxHp: 950 },
-  { id: "a5", name: "Flux", side: "ally", hp: 910, maxHp: 1100 },
-];
-
-const MOCK_ENEMIES: UnitSpec[] = [
-  { id: "e1", name: "Shade", side: "enemy", hp: 760, maxHp: 1000 },
-  { id: "e2", name: "Grit", side: "enemy", hp: 520, maxHp: 850 },
-  { id: "e3", name: "Pyre", side: "enemy", hp: 680, maxHp: 950 },
-  { id: "e4", name: "Hex", side: "enemy", hp: 800, maxHp: 1020 },
-  { id: "e5", name: "Fang", side: "enemy", hp: 600, maxHp: 870 },
-];
-
-export function createBattleScene(Phaser: PhaserModule) {
+export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOptions = {}) {
   return class BattleScene extends Phaser.Scene {
     private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
-    private units: UnitView[] = [];
+    private units = new Map<string, UnitView>();
+    private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
-    private speedButton?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
-    private autoButton?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
-    private backButton?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
-    private speedMode: 1 | 2 = 1;
+    private hudSpeed?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
+    private hudAuto?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
+    private hudBack?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
+    private statusText?: PhaserLib.GameObjects.Text;
+    private overlay?: PhaserLib.GameObjects.Text;
+    private queue = new EventQueue<CombatEvent>({ baseDelayMs: 520 });
+    private speed: 1 | 2 = 1;
     private autoEnabled = false;
 
     constructor() {
@@ -62,18 +49,64 @@ export function createBattleScene(Phaser: PhaserModule) {
 
     create() {
       this.createBackground();
-      this.createUnits();
-      this.createHud();
       this.layout(this.scale.gameSize);
+      this.statusText = this.add.text(18, this.scale.height - 32, "Loading battle...", {
+        fontFamily: "Chakra Petch, sans-serif",
+        fontSize: "14px",
+        color: "#cbd5e1",
+      });
 
       const handleResize = (size: PhaserLib.Structs.Size) => {
         this.layout(size);
       };
-
       this.scale.on("resize", handleResize);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.queue.clear();
         this.scale.off("resize", handleResize);
       });
+
+      this.bootReplay();
+    }
+
+    private async bootReplay() {
+      const replay = await getCombatReplay();
+      if (!replay) {
+        this.showEmpty();
+        return;
+      }
+      this.replay = replay;
+      this.statusText?.setText("Playing combat...");
+      this.stageLabel = this.add.text(18, 16, `Stage ${replay.snapshot.stageLabel}`, {
+        fontFamily: "Chakra Petch, sans-serif",
+        fontSize: "20px",
+        color: "#f8fafc",
+      });
+
+      this.createHud();
+      this.buildUnits(replay.snapshot.units);
+      this.layout(this.scale.gameSize);
+
+      this.queue.start(async (evt) => {
+        await this.processEvent(evt);
+      });
+      this.queue.enqueue(replay.events);
+    }
+
+    private showEmpty() {
+      this.clearUnits();
+      this.overlay = this.add.text(this.scale.width / 2, this.scale.height / 2, "No active battle.\nStart one from the hub.", {
+        fontFamily: "Space Grotesk, sans-serif",
+        fontSize: "20px",
+        color: "#e2e8f0",
+        align: "center",
+      });
+      this.overlay.setOrigin(0.5);
+      this.statusText?.setText("No combat available");
+    }
+
+    private clearUnits() {
+      this.units.forEach((u) => u.container.destroy());
+      this.units.clear();
     }
 
     private createBackground() {
@@ -87,73 +120,24 @@ export function createBattleScene(Phaser: PhaserModule) {
       this.backgroundLayers = [sky, mid, ground];
     }
 
-    private createUnits() {
-      const allUnits = [...MOCK_ALLIES, ...MOCK_ENEMIES];
-      this.units = allUnits.map((spec) => this.createUnitSlot(spec));
-    }
-
-    private createUnitSlot(spec: UnitSpec): UnitView {
-      const container = this.add.container(0, 0);
-      const tileWidth = 140;
-      const tileHeight = 110;
-      const color = spec.side === "ally" ? ALLY_COLOR : ENEMY_COLOR;
-
-      const tile = this.add.rectangle(0, 0, tileWidth, tileHeight, TILE_BG, 0.9);
-      tile.setStrokeStyle(2, TILE_BORDER, 0.8);
-      tile.setOrigin(0.5);
-
-      const avatar = this.add.circle(-tileWidth * 0.24, -8, 28, color, 0.8);
-      avatar.setStrokeStyle(3, color, 0.9);
-
-      const name = this.add.text(tileWidth * 0.02, -20, spec.name, {
-        fontFamily: "Space Grotesk, sans-serif",
-        fontSize: "16px",
-        color: "#dbeafe",
-      });
-      name.setOrigin(0, 0.5);
-
-      const hpBg = this.add.rectangle(0, tileHeight * 0.2, tileWidth * 0.7, 12, HP_BG, 0.9).setOrigin(0.5);
-      hpBg.setStrokeStyle(1, TILE_BORDER, 0.8);
-
-      const hpFill = this.add
-        .rectangle(hpBg.x - hpBg.width / 2, hpBg.y, hpBg.width * (spec.hp / spec.maxHp), 10, HP_COLOR, 0.9)
-        .setOrigin(0, 0.5);
-
-      const hpText = this.add.text(hpBg.x, hpBg.y, `${Math.round((spec.hp / spec.maxHp) * 100)}%`, {
-        fontFamily: "Chakra Petch, sans-serif",
-        fontSize: "12px",
-        color: "#b7ffe2",
-      });
-      hpText.setOrigin(0.5);
-
-      container.add([tile, avatar, name, hpBg, hpFill, hpText]);
-
-      if (spec.side === "enemy") {
-        container.setAlpha(0.96);
-      }
-
-      return { spec, container, hpFill, slot: tile };
-    }
-
     private createHud() {
       const { width } = this.scale;
-      this.stageLabel = this.add.text(18, 16, "Stage 1-1", {
-        fontFamily: "Chakra Petch, sans-serif",
-        fontSize: "20px",
-        color: "#f8fafc",
+      this.hudSpeed = this.createHudButton(width - 140, 18, "Speed x1", () => {
+        this.speed = this.speed === 1 ? 2 : 1;
+        this.queue.setSpeed(this.speed);
+        this.hudSpeed?.label.setText(`Speed x${this.speed}`);
       });
 
-      this.speedButton = this.createHudButton(width - 120, 18, "Speed x1", () => {
-        this.speedMode = this.speedMode === 1 ? 2 : 1;
-        this.speedButton?.label.setText(`Speed x${this.speedMode}`);
-      });
-
-      this.autoButton = this.createHudButton(width - 120, 62, "Auto Off", () => {
+      this.hudAuto = this.createHudButton(width - 140, 62, "Auto Off", () => {
         this.autoEnabled = !this.autoEnabled;
-        this.autoButton?.label.setText(this.autoEnabled ? "Auto On" : "Auto Off");
+        this.hudAuto?.label.setText(this.autoEnabled ? "Auto On" : "Auto Off");
       });
 
-      this.backButton = this.createHudButton(width - 120, 106, "Back", () => {
+      this.hudBack = this.createHudButton(width - 140, 106, "Back", () => {
+        if (options.onBack) {
+          options.onBack();
+          return;
+        }
         if (typeof window !== "undefined") {
           window.location.href = "/afk/renderer";
         }
@@ -180,11 +164,69 @@ export function createBattleScene(Phaser: PhaserModule) {
       return { container, label: text };
     }
 
+    private buildUnits(units: CombatUnitSnapshot[]) {
+      this.clearUnits();
+      units.forEach((unit) => {
+        const view = this.createUnit(unit);
+        this.units.set(unit.id, view);
+      });
+    }
+
+    private createUnit(spec: CombatUnitSnapshot): UnitView {
+      const container = this.add.container(0, 0);
+      const tileWidth = 140;
+      const tileHeight = 110;
+      const color = spec.team === "ally" ? ALLY_COLOR : ENEMY_COLOR;
+
+      const tile = this.add.rectangle(0, 0, tileWidth, tileHeight, TILE_BG, 0.9);
+      tile.setStrokeStyle(2, TILE_BORDER, 0.8);
+      tile.setOrigin(0.5);
+
+      const avatar = this.add.circle(-tileWidth * 0.24, -8, 28, color, 0.8);
+      avatar.setStrokeStyle(3, color, 0.9);
+
+      const name = this.add.text(tileWidth * 0.02, -20, spec.name, {
+        fontFamily: "Space Grotesk, sans-serif",
+        fontSize: "16px",
+        color: "#dbeafe",
+      });
+      name.setOrigin(0, 0.5);
+
+      const hpBg = this.add.rectangle(0, tileHeight * 0.2, tileWidth * 0.7, 12, HP_BG, 0.9).setOrigin(0.5);
+      hpBg.setStrokeStyle(1, TILE_BORDER, 0.8);
+
+    const baseHpWidth = hpBg.width;
+    const hpFill = this.add
+      .rectangle(hpBg.x - baseHpWidth / 2, hpBg.y, baseHpWidth * (spec.hp / spec.maxHp), 10, HP_COLOR, 0.9)
+      .setOrigin(0, 0.5);
+
+      const hpText = this.add.text(hpBg.x, hpBg.y, `${Math.round((spec.hp / spec.maxHp) * 100)}%`, {
+        fontFamily: "Chakra Petch, sans-serif",
+        fontSize: "12px",
+        color: "#b7ffe2",
+      });
+      hpText.setOrigin(0.5);
+
+      container.add([tile, avatar, name, hpBg, hpFill, hpText]);
+
+      if (spec.team === "enemy") {
+        container.setAlpha(0.96);
+      }
+
+      return { spec: { ...spec }, container, hpFill, hpText, hpWidth: baseHpWidth };
+    }
+
     private layout(size: PhaserLib.Structs.Size) {
       const { width, height } = size;
       this.layoutBackground(width, height);
       this.layoutUnits(width, height);
       this.layoutHud(width, height);
+      if (this.overlay) {
+        this.overlay.setPosition(width / 2, height / 2);
+      }
+      if (this.statusText) {
+        this.statusText.setPosition(18, height - 32);
+      }
     }
 
     private layoutBackground(width: number, height: number) {
@@ -197,47 +239,125 @@ export function createBattleScene(Phaser: PhaserModule) {
       ground.setSize(width, height * 0.35);
     }
 
-    private layoutUnits(width: number, height: number) {
+    private slotPosition(team: "ally" | "enemy", slotIndex: number, width: number, height: number) {
       const centerY = height * 0.55;
-      const gapX = Math.min(160, width * 0.16);
-      const gapY = 90;
+      const xBase = team === "ally" ? width * 0.22 : width * 0.78;
+      const yOffsets = [-110, -55, 0, 55, 110];
+      const clampedSlot = Math.max(0, Math.min(4, slotIndex));
+      const y = centerY + yOffsets[clampedSlot];
+      const x = team === "ally" ? xBase + clampedSlot * 8 : xBase - clampedSlot * 8;
+      const scale = Math.max(0.78, Math.min(1, width / 1100));
+      return { x, y, scale };
+    }
 
-      const allyPositions = [
-        { x: width * 0.22 - gapX * 0.3, y: centerY - gapY * 0.6 },
-        { x: width * 0.22 + gapX * 0.2, y: centerY - gapY * 0.2 },
-        { x: width * 0.22 - gapX * 0.4, y: centerY + gapY * 0.3 },
-        { x: width * 0.22 + gapX * 0.2, y: centerY + gapY * 0.7 },
-        { x: width * 0.22 + gapX * 0.6, y: centerY + gapY * 0.1 },
-      ];
-
-      const enemyPositions = [
-        { x: width * 0.78 + gapX * 0.3, y: centerY - gapY * 0.6 },
-        { x: width * 0.78 - gapX * 0.2, y: centerY - gapY * 0.2 },
-        { x: width * 0.78 + gapX * 0.4, y: centerY + gapY * 0.3 },
-        { x: width * 0.78 - gapX * 0.2, y: centerY + gapY * 0.7 },
-        { x: width * 0.78 - gapX * 0.6, y: centerY + gapY * 0.1 },
-      ];
-
-      const tileScale = Math.max(0.8, Math.min(1, width / 1000));
-
-      let allyIdx = 0;
-      let enemyIdx = 0;
-
+    private layoutUnits(width: number, height: number) {
       this.units.forEach((unit) => {
-        const isAlly = unit.spec.side === "ally";
-        const position = isAlly ? allyPositions[allyIdx++] : enemyPositions[enemyIdx++];
-        unit.container.setPosition(position.x, position.y);
-        unit.container.setScale(isAlly ? tileScale : tileScale);
-        unit.slot.setStrokeStyle(2, TILE_BORDER, isAlly ? 0.9 : 0.7);
+        const pos = this.slotPosition(unit.spec.team, unit.spec.slotIndex, width, height);
+        unit.container.setPosition(pos.x, pos.y);
+        unit.container.setScale(pos.scale);
       });
     }
 
-    private layoutHud(width: number, height: number) {
+    private layoutHud(width: number, _height: number) {
       this.stageLabel?.setPosition(18, 16);
-      const right = width - 134;
-      this.speedButton?.container.setPosition(right, 18);
-      this.autoButton?.container.setPosition(right, 62);
-      this.backButton?.container.setPosition(right, 106);
+      const right = width - 140;
+      this.hudSpeed?.container.setPosition(right, 18);
+      this.hudAuto?.container.setPosition(right, 62);
+      this.hudBack?.container.setPosition(right, 106);
+    }
+
+    private async processEvent(evt: CombatEvent) {
+      switch (evt.type) {
+        case "attack": {
+          await this.animateAttack(evt.sourceId, evt.targetId);
+          break;
+        }
+        case "hit":
+        case "crit": {
+          this.applyDelta(evt.targetId, -evt.value);
+          break;
+        }
+        case "heal": {
+          this.applyDelta(evt.targetId, evt.value);
+          break;
+        }
+        case "death": {
+          this.fadeOut(evt.targetId);
+          break;
+        }
+        case "stage_end": {
+          this.queue.pause();
+          this.showResult(evt.result);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    private applyDelta(targetId: string, delta: number) {
+      const unit = this.units.get(targetId);
+      if (!unit) return;
+      const nextHp = Math.max(0, Math.min(unit.spec.maxHp, unit.spec.hp + delta));
+      unit.spec.hp = nextHp;
+      const ratio = unit.spec.maxHp > 0 ? nextHp / unit.spec.maxHp : 0;
+      unit.hpFill.setSize(unit.hpWidth * ratio, unit.hpFill.height);
+      unit.hpText.setText(`${Math.round(ratio * 100)}%`);
+      if (nextHp <= 0) {
+        this.fadeOut(targetId);
+      }
+    }
+
+    private fadeOut(targetId: string) {
+      const unit = this.units.get(targetId);
+      if (!unit) return;
+      this.tweens.add({
+        targets: unit.container,
+        alpha: 0.2,
+        duration: 220,
+        ease: Phaser.Math.Easing.Quadratic.InOut,
+        onComplete: () => {
+          unit.container.setVisible(false);
+        },
+      });
+    }
+
+    private animateAttack(sourceId: string, targetId: string) {
+      const source = this.units.get(sourceId);
+      const target = this.units.get(targetId);
+      if (!source || !target) return Promise.resolve();
+
+      const { x: sx, y: sy } = source.container;
+      const { x: tx, y: ty } = target.container;
+      const dashX = sx + (tx - sx) * 0.12;
+      const dashY = sy + (ty - sy) * 0.12;
+
+      return new Promise<void>((resolve) => {
+        this.tweens.add({
+          targets: source.container,
+          x: dashX,
+          y: dashY,
+          yoyo: true,
+          duration: 160,
+          ease: Phaser.Math.Easing.Sine.InOut,
+          onComplete: () => resolve(),
+        });
+      });
+    }
+
+    private showResult(result: "victory" | "defeat") {
+      if (this.overlay) {
+        this.overlay.destroy();
+      }
+      const text = this.add.text(this.scale.width / 2, this.scale.height * 0.3, result === "victory" ? "Victory" : "Defeat", {
+        fontFamily: "Space Grotesk, sans-serif",
+        fontSize: "28px",
+        color: result === "victory" ? "#86ff78" : "#fda4af",
+        align: "center",
+      });
+      text.setOrigin(0.5);
+      this.overlay = text;
+      this.statusText?.setText(`Result: ${result}`);
     }
   };
 }
