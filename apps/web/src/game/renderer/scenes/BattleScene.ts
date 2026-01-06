@@ -49,10 +49,11 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
   const leftPadding = paddingX;
   const rightPadding = Math.max(paddingX, 180); // leave room for HUD buttons on the right
 
-  const paddingY = Math.max(32, viewportHeight * 0.08);
-  const hudSafeTop = Math.max(paddingY, 150); // keep units below HUD row
+  const topPadding = Math.max(28, viewportHeight * 0.05);
+  const hudSafeTop = Math.max(topPadding, 110); // keep below HUD row without pushing too low
+  const bottomPadding = Math.max(44, viewportHeight * 0.06); // keep status text visible
 
-  const availableHeight = Math.max(viewportHeight - hudSafeTop - paddingY - 24, BASE_CARD_HEIGHT * 3.5);
+  const availableHeight = Math.max(viewportHeight - hudSafeTop - bottomPadding, BASE_CARD_HEIGHT * 3.5);
   const slotGapRaw = availableHeight / 5;
   const slotGap = Math.min(Math.max(slotGapRaw, BASE_CARD_HEIGHT * 0.9), BASE_CARD_HEIGHT * 1.45);
   const usedHeight = slotGap * 5;
