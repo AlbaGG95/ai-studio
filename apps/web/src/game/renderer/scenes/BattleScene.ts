@@ -51,13 +51,14 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
 
   const topPadding = Math.max(28, viewportHeight * 0.05);
   const hudSafeTop = Math.max(topPadding, 110); // keep below HUD row without pushing too low
-  const bottomPadding = Math.max(44, viewportHeight * 0.06); // keep status text visible
+  const bottomGuard = Math.max(70, viewportHeight * 0.12); // keep status text and bottom gap visible
 
-  const availableHeight = Math.max(viewportHeight - hudSafeTop - bottomPadding, BASE_CARD_HEIGHT * 3.5);
+  const availableHeight = Math.max(viewportHeight - hudSafeTop - bottomGuard, BASE_CARD_HEIGHT * 3.5);
   const slotGapRaw = availableHeight / 5;
   const slotGap = Math.min(Math.max(slotGapRaw, BASE_CARD_HEIGHT * 0.9), BASE_CARD_HEIGHT * 1.45);
   const usedHeight = slotGap * 5;
-  const startY = hudSafeTop + Math.max(0, (availableHeight - usedHeight) * 0.5);
+  const freeSpace = Math.max(0, viewportHeight - hudSafeTop - bottomGuard - usedHeight);
+  const startY = hudSafeTop + freeSpace * 0.5;
 
   const cardScale = Math.min(1, Math.max(0.75, availableHeight / (BASE_CARD_HEIGHT * 5)));
   const cardWidth = BASE_CARD_WIDTH * cardScale;
