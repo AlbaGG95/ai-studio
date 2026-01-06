@@ -46,20 +46,24 @@ type FormationLayout = {
 
 function computeFormationLayout(viewportWidth: number, viewportHeight: number): FormationLayout {
   const paddingX = Math.max(18, viewportWidth * 0.04);
-  const paddingY = Math.max(32, viewportHeight * 0.08);
+  const leftPadding = paddingX;
+  const rightPadding = Math.max(paddingX, 180); // leave room for HUD buttons on the right
 
-  const availableHeight = Math.max(viewportHeight - paddingY * 2 - 40, BASE_CARD_HEIGHT * 3.5);
+  const paddingY = Math.max(32, viewportHeight * 0.08);
+  const hudSafeTop = Math.max(paddingY, 150); // keep units below HUD row
+
+  const availableHeight = Math.max(viewportHeight - hudSafeTop - paddingY - 24, BASE_CARD_HEIGHT * 3.5);
   const slotGapRaw = availableHeight / 5;
   const slotGap = Math.min(Math.max(slotGapRaw, BASE_CARD_HEIGHT * 0.9), BASE_CARD_HEIGHT * 1.45);
   const usedHeight = slotGap * 5;
-  const startY = Math.max(paddingY, (viewportHeight - usedHeight) * 0.45);
+  const startY = hudSafeTop + Math.max(0, (availableHeight - usedHeight) * 0.5);
 
   const cardScale = Math.min(1, Math.max(0.75, availableHeight / (BASE_CARD_HEIGHT * 5)));
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
 
-  const allyX = paddingX + cardWidth * 0.6;
-  const enemyX = viewportWidth - paddingX - cardWidth * 0.6;
+  const allyX = leftPadding + cardWidth * 0.6;
+  const enemyX = viewportWidth - rightPadding - cardWidth * 0.6;
 
   const allySlots = Array.from({ length: 5 }).map((_, idx) => ({
     x: allyX,
