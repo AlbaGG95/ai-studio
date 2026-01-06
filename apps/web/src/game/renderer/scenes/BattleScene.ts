@@ -32,6 +32,47 @@ const SKY = 0x0a1226;
 const MID = 0x0c172d;
 const GROUND = 0x0a1322;
 
+const BASE_CARD_WIDTH = 140;
+const BASE_CARD_HEIGHT = 110;
+const DEBUG_LAYOUT = false;
+
+type FormationLayout = {
+  allySlots: Array<{ x: number; y: number }>;
+  enemySlots: Array<{ x: number; y: number }>;
+  cardScale: number;
+  cardWidth: number;
+  cardHeight: number;
+};
+
+function computeFormationLayout(viewportWidth: number, viewportHeight: number): FormationLayout {
+  const paddingX = Math.max(18, viewportWidth * 0.04);
+  const paddingY = Math.max(32, viewportHeight * 0.08);
+
+  const availableHeight = Math.max(viewportHeight - paddingY * 2 - 40, BASE_CARD_HEIGHT * 3.5);
+  const slotGapRaw = availableHeight / 5;
+  const slotGap = Math.min(Math.max(slotGapRaw, BASE_CARD_HEIGHT * 0.9), BASE_CARD_HEIGHT * 1.45);
+  const usedHeight = slotGap * 5;
+  const startY = Math.max(paddingY, (viewportHeight - usedHeight) * 0.45);
+
+  const cardScale = Math.min(1, Math.max(0.75, availableHeight / (BASE_CARD_HEIGHT * 5)));
+  const cardWidth = BASE_CARD_WIDTH * cardScale;
+  const cardHeight = BASE_CARD_HEIGHT * cardScale;
+
+  const allyX = paddingX + cardWidth * 0.6;
+  const enemyX = viewportWidth - paddingX - cardWidth * 0.6;
+
+  const allySlots = Array.from({ length: 5 }).map((_, idx) => ({
+    x: allyX,
+    y: startY + slotGap * (idx + 0.5),
+  }));
+  const enemySlots = Array.from({ length: 5 }).map((_, idx) => ({
+    x: enemyX,
+    y: startY + slotGap * (idx + 0.5),
+  }));
+
+  return { allySlots, enemySlots, cardScale, cardWidth, cardHeight };
+}
+
 export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOptions = {}) {
   return class BattleScene extends Phaser.Scene {
     private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
@@ -48,6 +89,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private queue = new EventQueue<CombatEvent>({ baseDelayMs: 520 });
     private speed: 1 | 2 = 1;
     private autoEnabled = false;
+    private layoutState?: FormationLayout;
+    private debugRects: PhaserLib.GameObjects.Rectangle[] = [];
 
     constructor() {
       super("battle");
@@ -227,6 +270,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
     private layout(size: PhaserLib.Structs.Size) {
       const { width, height } = size;
+      this.layoutState = computeFormationLayout(width, height);
       this.layoutBackground(width, height);
       this.layoutUnits(width, height);
       this.layoutHud(width, height);
@@ -263,10 +307,30 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private layoutUnits(width: number, height: number) {
+      const layout = this.layoutState ?? computeFormationLayout(width, height);
+      this.layoutState = layout;
+
+      // Debug bounds
+      if (this.debugRects.length) {
+        this.debugRects.forEach((r) => r.destroy());
+        this.debugRects = [];
+      }
+      if (DEBUG_LAYOUT) {
+        [...layout.allySlots, ...layout.enemySlots].forEach((slot) => {
+          const rect = this.add
+            .rectangle(slot.x, slot.y, layout.cardWidth, layout.cardHeight, 0x00ff00, 0.1)
+            .setOrigin(0.5);
+          rect.setStrokeStyle(1, 0x00ff00, 0.6);
+          rect.setDepth(1);
+          this.debugRects.push(rect);
+        });
+      }
+
       this.units.forEach((unit) => {
-        const pos = this.slotPosition(unit.spec.team, unit.spec.slotIndex, width, height);
+        const slotIdx = Math.max(0, Math.min(4, unit.spec.slotIndex));
+        const pos = unit.spec.team === "ally" ? layout.allySlots[slotIdx] : layout.enemySlots[slotIdx];
         unit.container.setPosition(pos.x, pos.y);
-        unit.container.setScale(pos.scale);
+        unit.container.setScale(layout.cardScale);
       });
     }
 
