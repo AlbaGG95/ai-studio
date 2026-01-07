@@ -32,9 +32,11 @@ type DustParticle = {
 type UnitView = {
   spec: CombatUnitSnapshot;
   container: PhaserLib.GameObjects.Container;
+  visual: PhaserLib.GameObjects.Container;
   hpFill: PhaserLib.GameObjects.Rectangle;
   hpText: PhaserLib.GameObjects.Text;
   hpWidth: number;
+  idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number };
 };
 
 const ALLY_COLOR = 0x7ce4ff;
@@ -52,6 +54,7 @@ const BASE_CARD_WIDTH = 140;
 const BASE_CARD_HEIGHT = 110;
 const DEBUG_LAYOUT = false;
 const DEBUG_STAGE = false;
+const ENABLE_IDLE_MOTION = true;
 
 type FormationLayout = {
   battleArea: { x: number; y: number; width: number; height: number };
@@ -268,6 +271,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
     private createUnit(spec: CombatUnitSnapshot): UnitView {
       const container = this.add.container(0, 0);
+      const visual = this.add.container(0, 0);
       const tileWidth = 140;
       const tileHeight = 110;
       const color = spec.team === "ally" ? ALLY_COLOR : ENEMY_COLOR;
@@ -301,14 +305,21 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       });
       hpText.setOrigin(0.5);
 
-      container.add([tile, avatar, name, hpBg, hpFill, hpText]);
+      visual.add([tile, avatar, name, hpBg, hpFill, hpText]);
+
+      container.add(visual);
 
       if (spec.team === "enemy") {
         container.setAlpha(0.96);
       }
 
+      const phaseSeed = spec.slotIndex * 17 + (spec.team === "ally" ? 11 : 23) + [...spec.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      const bobAmp = 2.6 + ((phaseSeed % 15) / 10);
+      const scaleAmp = 0.01 + ((phaseSeed % 6) / 1000);
+      const idle = { bobPhase: phaseSeed * 0.17, scalePhase: phaseSeed * 0.11, bobAmp, scaleAmp };
+
       this.unitRoot.add(container);
-      return { spec: { ...spec }, container, hpFill, hpText, hpWidth: baseHpWidth };
+      return { spec: { ...spec }, container, visual, hpFill, hpText, hpWidth: baseHpWidth, idle };
     }
 
     private layout(size: PhaserLib.Structs.Size) {
@@ -616,19 +627,20 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const unit = this.units.get(targetId);
       if (!unit) return;
       const pos = unit.container;
-      this.floats.spawn(kind, Math.round(value), targetId, pos.x, pos.y - 24, this.speed);
+      const visualOffsetY = unit.visual.y || 0;
+      this.floats.spawn(kind, Math.round(value), targetId, pos.x, pos.y + visualOffsetY - 24, this.speed);
     }
 
     private flashTarget(targetId: string, isCrit: boolean) {
       const unit = this.units.get(targetId);
       if (!unit) return;
-      hitFlash(this, unit.container, { shake: true, speed: this.speed, duration: isCrit ? 160 : 120 });
+      hitFlash(this, unit.visual, { shake: true, speed: this.speed, duration: isCrit ? 160 : 120 });
     }
 
     private healPulse(targetId: string) {
       const unit = this.units.get(targetId);
       if (!unit) return;
-      healFlash(this, unit.container, this.speed);
+      healFlash(this, unit.visual, this.speed);
     }
 
     update(_time: number, delta: number) {
@@ -659,6 +671,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
             wrappedX = x - 6;
           }
           p.shape.setPosition(wrappedX, wrappedY);
+        });
+      }
+
+      if (ENABLE_IDLE_MOTION) {
+        const bobFreq = 0.0019;
+        const scaleFreq = 0.0012;
+        this.units.forEach((unit) => {
+          const bob = Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp;
+          const breathe = 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp;
+          unit.visual.setY(bob);
+          unit.visual.setScale(breathe);
         });
       }
     }
