@@ -67,6 +67,14 @@ const ENABLE_TRAJECTORY_FX = true;
 const DEBUG_FX = false;
 const DEBUG_LANE_PRESSURE = false;
 const VISUAL_SIDE_OFFSET = 4;
+const CENTER_PROTAG_SCALE = 1.07;
+const FRONT_SCALE = 1.02;
+const BACK_SCALE = 0.98;
+const FRONT_LEAN_X = 5;
+const BACK_LEAN_X = -4;
+const BOB_FRONT_MULT = 1.08;
+const BOB_CENTER_MULT = 1.15;
+const BOB_BACK_MULT = 0.94;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
@@ -132,6 +140,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private stageBlobs: DepthBlob[] = [];
     private dustParticles: DustParticle[] = [];
     private groundBandRect?: { x: number; y: number; width: number; height: number };
+    private centerPulse?: PhaserLib.GameObjects.Graphics;
     private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
@@ -459,6 +468,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         20
       );
       this.stageRoot.add(centerGlow);
+      this.centerPulse = centerGlow;
 
       const blobCount = 3;
       for (let i = 0; i < blobCount; i += 1) {
@@ -638,6 +648,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           unit.container.setVisible(false);
         },
       });
+      if (unit.spec.slotIndex === 2) {
+        this.playCenterDeathPulse();
+      }
     }
 
     private animateAttack(sourceId: string, targetId: string) {
@@ -701,7 +714,12 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private flashTarget(targetId: string, isCrit: boolean) {
       const unit = this.units.get(targetId);
       if (!unit) return;
-      hitFlash(this, unit.visual, { shake: true, speed: this.speed, duration: isCrit ? 160 : 120 });
+      const centerBoost = unit.spec.slotIndex === 2 ? 1.15 : 1;
+      hitFlash(this, unit.visual, {
+        shake: true,
+        speed: this.speed,
+        duration: Math.round((isCrit ? 160 : 120) * centerBoost),
+      });
     }
 
     private healPulse(targetId: string) {
@@ -748,18 +766,32 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean) {
-      const baseX = (ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0) + (unit.spec.team === "ally" ? -VISUAL_SIDE_OFFSET : VISUAL_SIDE_OFFSET);
+      const baseX =
+        (ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0) + (unit.spec.team === "ally" ? -VISUAL_SIDE_OFFSET : VISUAL_SIDE_OFFSET);
       const baseY = ENABLE_FORMATION_STAGGER ? unit.stagger.y : 0;
-      const baseScale = ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1;
+      const tier = unit.spec.slotIndex <= 1 ? "front" : unit.spec.slotIndex === 2 ? "center" : "back";
+      const centerDir = unit.spec.team === "ally" ? 1 : -1;
+      const tierLean =
+        tier === "front"
+          ? centerDir * FRONT_LEAN_X
+          : tier === "back"
+          ? -centerDir * Math.abs(BACK_LEAN_X)
+          : 0;
+      const tierScale = tier === "front" ? FRONT_SCALE : tier === "back" ? BACK_SCALE : CENTER_PROTAG_SCALE;
+      const baseScale = (ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1) * tierScale;
       const pressure = unit.pressureOffset;
       const bobFreq = 0.0019;
       const scaleFreq = 0.0012;
-      const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp : 0;
-      const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp : 1;
+      const bobStrength = tier === "front" ? BOB_FRONT_MULT : tier === "back" ? BOB_BACK_MULT : BOB_CENTER_MULT;
+      const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp * bobStrength : 0;
+      const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp * bobStrength : 1;
       const offset = unit.motionOffset;
       const impact = unit.hitImpact;
-      unit.visual.setPosition(baseX + offset.x + impact.x + pressure.x, baseY + bob + offset.y + impact.y + pressure.y);
-      unit.visual.setScale(
+      unit.visual.setPosition(
+        baseX + tierLean + offset.x + impact.x + pressure.x,
+        baseY + bob + offset.y + impact.y + pressure.y
+      );
+        unit.visual.setScale(
         baseScale * breathe * offset.scaleX * impact.scale,
         baseScale * breathe * offset.scaleY * impact.scale
       );
@@ -777,12 +809,15 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.tweens.timeScale = 0;
 
       if (target) {
-        const impactScale = durationMs >= 60 ? 0.93 : 0.95;
+        const baseImpact = durationMs >= 60 ? 0.93 : 0.95;
+        const compress = 1 - baseImpact;
+        const centerBoost = target.spec.slotIndex === 2 ? 1.15 : 1;
+        const impactScale = 1 - compress * centerBoost;
         const impactX = (Math.random() > 0.5 ? 1 : -1) * (durationMs >= 60 ? 3 : 2);
-      target.hitImpact.scale = impactScale;
-      target.hitImpact.x = impactX;
-      target.hitImpact.y = 0;
-      this.applyVisualTransform(target, this.time.now, false);
+        target.hitImpact.scale = impactScale;
+        target.hitImpact.x = impactX;
+        target.hitImpact.y = 0;
+        this.applyVisualTransform(target, this.time.now, false);
     }
 
       const dur = Math.max(25, Math.round(durationMs / this.speed));
@@ -807,9 +842,12 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       attacker.motionOffset.scaleY = 1;
       const dx = target.container.x - attacker.container.x;
       const dir = dx === 0 ? (attacker.spec.team === "ally" ? 1 : -1) : Math.sign(dx);
-      const baseX = dir * 12;
+      const tier = attacker.spec.slotIndex <= 1 ? "front" : attacker.spec.slotIndex === 2 ? "center" : "back";
+      const tierLean = tier === "front" ? 2 : tier === "back" ? -2 : 0;
+      const tierScale = tier === "front" ? 1.03 : tier === "center" ? 1.05 : 0.98;
+      const baseX = dir * (12 + tierLean);
       const baseY = -2;
-      const scaleX = 1.05;
+      const scaleX = 1.05 * tierScale;
       const scaleY = 0.97;
       const windUp = Math.max(100, Math.round(150 / this.speed));
       const snap = Math.max(70, Math.round(110 / this.speed));
@@ -971,6 +1009,18 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           onComplete: () => dot.destroy(),
         });
       }
+    }
+
+    private playCenterDeathPulse() {
+      if (!this.centerPulse) return;
+      const overlay = this.centerPulse;
+      overlay.setAlpha(0.18);
+      this.tweens.add({
+        targets: overlay,
+        alpha: 0.08,
+        duration: Math.max(80, Math.round(120 / this.speed)),
+        ease: "Quad.easeOut",
+      });
     }
 
     private computeLanePressureOffset(params: {
