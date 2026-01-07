@@ -74,13 +74,13 @@ const DEBUG_FX = false;
 const DEBUG_LANE_PRESSURE = false;
 const VISUAL_SIDE_OFFSET = 4;
 const CENTER_PROTAG_SCALE = 1.07;
-const FRONT_SCALE = 1.02;
-const BACK_SCALE = 0.98;
+const FRONT_SCALE = 1.01;
+const BACK_SCALE = 0.96;
 const FRONT_LEAN_X = 5;
 const BACK_LEAN_X = -4;
-const BOB_FRONT_MULT = 1.08;
-const BOB_CENTER_MULT = 1.15;
-const BOB_BACK_MULT = 0.94;
+const BOB_FRONT_MULT = 1.02;
+const BOB_CENTER_MULT = 1.12;
+const BOB_BACK_MULT = 0.88;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
@@ -170,7 +170,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private isHitStop = false;
     private hitStopTimer?: PhaserLib.Time.TimerEvent;
   private prevTweenScale = 1;
-    private renderInput?: BattleRenderInput;
+  private renderInput?: BattleRenderInput;
+    private allyHp = 1;
+    private enemyHp = 1;
 
   constructor() {
     super("battle");
@@ -237,6 +239,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
       this.createHud();
       this.buildUnits(replay.snapshot.units);
+      this.recalcHpTotals();
       this.layout(this.scale.gameSize);
 
       this.queue.start(async (evt) => {
@@ -260,6 +263,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private clearUnits() {
       this.units.forEach((u) => u.container.destroy());
       this.units.clear();
+    }
+
+    private recalcHpTotals() {
+      let allies = 0;
+      let enemies = 0;
+      this.units.forEach((u) => {
+        if (u.spec.team === "ally") allies += Math.max(0, u.spec.hp);
+        else enemies += Math.max(0, u.spec.hp);
+      });
+      this.allyHp = Math.max(1, allies);
+      this.enemyHp = Math.max(1, enemies);
     }
 
     private createBackground() {
@@ -597,7 +611,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         const pos = unit.spec.team === "ally" ? layout.allySlots[slotIdx] : layout.enemySlots[slotIdx];
         unit.container.setPosition(pos.x, pos.y);
         unit.container.setScale(layout.cardScale);
-        this.applyVisualTransform(unit, this.time.now, true);
+        this.applyVisualTransform(unit, this.time.now, true, this.allyHp >= this.enemyHp ? "ally" : "enemy");
       });
     }
 
@@ -624,7 +638,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         screenShake(this, 0.006, 140, this.speed);
       }
       this.spawnTrajectoryFx(evt.sourceId, evt.targetId, evt.type);
-      this.playHitStop(evt.type === "crit" ? 60 : 45, evt.targetId);
+      this.playHitStop(evt.type === "crit" ? 70 : 35, evt.targetId);
       break;
     }
         case "heal": {
@@ -635,6 +649,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         }
         case "death": {
           this.fadeOut(evt.targetId);
+          this.playHitStop(80, evt.targetId);
           break;
         }
         case "stage_end": {
@@ -662,6 +677,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       if (nextHp <= 0) {
         this.fadeOut(targetId);
       }
+      this.recalcHpTotals();
     }
 
     private fadeOut(targetId: string) {
@@ -672,15 +688,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.tweens.add({
         targets: unit.container,
         alpha: 0.2,
-        y: unit.container.y + 12,
+        y: unit.container.y + 18,
         scaleX: sx * 0.9,
         scaleY: sy * 0.9,
-        duration: Math.max(180, Math.round(260 / this.speed)),
+        duration: Math.max(220, Math.round(360 / this.speed)),
         ease: "Quad.easeInOut",
         onComplete: () => {
           unit.container.setVisible(false);
         },
       });
+      unit.spec.hp = 0;
+      this.recalcHpTotals();
       if (unit.spec.slotIndex === 2) {
         this.playCenterDeathPulse();
       }
@@ -741,6 +759,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private spawnFloat(kind: "hit" | "crit" | "heal", targetId: string, value: number) {
       const unit = this.units.get(targetId);
       if (!unit) return;
+      if (kind === "hit" && value < 3) return;
       const pos = unit.container;
       const visualOffsetY = unit.visual.y || 0;
       const visualOffsetX = unit.visual.x || 0;
@@ -752,9 +771,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       if (!unit) return;
       const centerBoost = unit.spec.slotIndex === 2 ? 1.15 : 1;
       hitFlash(this, unit.visual, {
-        shake: true,
+        shake: isCrit,
         speed: this.speed,
-        duration: Math.round((isCrit ? 160 : 120) * centerBoost),
+        duration: Math.round((isCrit ? 170 : 90) * centerBoost),
       });
     }
 
@@ -769,7 +788,28 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const time = this.time.now;
       if (this.isHitStop) return;
 
+      const totalHp = this.allyHp + this.enemyHp || 1;
+      const bias = (this.allyHp - this.enemyHp) / totalHp;
+      const leadTeam: "ally" | "enemy" = bias >= 0 ? "ally" : "enemy";
+
       this.updatePressure(time / 1000);
+
+      if (this.centerPulse && this.groundBandRect) {
+        const { x, y, width, height } = this.groundBandRect;
+        const pulseWidth = width * 0.32;
+        const pulseHeight = height * 0.46;
+        const alpha = 0.08 + Math.min(0.28, Math.abs(bias) * 0.45);
+        const tint = leadTeam === "ally" ? ALLY_COLOR : ENEMY_COLOR;
+        this.centerPulse.clear();
+        this.centerPulse.fillStyle(tint, alpha);
+        this.centerPulse.fillRoundedRect(
+          x + (width - pulseWidth) / 2,
+          y + (height - pulseHeight) / 2,
+          pulseWidth,
+          pulseHeight,
+          18
+        );
+      }
 
       this.stageBlobs.forEach((blob) => {
         const offset = Math.sin(time * 0.00035 * blob.speed) * blob.amp;
@@ -798,10 +838,11 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         });
       }
 
-      this.units.forEach((unit) => this.applyVisualTransform(unit, time, false));
+      this.units.forEach((unit) => this.applyVisualTransform(unit, time, false, leadTeam));
     }
 
-    private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean) {
+    private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean, leadTeam: "ally" | "enemy") {
+      if (unit.spec.hp <= 0) return;
       const baseX =
         (ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0) + (unit.spec.team === "ally" ? -VISUAL_SIDE_OFFSET : VISUAL_SIDE_OFFSET);
       const baseY = ENABLE_FORMATION_STAGGER ? unit.stagger.y : 0;
@@ -819,6 +860,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const bobFreq = 0.0019;
       const scaleFreq = 0.0012;
       const bobStrength = tier === "front" ? BOB_FRONT_MULT : tier === "back" ? BOB_BACK_MULT : BOB_CENTER_MULT;
+      const tierAlpha = tier === "front" ? 1 : tier === "center" ? 1 : 0.9;
       const bob = ENABLE_UNIT_IDLE_MOTION
         ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp * bobStrength
         : 0;
@@ -831,13 +873,15 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         baseX + tierLean + offset.x + impact.x + pressure.x,
         baseY + bob + offset.y + impact.y + pressure.y
       );
-        unit.visual.setScale(
+      unit.visual.setScale(
         baseScale * breathe * offset.scaleX * impact.scale,
         baseScale * breathe * offset.scaleY * impact.scale
       );
       if (forceDepth || ENABLE_FORMATION_STAGGER) {
         unit.visual.setDepth(unit.stagger.depth);
       }
+      const leadBiasAlpha = unit.spec.team === leadTeam ? 1 : 0.9;
+      unit.container.setAlpha(Math.max(0.55, tierAlpha * leadBiasAlpha));
     }
 
     private playHitStop(durationMs: number, targetId?: string) {
@@ -857,7 +901,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         target.hitImpact.scale = impactScale;
         target.hitImpact.x = impactX;
         target.hitImpact.y = 0;
-        this.applyVisualTransform(target, this.time.now, false);
+        const leadTeam = this.allyHp >= this.enemyHp ? "ally" : "enemy";
+        this.applyVisualTransform(target, this.time.now, false, leadTeam);
     }
 
       const dur = Math.max(25, Math.round(durationMs / this.speed));
@@ -868,7 +913,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           target.hitImpact.scale = 1;
           target.hitImpact.x = 0;
           target.hitImpact.y = 0;
-          this.applyVisualTransform(target, this.time.now, false);
+          const leadTeam = this.allyHp >= this.enemyHp ? "ally" : "enemy";
+          this.applyVisualTransform(target, this.time.now, false, leadTeam);
         }
       });
     }
@@ -900,7 +946,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           scaleY,
           duration: windUp,
           ease: "Quad.easeOut",
-          onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false),
+          onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false, this.allyHp >= this.enemyHp ? "ally" : "enemy"),
           onComplete: () => {
             attacker.anticipationTween = this.tweens.add({
               targets: attacker.motionOffset,
@@ -910,7 +956,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
               scaleY: 1,
               duration: snap,
               ease: "Quad.easeIn",
-              onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false),
+              onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false, this.allyHp >= this.enemyHp ? "ally" : "enemy"),
               onComplete: () => {
                 attacker.anticipationTween = undefined;
                 resolve();
