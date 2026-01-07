@@ -5,13 +5,29 @@ import { useRouter } from "next/navigation";
 
 import GameCanvas, { type SceneFactory } from "@/game/renderer/GameCanvas";
 import { createMapScene } from "@/game/renderer/scenes/MapScene";
+import { buildCampaignViewModel } from "@/game/campaign/campaignViewModel";
+import { useAfk } from "@/lib/afkStore";
 import styles from "./map.module.css";
 
 export function MapCanvasClient() {
   const router = useRouter();
+  const { state, stages, loading, setCurrentStage } = useAfk();
+  const campaign = useMemo(() => buildCampaignViewModel(state, stages), [state, stages]);
   const sceneFactory: SceneFactory = useMemo(
-    () => (Phaser) => createMapScene(Phaser, { onBattle: () => router.push("/afk/battle") }),
-    [router]
+    () =>
+      (Phaser) =>
+        createMapScene(Phaser, {
+          campaign,
+          onBattle: (stageId) => {
+            if (stageId) {
+              setCurrentStage(stageId);
+              router.push(`/afk/battle?stageId=${stageId}`);
+            } else {
+              router.push("/afk/battle");
+            }
+          },
+        }),
+    [campaign, router, setCurrentStage]
   );
 
   return (
@@ -30,7 +46,9 @@ export function MapCanvasClient() {
         </div>
       </div>
 
-      <p className={styles.hint}>Drag to pan the map. Current node pulses; locked nodes are dim.</p>
+      <p className={styles.hint}>
+        {loading ? "Cargando mapa..." : "Drag to pan the map. Current node pulses; locked nodes are dim."}
+      </p>
     </div>
   );
 }
