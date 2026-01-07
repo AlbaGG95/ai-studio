@@ -59,26 +59,29 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
   };
 
   const rows = 5;
-  const slotHeight = battleArea.height / rows;
-  const maxScaleByHeight = (slotHeight * 0.85) / BASE_CARD_HEIGHT;
+  const usableHeight = battleArea.height * 0.75;
+  const startY = battleArea.y + (battleArea.height - usableHeight) / 2;
+  const compactSlot = usableHeight / rows;
+  const maxScaleByHeight = (compactSlot * 0.85) / BASE_CARD_HEIGHT;
   const maxScaleByWidth = (battleArea.width * 0.45) / BASE_CARD_WIDTH;
-  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.25);
-  const cardScale = clamp(0.85, 1.25, rawScale);
+  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.4);
+  const cardScale = clamp(1.0, 1.4, rawScale);
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
 
   const formationCenterX = battleArea.x + battleArea.width / 2;
-  const columnSeparation = clamp(260, battleArea.width * 0.55, 520);
+  const columnSeparation = clamp(220, battleArea.width * 0.48, 420);
   const allyX = formationCenterX - columnSeparation / 2;
   const enemyX = formationCenterX + columnSeparation / 2;
+  const overlapPx = 6;
 
   const allySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: allyX,
-    y: battleArea.y + slotHeight * (idx + 0.5),
+    y: startY + compactSlot * (idx + 0.5) - idx * overlapPx,
   }));
   const enemySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: enemyX,
-    y: battleArea.y + slotHeight * (idx + 0.5),
+    y: startY + compactSlot * (idx + 0.5) - idx * overlapPx,
   }));
 
   return { battleArea, allySlots, enemySlots, cardScale, cardWidth, cardHeight };
