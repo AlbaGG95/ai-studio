@@ -6,13 +6,29 @@ import { useRouter } from "next/navigation";
 
 import GameCanvas, { type SceneFactory } from "@/game/renderer/GameCanvas";
 import { createBattleScene } from "@/game/renderer/scenes/BattleScene";
+import { useAfk } from "@/lib/afkStore";
 import styles from "./battle.module.css";
 
 export function BattleCanvasClient() {
   const router = useRouter();
+  const { completeBattle } = useAfk();
   const sceneFactory: SceneFactory = useMemo(
-    () => (Phaser) => createBattleScene(Phaser, { onBack: () => router.push("/afk/renderer") }),
-    [router]
+    () =>
+      (Phaser) =>
+        createBattleScene(Phaser, {
+          onBack: () => router.push("/afk/renderer"),
+          onContinue: () => router.push("/afk/idle"),
+          onBattleEnd: ({ stageId, result }) => {
+            completeBattle(stageId, {
+              result: result === "victory" ? "win" : "loss",
+              turns: 0,
+              damageDealt: 0,
+              damageTaken: 0,
+              events: [],
+            });
+          },
+        }),
+    [completeBattle, router]
   );
 
   return (

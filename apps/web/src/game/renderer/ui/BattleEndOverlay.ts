@@ -53,12 +53,13 @@ export function createBattleEndOverlay(scene: PhaserLib.Scene, opts: OverlayOpti
   const onContinue = () => opts.onContinue?.();
   button.on("pointerover", () => btnBg.setFillStyle(0x9cf2ff, 1));
   button.on("pointerout", () => btnBg.setFillStyle(0x7ce4ff, 1));
-  button.on("pointerup", onContinue);
-  backdrop.on("pointerup", onContinue);
+  button.on("pointerup", () => onContinue());
+  btnBg.on("pointerup", () => onContinue());
+  backdrop.on("pointerup", () => onContinue());
 
   card.add([cardBg, title, subtitle, button]);
   overlay.add([backdrop, card]);
-  overlay.setDepth(50);
+  overlay.setDepth(200);
 
   const layout = (width: number, height: number) => {
     backdrop.setSize(width, height);

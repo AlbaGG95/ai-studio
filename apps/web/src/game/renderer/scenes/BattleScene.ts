@@ -12,6 +12,8 @@ type PhaserModule = typeof import("phaser");
 
 type BattleSceneOptions = {
   onBack?: () => void;
+  onBattleEnd?: (payload: { stageId: string; result: "victory" | "defeat" }) => void;
+  onContinue?: () => void;
 };
 
 type DepthBlob = {
@@ -157,6 +159,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private queue = new EventQueue<CombatEvent>({ baseDelayMs: 520 });
     private speed: 1 | 2 = 1;
     private autoEnabled = false;
+    private stageId: string = "1-1";
+    private battleFinished = false;
     private layoutState?: FormationLayout;
     private debugRects: PhaserLib.GameObjects.GameObject[] = [];
     private isHitStop = false;
@@ -203,6 +207,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         return;
       }
       this.replay = replay;
+      this.battleFinished = false;
+      this.stageId = replay.snapshot.stageLabel;
       this.statusText?.setText("Playing combat...");
       this.stageLabel = this.add.text(18, 16, `Stage ${replay.snapshot.stageLabel}`, {
         fontFamily: "Chakra Petch, sans-serif",
@@ -610,6 +616,10 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         }
         case "stage_end": {
           this.queue.pause();
+          if (!this.battleFinished) {
+            this.battleFinished = true;
+            options.onBattleEnd?.({ stageId: this.stageId, result: evt.result });
+          }
           this.showResult(evt.result);
           break;
         }
@@ -683,13 +693,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.overlayCard?.destroy();
 
       const goBack = () => {
+        if (options.onContinue) {
+          options.onContinue();
+          return;
+        }
         if (options.onBack) {
           options.onBack();
           return;
         }
         if (typeof window !== "undefined") {
-          const target = "/afk/map";
-          window.location.href = target;
+          window.location.href = "/afk/map";
         }
       };
 
