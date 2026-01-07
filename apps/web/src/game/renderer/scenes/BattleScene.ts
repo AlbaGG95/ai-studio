@@ -140,13 +140,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private bgRoot!: PhaserLib.GameObjects.Container;
     private stageRoot!: PhaserLib.GameObjects.Container;
     private unitRoot!: PhaserLib.GameObjects.Container;
-    private fxRoot!: PhaserLib.GameObjects.Container;
-    private trajectoryLayer!: PhaserLib.GameObjects.Container;
-    private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
-    private stageBlobs: DepthBlob[] = [];
-    private dustParticles: DustParticle[] = [];
-    private groundBandRect?: { x: number; y: number; width: number; height: number };
-    private centerPulse?: PhaserLib.GameObjects.Graphics;
+  private fxRoot!: PhaserLib.GameObjects.Container;
+  private trajectoryLayer!: PhaserLib.GameObjects.Container;
+    private cameraRoot!: PhaserLib.GameObjects.Container;
+    private cameraState = { scale: 1, targetScale: 1, x: 0, y: 0, targetX: 0, targetY: 0 };
+    private lastCameraPulse = 0;
+  private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
+  private stageBlobs: DepthBlob[] = [];
+  private dustParticles: DustParticle[] = [];
+  private groundBandRect?: { x: number; y: number; width: number; height: number };
+  private centerPulse?: PhaserLib.GameObjects.Graphics;
     private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
@@ -171,19 +174,27 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private hitStopTimer?: PhaserLib.Time.TimerEvent;
   private prevTweenScale = 1;
   private renderInput?: BattleRenderInput;
-    private allyHp = 1;
-    private enemyHp = 1;
+  private allyHp = 1;
+  private enemyHp = 1;
+  private lastHpRatios = new Map<string, number>();
+    private resultLayer?: PhaserLib.GameObjects.Container;
+    private resultText?: PhaserLib.GameObjects.Text;
+    private resultDim?: PhaserLib.GameObjects.Rectangle;
+    private resultTimer?: PhaserLib.Time.TimerEvent;
+    private resultShown = false;
 
   constructor() {
     super("battle");
   }
 
   create() {
+      this.cameraRoot = this.add.container(0, 0).setDepth(0);
       this.bgRoot = this.add.container(0, 0).setDepth(0);
       this.stageRoot = this.add.container(0, 0).setDepth(1);
       this.unitRoot = this.add.container(0, 0).setDepth(2);
       this.fxRoot = this.add.container(0, 0).setDepth(3);
       this.trajectoryLayer = this.add.container(0, 0).setDepth(1.5);
+      this.cameraRoot.add([this.bgRoot, this.stageRoot, this.trajectoryLayer, this.unitRoot, this.fxRoot]);
       this.createBackground();
       this.layout(this.scale.gameSize);
       this.floats = new FloatingTextManager(this);
@@ -202,6 +213,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.scale.off("resize", handleResize);
         this.floats?.clear();
         this.overlayCard?.destroy();
+        this.resultTimer?.remove(false);
+        this.resultLayer?.destroy();
       });
 
       this.renderInput = options.renderInput;
@@ -271,6 +284,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.units.forEach((u) => {
         if (u.spec.team === "ally") allies += Math.max(0, u.spec.hp);
         else enemies += Math.max(0, u.spec.hp);
+        const ratio = u.spec.maxHp > 0 ? u.spec.hp / u.spec.maxHp : 0;
+        this.lastHpRatios.set(u.spec.id, ratio);
       });
       this.allyHp = Math.max(1, allies);
       this.enemyHp = Math.max(1, enemies);
@@ -732,6 +747,52 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private showResult(result: "victory" | "defeat") {
       this.overlay?.destroy();
       this.overlayCard?.destroy();
+      if (this.resultShown) return;
+      this.resultShown = true;
+
+      // Brief global hit-stop for emotional punctuation
+      this.playHitStop(Math.max(150, Math.round(220 / this.speed)));
+
+      // Dim battlefield (world only)
+      if (this.resultLayer) this.resultLayer.destroy();
+      this.resultLayer = this.add.container(0, 0).setDepth(2.9);
+      this.resultDim = this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, 0x0b1224, 0.32)
+        .setOrigin(0, 0)
+        .setAlpha(0);
+      this.resultLayer.add(this.resultDim);
+      this.tweens.add({
+        targets: this.resultDim,
+        alpha: 0.35,
+        duration: Math.max(140, Math.round(220 / this.speed)),
+        ease: "Quad.easeOut",
+      });
+
+      const text = result === "victory" ? "VICTORIA" : "DERROTA";
+      this.resultText = this.add.text(this.scale.width / 2, this.scale.height / 2, text, {
+        fontFamily: "Space Grotesk, sans-serif",
+        fontSize: "46px",
+        fontStyle: "700",
+        color: result === "victory" ? "#c7f9cc" : "#fecdd3",
+        align: "center",
+        stroke: result === "victory" ? "#34d399" : "#fb7185",
+        strokeThickness: 2,
+      });
+      this.resultText.setOrigin(0.5);
+      this.resultText.setAlpha(0);
+      this.resultText.setScale(0.9);
+      this.tweens.add({
+        targets: this.resultText,
+        alpha: 1,
+        scale: 1,
+        duration: Math.max(200, Math.round(280 / this.speed)),
+        ease: "Quad.easeOut",
+      });
+
+      // Ease camera back to neutral
+      this.cameraState.targetScale = 1;
+      this.cameraState.targetX = 0;
+      this.cameraState.targetY = 0;
 
       const goBack = () => {
         if (options.onContinue) {
@@ -747,11 +808,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         }
       };
 
-      this.overlayCard = createBattleEndOverlay(this, {
-        onContinue: goBack,
-        result,
-        width: this.scale.width,
-        height: this.scale.height,
+      const delay = Math.max(600, Math.round(750 / this.speed));
+      this.resultTimer = this.time.delayedCall(delay, () => {
+        this.overlayCard = createBattleEndOverlay(this, {
+          onContinue: goBack,
+          result,
+          width: this.scale.width,
+          height: this.scale.height,
+        });
       });
       this.statusText?.setText(`Result: ${result}`);
     }
@@ -839,6 +903,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       }
 
       this.units.forEach((unit) => this.applyVisualTransform(unit, time, false, leadTeam));
+
+      // Camera easing
+      const camLerp = Math.min(1, dt * 6);
+      this.cameraState.scale += (this.cameraState.targetScale - this.cameraState.scale) * camLerp;
+      this.cameraState.x += (this.cameraState.targetX - this.cameraState.x) * camLerp;
+      this.cameraState.y += (this.cameraState.targetY - this.cameraState.y) * camLerp;
+      this.cameraRoot.setScale(this.cameraState.scale);
+      this.cameraRoot.setPosition(this.cameraState.x, this.cameraState.y);
     }
 
     private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean, leadTeam: "ally" | "enemy") {
