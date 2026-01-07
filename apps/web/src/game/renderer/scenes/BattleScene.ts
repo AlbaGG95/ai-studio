@@ -38,6 +38,8 @@ type UnitView = {
   hpWidth: number;
   idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number };
   stagger: { x: number; y: number; scale: number; depth: number };
+  motionOffset: { x: number; y: number; scaleX: number; scaleY: number };
+  anticipationTween?: PhaserLib.Tweens.Tween;
 };
 
 const ALLY_COLOR = 0x7ce4ff;
@@ -57,6 +59,7 @@ const DEBUG_LAYOUT = false;
 const DEBUG_STAGE = false;
 const ENABLE_IDLE_MOTION = true;
 const ENABLE_FORMATION_STAGGER = true;
+const ENABLE_ATTACK_ANTICIPATION = true;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
@@ -332,12 +335,22 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
          scale: tier === "back" ? STAGGER_SCALE.back : tier === "front" ? STAGGER_SCALE.front : STAGGER_SCALE.mid,
          depth: tier === "front" ? 3 : tier === "mid" ? 2 : 1,
        };
-       visual.setDepth(stagger.depth);
-       visual.setPosition(stagger.x, stagger.y);
-       visual.setScale(stagger.scale);
+      visual.setDepth(stagger.depth);
+      visual.setPosition(stagger.x, stagger.y);
+      visual.setScale(stagger.scale);
 
       this.unitRoot.add(container);
-      return { spec: { ...spec }, container, visual, hpFill, hpText, hpWidth: baseHpWidth, idle, stagger };
+      return {
+        spec: { ...spec },
+        container,
+        visual,
+        hpFill,
+        hpText,
+        hpWidth: baseHpWidth,
+        idle,
+        stagger,
+        motionOffset: { x: 0, y: 0, scaleX: 1, scaleY: 1 },
+      };
     }
 
     private layout(size: PhaserLib.Structs.Size) {
@@ -606,14 +619,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const dashY = sy + (ty - sy) * 0.12;
 
       return new Promise<void>((resolve) => {
-        this.tweens.add({
-          targets: source.container,
-          x: dashX,
-          y: dashY,
-          yoyo: true,
-          duration: Math.max(90, Math.round(160 / this.speed)),
-          ease: "Sine.easeInOut",
-          onComplete: () => resolve(),
+        this.playAttackAnticipation(source, target).finally(() => {
+          this.tweens.add({
+            targets: source.container,
+            x: dashX,
+            y: dashY,
+            yoyo: true,
+            duration: Math.max(90, Math.round(160 / this.speed)),
+            ease: "Sine.easeInOut",
+            onComplete: () => resolve(),
+          });
         });
       });
     }
@@ -705,11 +720,58 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const scaleFreq = 0.0012;
       const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp : 0;
       const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp : 1;
-      unit.visual.setPosition(baseX, baseY + bob);
-      unit.visual.setScale(baseScale * breathe);
+      const offset = unit.motionOffset;
+      unit.visual.setPosition(baseX + offset.x, baseY + bob + offset.y);
+      unit.visual.setScale(baseScale * breathe * offset.scaleX, baseScale * breathe * offset.scaleY);
       if (forceDepth || ENABLE_FORMATION_STAGGER) {
         unit.visual.setDepth(unit.stagger.depth);
       }
+    }
+
+    private playAttackAnticipation(attacker: UnitView, target: UnitView) {
+      if (!ENABLE_ATTACK_ANTICIPATION) return Promise.resolve();
+      attacker.anticipationTween?.stop();
+      attacker.motionOffset.x = 0;
+      attacker.motionOffset.y = 0;
+      attacker.motionOffset.scaleX = 1;
+      attacker.motionOffset.scaleY = 1;
+      const dx = target.container.x - attacker.container.x;
+      const dir = dx === 0 ? (attacker.spec.team === "ally" ? 1 : -1) : Math.sign(dx);
+      const baseX = dir * 12;
+      const baseY = -2;
+      const scaleX = 1.05;
+      const scaleY = 0.97;
+      const windUp = Math.max(100, Math.round(150 / this.speed));
+      const snap = Math.max(70, Math.round(110 / this.speed));
+      return new Promise<void>((resolve) => {
+        const upTween = this.tweens.add({
+          targets: attacker.motionOffset,
+          x: baseX,
+          y: baseY,
+          scaleX,
+          scaleY,
+          duration: windUp,
+          ease: "Quad.easeOut",
+          onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false),
+          onComplete: () => {
+            attacker.anticipationTween = this.tweens.add({
+              targets: attacker.motionOffset,
+              x: 0,
+              y: 0,
+              scaleX: 1,
+              scaleY: 1,
+              duration: snap,
+              ease: "Quad.easeIn",
+              onUpdate: () => this.applyVisualTransform(attacker, this.time.now, false),
+              onComplete: () => {
+                attacker.anticipationTween = undefined;
+                resolve();
+              },
+            });
+          },
+        });
+        attacker.anticipationTween = upTween;
+      });
     }
   };
 }
