@@ -58,19 +58,25 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
     height: Math.max(240, viewportHeight - topSafe - bottomSafe),
   };
 
-  const slotHeight = battleArea.height / 5;
-  const cardScale = Math.min(1, slotHeight / BASE_CARD_HEIGHT);
+  const rows = 5;
+  const slotHeight = battleArea.height / rows;
+  const maxScaleByHeight = (slotHeight * 0.85) / BASE_CARD_HEIGHT;
+  const maxScaleByWidth = (battleArea.width * 0.45) / BASE_CARD_WIDTH;
+  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.25);
+  const cardScale = clamp(0.85, 1.25, rawScale);
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
 
-  const allyX = battleArea.x + cardWidth * 0.6;
-  const enemyX = battleArea.x + battleArea.width - cardWidth * 0.6;
+  const formationCenterX = battleArea.x + battleArea.width / 2;
+  const columnSeparation = clamp(260, battleArea.width * 0.55, 520);
+  const allyX = formationCenterX - columnSeparation / 2;
+  const enemyX = formationCenterX + columnSeparation / 2;
 
-  const allySlots = Array.from({ length: 5 }).map((_, idx) => ({
+  const allySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: allyX,
     y: battleArea.y + slotHeight * (idx + 0.5),
   }));
-  const enemySlots = Array.from({ length: 5 }).map((_, idx) => ({
+  const enemySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: enemyX,
     y: battleArea.y + slotHeight * (idx + 0.5),
   }));
@@ -323,6 +329,29 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         bounds.setStrokeStyle(1, 0x00ffff, 0.4);
         bounds.setDepth(1);
         this.debugRects.push(bounds);
+        const allyGuide = this.add
+          .rectangle(
+            layout.allySlots[0]?.x ?? 0,
+            layout.battleArea.y + layout.battleArea.height / 2,
+            2,
+            layout.battleArea.height,
+            0x00ffff,
+            0.2
+          )
+          .setOrigin(0.5);
+        const enemyGuide = this.add
+          .rectangle(
+            layout.enemySlots[0]?.x ?? 0,
+            layout.battleArea.y + layout.battleArea.height / 2,
+            2,
+            layout.battleArea.height,
+            0x00ffff,
+            0.2
+          )
+          .setOrigin(0.5);
+        allyGuide.setDepth(1);
+        enemyGuide.setDepth(1);
+        this.debugRects.push(allyGuide, enemyGuide);
         [...layout.allySlots, ...layout.enemySlots].forEach((slot) => {
           const rect = this.add
             .rectangle(slot.x, slot.y, layout.cardWidth, layout.cardHeight, 0x00ff00, 0.1)
