@@ -40,6 +40,7 @@ type UnitView = {
   stagger: { x: number; y: number; scale: number; depth: number };
   motionOffset: { x: number; y: number; scaleX: number; scaleY: number };
   hitImpact: { scale: number; x: number; y: number };
+  pressureOffset: { x: number; y: number };
   anticipationTween?: PhaserLib.Tweens.Tween;
 };
 
@@ -64,6 +65,7 @@ const ENABLE_ATTACK_ANTICIPATION = true;
 const ENABLE_HIT_STOP = true;
 const ENABLE_TRAJECTORY_FX = true;
 const DEBUG_FX = false;
+const DEBUG_LANE_PRESSURE = false;
 const VISUAL_SIDE_OFFSET = 4;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
@@ -132,6 +134,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private groundBandRect?: { x: number; y: number; width: number; height: number };
     private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
+    private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
     private units = new Map<string, UnitView>();
     private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
@@ -363,6 +366,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         stagger,
         motionOffset: { x: 0, y: 0, scaleX: 1, scaleY: 1 },
         hitImpact: { scale: 1, x: 0, y: 0 },
+        pressureOffset: { x: 0, y: 0 },
       };
     }
 
@@ -711,6 +715,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const time = this.time.now;
       if (this.isHitStop) return;
 
+      this.updatePressure(time / 1000);
+
       this.stageBlobs.forEach((blob) => {
         const offset = Math.sin(time * 0.00035 * blob.speed) * blob.amp;
         blob.shape.setPosition(blob.baseX + offset, blob.baseY + offset * 0.3);
@@ -745,13 +751,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const baseX = (ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0) + (unit.spec.team === "ally" ? -VISUAL_SIDE_OFFSET : VISUAL_SIDE_OFFSET);
       const baseY = ENABLE_FORMATION_STAGGER ? unit.stagger.y : 0;
       const baseScale = ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1;
+      const pressure = unit.pressureOffset;
       const bobFreq = 0.0019;
       const scaleFreq = 0.0012;
       const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp : 0;
       const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp : 1;
       const offset = unit.motionOffset;
       const impact = unit.hitImpact;
-      unit.visual.setPosition(baseX + offset.x + impact.x, baseY + bob + offset.y + impact.y);
+      unit.visual.setPosition(baseX + offset.x + impact.x + pressure.x, baseY + bob + offset.y + impact.y + pressure.y);
       unit.visual.setScale(
         baseScale * breathe * offset.scaleX * impact.scale,
         baseScale * breathe * offset.scaleY * impact.scale
@@ -962,6 +969,88 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           duration: Math.max(120, Math.round(180 / this.speed)),
           ease: "Quad.easeOut",
           onComplete: () => dot.destroy(),
+        });
+      }
+    }
+
+    private computeLanePressureOffset(params: {
+      side: "ally" | "enemy";
+      slotIndex: number;
+      alive: boolean;
+      hp01: number;
+      teamAlive: number;
+      oppAlive: number;
+      t: number;
+      speed: 1 | 2;
+    }) {
+      if (!params.alive) return { x: 0, y: 0 };
+      const sign = params.side === "ally" ? 1 : -1;
+      const baseEngage = 10 * sign;
+      const isMelee = params.slotIndex <= 2;
+      const roleOffset = (isMelee ? 8 : -6) * sign;
+      const pressure = Math.min(4, Math.max(-4, params.teamAlive - params.oppAlive));
+      const winningPush = pressure * 2 * sign;
+      const phase = params.slotIndex * 0.7 + (params.side === "ally" ? 0 : 0.35);
+      const breatheX = Math.sin(params.t * 0.9 + phase) * 1.5 * sign;
+      const breatheY = Math.cos(params.t * 0.8 + phase) * 1.0;
+      let x = baseEngage + roleOffset + winningPush + breatheX;
+      let y = breatheY;
+      const hpFalloff = 0.5 + params.hp01 * 0.5;
+      x *= hpFalloff;
+      y *= hpFalloff;
+      const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+      return {
+        x: clamp(x, -24, 24),
+        y: clamp(y, -10, 10),
+      };
+    }
+
+    private updatePressure(timeSeconds: number) {
+      let allyAlive = 0;
+      let enemyAlive = 0;
+      this.units.forEach((u) => {
+        if (u.spec.hp > 0) {
+          if (u.spec.team === "ally") allyAlive += 1;
+          else enemyAlive += 1;
+        }
+      });
+
+      this.units.forEach((unit) => {
+        const alive = unit.spec.hp > 0;
+        const hp01 = unit.spec.maxHp > 0 ? Math.max(0, Math.min(1, unit.spec.hp / unit.spec.maxHp)) : 1;
+        const teamAlive = unit.spec.team === "ally" ? allyAlive : enemyAlive;
+        const oppAlive = unit.spec.team === "ally" ? enemyAlive : allyAlive;
+        const offset = this.computeLanePressureOffset({
+          side: unit.spec.team,
+          slotIndex: unit.spec.slotIndex,
+          alive,
+          hp01,
+          teamAlive,
+          oppAlive,
+          t: timeSeconds,
+          speed: this.speed,
+        });
+        unit.pressureOffset.x = offset.x;
+        unit.pressureOffset.y = offset.y;
+      });
+
+      if (DEBUG_LANE_PRESSURE) {
+        this.pressureMarkers.forEach((m) => m.destroy());
+        this.pressureMarkers = [];
+        this.units.forEach((unit) => {
+          const pos = this.getUnitWorldPoint(unit.spec.id);
+          if (!pos) return;
+          const g = this.add.graphics();
+          g.lineStyle(1, unit.spec.team === "ally" ? 0x22d3ee : 0xf97316, 0.8);
+          g.strokeCircle(pos.x, pos.y, 4);
+          g.moveTo(pos.x - 4, pos.y);
+          g.lineTo(pos.x + 4, pos.y);
+          g.moveTo(pos.x, pos.y - 4);
+          g.lineTo(pos.x, pos.y + 4);
+          g.strokePath();
+          g.setDepth(9);
+          this.fxRoot.add(g);
+          this.pressureMarkers.push(g);
         });
       }
     }
