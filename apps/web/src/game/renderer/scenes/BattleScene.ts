@@ -1,17 +1,24 @@
 import type PhaserLib from "phaser";
 
-import { getCombatReplay } from "../adapters/combatAdapter";
 import { hitFlash, healFlash } from "../fx/HitFlash";
 import { FloatingTextManager } from "../fx/FloatingText";
 import { screenShake } from "../fx/ScreenShake";
 import { createBattleEndOverlay, type BattleEndOverlay } from "../ui/BattleEndOverlay";
 import { CombatEvent, CombatReplay, CombatUnitSnapshot } from "../types/combat";
 import { EventQueue } from "../utils/EventQueue";
+import { BattleRenderInput } from "../contracts/renderContract";
+import {
+  DEBUG_LAYOUT,
+  ENABLE_HIT_STOP,
+  ENABLE_STAGE_AMBIENCE,
+  ENABLE_TRAJECTORY_FX,
+  ENABLE_UNIT_IDLE_MOTION,
+} from "../flags";
 
 type PhaserModule = typeof import("phaser");
 
 type BattleSceneOptions = {
-  stageId?: string;
+  renderInput?: BattleRenderInput;
   onBack?: () => void;
   onBattleEnd?: (payload: { stageId: string; result: "victory" | "defeat" }) => void;
   onContinue?: () => void;
@@ -60,13 +67,9 @@ const STAGE_BAND = 0x111a2c;
 
 const BASE_CARD_WIDTH = 140;
 const BASE_CARD_HEIGHT = 110;
-const DEBUG_LAYOUT = false;
 const DEBUG_STAGE = false;
-const ENABLE_IDLE_MOTION = true;
 const ENABLE_FORMATION_STAGGER = true;
 const ENABLE_ATTACK_ANTICIPATION = true;
-const ENABLE_HIT_STOP = true;
-const ENABLE_TRAJECTORY_FX = true;
 const DEBUG_FX = false;
 const DEBUG_LANE_PRESSURE = false;
 const VISUAL_SIDE_OFFSET = 4;
@@ -148,7 +151,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
     private units = new Map<string, UnitView>();
-    private replay: CombatReplay | null = null;
+  private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
     private hudSpeed?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
     private hudAuto?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
@@ -166,13 +169,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private debugRects: PhaserLib.GameObjects.GameObject[] = [];
     private isHitStop = false;
     private hitStopTimer?: PhaserLib.Time.TimerEvent;
-    private prevTweenScale = 1;
+  private prevTweenScale = 1;
+    private renderInput?: BattleRenderInput;
 
-    constructor() {
-      super("battle");
-    }
+  constructor() {
+    super("battle");
+  }
 
-    create() {
+  create() {
       this.bgRoot = this.add.container(0, 0).setDepth(0);
       this.stageRoot = this.add.container(0, 0).setDepth(1);
       this.unitRoot = this.add.container(0, 0).setDepth(2);
@@ -198,20 +202,34 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.overlayCard?.destroy();
       });
 
+      this.renderInput = options.renderInput;
       this.bootReplay();
+  }
+
+  private validateRenderInput(input?: BattleRenderInput | null): string | null {
+      if (!input) return "No battle input provided.";
+      if (!input.stageId) return "stageId missing";
+      if (!input.snapshot) return "snapshot missing";
+      if (!input.events || !input.events.length) return "events missing";
+      return null;
     }
 
-    private async bootReplay() {
-      const replay = await getCombatReplay({ stageId: options.stageId });
-      if (!replay) {
-        this.showEmpty();
+    private bootReplay() {
+      const validationError = this.validateRenderInput(this.renderInput);
+      if (validationError) {
+        this.showError(validationError);
         return;
       }
+      const replay: CombatReplay = {
+        snapshot: this.renderInput!.snapshot,
+        events: this.renderInput!.events,
+      };
       this.replay = replay;
       this.battleFinished = false;
-      this.stageId = replay.snapshot.stageLabel;
+      this.stageId = this.renderInput!.stageId;
+      this.speed = this.renderInput!.speed ?? 1;
       this.statusText?.setText("Playing combat...");
-      this.stageLabel = this.add.text(18, 16, `Stage ${replay.snapshot.stageLabel}`, {
+      this.stageLabel = this.add.text(18, 16, `Stage ${replay.snapshot.stageLabel ?? this.stageId}`, {
         fontFamily: "Chakra Petch, sans-serif",
         fontSize: "20px",
         color: "#f8fafc",
@@ -227,11 +245,11 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.queue.enqueue(replay.events);
     }
 
-    private showEmpty() {
+    private showError(message: string) {
       this.clearUnits();
-      this.overlay = this.add.text(this.scale.width / 2, this.scale.height / 2, "No active battle.\nStart one from the hub.", {
+      this.overlay = this.add.text(this.scale.width / 2, this.scale.height / 2, `Battle renderer error:\n${message}`, {
         fontFamily: "Space Grotesk, sans-serif",
-        fontSize: "20px",
+        fontSize: "18px",
         color: "#e2e8f0",
         align: "center",
       });
@@ -476,6 +494,10 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       );
       this.stageRoot.add(centerGlow);
       this.centerPulse = centerGlow;
+
+      if (!ENABLE_STAGE_AMBIENCE) {
+        return;
+      }
 
       const blobCount = 3;
       for (let i = 0; i < blobCount; i += 1) {
@@ -797,8 +819,12 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const bobFreq = 0.0019;
       const scaleFreq = 0.0012;
       const bobStrength = tier === "front" ? BOB_FRONT_MULT : tier === "back" ? BOB_BACK_MULT : BOB_CENTER_MULT;
-      const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp * bobStrength : 0;
-      const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp * bobStrength : 1;
+      const bob = ENABLE_UNIT_IDLE_MOTION
+        ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp * bobStrength
+        : 0;
+      const breathe = ENABLE_UNIT_IDLE_MOTION
+        ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp * bobStrength
+        : 1;
       const offset = unit.motionOffset;
       const impact = unit.hitImpact;
       unit.visual.setPosition(

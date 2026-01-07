@@ -2,6 +2,7 @@ import type PhaserLib from "phaser";
 
 import { type CampaignViewModel, type CampaignStageView } from "../../campaign/campaignViewModel";
 import { getCampaignViewModel } from "../adapters/mapAdapter";
+import { ENABLE_MAP_AMBIENCE, DEBUG_LAYOUT } from "../flags";
 
 type PhaserModule = typeof import("phaser");
 
@@ -58,10 +59,8 @@ const COLORS = {
   pathBright: 0x67e8f9,
 };
 
-const ENABLE_MAP_AMBIENCE = true;
 const ENABLE_PATH_SHIMMER = true;
 const ENABLE_NODE_BREATHING = true;
-const DEBUG_MAP_BOUNDS = false;
 
 function clamp(min: number, max: number, value: number) {
   return Math.min(max, Math.max(min, value));
@@ -129,7 +128,7 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
   private safeArea = { x: 0, y: 0, width: 0, height: 0 };
   private debugBounds?: PhaserLib.GameObjects.Rectangle;
   private graphBounds?: PhaserLib.Geom.Rectangle;
-    private readonly DEBUG_MAP = false;
+  private readonly DEBUG_MAP = DEBUG_LAYOUT;
     private shimmerPhase = 0;
     private teamPower: number = 0;
 
