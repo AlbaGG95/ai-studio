@@ -31,6 +31,7 @@ type AfkContextValue = {
   stages: AfkStage[];
   loading: boolean;
   bank: AfkReward;
+  lastBattleSummary: LastBattleSummary | null;
   heroVisuals: Record<string, AfkHeroVisual>;
   setCurrentStage: (stageId: string) => void;
   claimIdle: () => void;
@@ -39,6 +40,7 @@ type AfkContextValue = {
   completeBattle: (stageId: string, summary: AfkCombatSummary) => void;
   toggleActive: (heroId: string) => void;
   reset: () => void;
+  clearLastBattleSummary: () => void;
 };
 
 export type BattleSession = {
@@ -49,6 +51,15 @@ export type BattleSession = {
 };
 
 const AfkContext = createContext<AfkContextValue | null>(null);
+const SUMMARY_KEY = "afk-last-battle-summary";
+
+export type LastBattleSummary = {
+  stageId: string;
+  result: "victory" | "defeat";
+  prev: AfkReward;
+  next: AfkReward;
+  delta: AfkReward;
+};
 
 function stageById(stageId: string | undefined): AfkStage {
   if (!stageId) return AFK_STAGES[0];
@@ -125,6 +136,7 @@ export function normalizeAfkState(raw: Partial<AfkPlayerState> | null, now: numb
 export function AfkProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AfkPlayerState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastBattleSummary, setLastBattleSummary] = useState<LastBattleSummary | null>(null);
   const stateRef = useRef<AfkPlayerState | null>(null);
 
   const commit = useCallback((next: AfkPlayerState) => {
@@ -147,6 +159,16 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
     const hydrated = recalcIdleRate({ ...offline.state, idle: { ...offline.state.idle, lastSeenAt: now } });
     stateRef.current = hydrated;
     setState(hydrated);
+    if (typeof window !== "undefined") {
+      const savedSummary = window.localStorage.getItem(SUMMARY_KEY);
+      if (savedSummary) {
+        try {
+          setLastBattleSummary(JSON.parse(savedSummary) as LastBattleSummary);
+        } catch {
+          setLastBattleSummary(null);
+        }
+      }
+    }
     setLoading(false);
   }, []);
 
@@ -247,12 +269,37 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
     (stageId: string, summary: AfkCombatSummary) => {
       if (!stateRef.current) return;
       const current = stateRef.current;
+      const prev = current.idle?.ratePerMinute ?? { gold: 0, exp: 0, materials: 0 };
       const stage = stageById(stageId);
       let next = { ...current, idle: { ...current.idle, lastSeenAt: Date.now() } };
       if (summary.result === "win") {
         next = applyAfkVictory(next, stage);
       }
-      commit(recalcIdleRate(next));
+      const nextState = recalcIdleRate(next);
+      const nextRates = nextState.idle?.ratePerMinute ?? prev;
+      if (summary.result === "win") {
+        const battleSummary: LastBattleSummary = {
+          stageId,
+          result: "victory",
+          prev,
+          next: nextRates,
+          delta: {
+            gold: Math.max(0, Math.round(nextRates.gold - prev.gold)),
+            exp: Math.max(0, Math.round(nextRates.exp - prev.exp)),
+            materials: Math.max(0, Math.round(nextRates.materials - prev.materials)),
+          },
+        };
+        setLastBattleSummary(battleSummary);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(SUMMARY_KEY, JSON.stringify(battleSummary));
+        }
+      } else {
+        setLastBattleSummary(null);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(SUMMARY_KEY);
+        }
+      }
+      commit(nextState);
     },
     [commit]
   );
@@ -278,6 +325,7 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
     stages: AFK_STAGES,
     loading,
     bank,
+    lastBattleSummary,
     heroVisuals,
     setCurrentStage,
     claimIdle,
@@ -286,6 +334,12 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
     completeBattle,
     toggleActive,
     reset,
+    clearLastBattleSummary: () => {
+      setLastBattleSummary(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(SUMMARY_KEY);
+      }
+    },
   };
 
   return <AfkContext.Provider value={value}>{children}</AfkContext.Provider>;

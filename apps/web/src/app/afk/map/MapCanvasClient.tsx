@@ -30,6 +30,25 @@ export function MapCanvasClient() {
     [campaign, router, setCurrentStage]
   );
 
+  if (loading || !state || !campaign) {
+    return (
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <div>
+            <p className={styles.kicker}>Campaign Map</p>
+            <h1 className={styles.title}>Living map</h1>
+            <p className={styles.subtle}>Cargando progreso...</p>
+          </div>
+        </header>
+        <div className={styles.canvasShell}>
+          <div className={styles.canvasFrame} style={{ alignItems: "center", justifyContent: "center" }}>
+            <p className={styles.subtle}>Cargando mapa...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>

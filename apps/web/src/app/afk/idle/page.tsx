@@ -5,6 +5,7 @@ import styles from "../afk.module.css";
 import { ProceduralIcon } from "../components/ProceduralIcon";
 import { generateIcon } from "@/lib/afkProcedural";
 import { useAfk } from "@/lib/afkStore";
+import { StageClearToast } from "../components/StageClearToast";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -32,7 +33,7 @@ function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: st
     const step = () => {
       const now = performance.now();
       const t = Math.min(1, (now - start) / durationMs);
-      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
       setValue({
         gold: Math.round(from.gold + (target.gold - from.gold) * ease),
         exp: Math.round(from.exp + (target.exp - from.exp) * ease),
@@ -53,16 +54,36 @@ function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: st
 }
 
 export default function IdlePage() {
-  const { state, bank, claimIdle } = useAfk();
+  const { state, bank, claimIdle, lastBattleSummary, clearLastBattleSummary } = useAfk();
   const [now, setNow] = useState(Date.now());
   const [lastCollected, setLastCollected] = useState<AnimatedCounters | null>(null);
   const [glow, setGlow] = useState(false);
   const [collectKey, setCollectKey] = useState("");
+  const [highlightRates, setHighlightRates] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!lastBattleSummary) return;
+    setShowToast(true);
+    setHighlightRates(true);
+    setGlow(true);
+    const toastTimer = setTimeout(() => {
+      setShowToast(false);
+      clearLastBattleSummary();
+    }, 2600);
+    const glowTimer = setTimeout(() => setGlow(false), 1200);
+    const highlightTimer = setTimeout(() => setHighlightRates(false), 1500);
+    return () => {
+      clearTimeout(toastTimer);
+      clearTimeout(glowTimer);
+      clearTimeout(highlightTimer);
+    };
+  }, [clearLastBattleSummary, lastBattleSummary]);
 
   const idleState = state?.idle;
   const sinceClaimMs = Math.max(0, now - (idleState?.lastClaimAt ?? now));
@@ -103,12 +124,21 @@ export default function IdlePage() {
 
   return (
     <div className={styles.grid}>
+      {showToast && lastBattleSummary && (
+        <StageClearToast
+          summary={lastBattleSummary}
+          onClose={() => {
+            setShowToast(false);
+            clearLastBattleSummary();
+          }}
+        />
+      )}
       <div className={`${styles.card} ${styles.heroBanner}`}>
         <div>
           <p className={styles.kicker}>Idle Rewards</p>
-          <h1 className={styles.title}>Bot\u30f3 offline listo</h1>
+          <h1 className={styles.title}>Botón offline listo</h1>
           <p className={styles.muted}>
-            Cap de acumulaci\u042dn 8h \u3077 progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
+            Cap de acumulación 8h · progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
             generando.
           </p>
           <div className={styles.progressBar} style={{ marginTop: 12 }}>
@@ -127,7 +157,7 @@ export default function IdlePage() {
             </button>
           </div>
           <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-            \u00daltimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} \u3077 \u00daltima vista:{" "}
+            Último claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} · Última vista:{" "}
             {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
           </p>
           {lastCollected && (
@@ -147,7 +177,18 @@ export default function IdlePage() {
       <div className={styles.card}>
         <p className={styles.sectionTitle}>Tasa por minuto</p>
         <p className={styles.muted}>
-          Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
+          <span
+            style={{
+              color: highlightRates ? "#bbf7d0" : undefined,
+              textShadow: highlightRates ? "0 0 12px rgba(74,222,128,0.4)" : "none",
+            }}
+          >
+            Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
+            {lastBattleSummary &&
+            (lastBattleSummary.delta.gold > 0 || lastBattleSummary.delta.exp > 0 || lastBattleSummary.delta.materials > 0)
+              ? " ↑"
+              : ""}
+          </span>
         </p>
         <p className={styles.muted}>Aumenta al vencer stages y subir upgrades.</p>
         <div className={styles.row} style={{ marginTop: 8, justifyContent: "space-between" }}>
