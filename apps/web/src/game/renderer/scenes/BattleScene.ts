@@ -142,9 +142,13 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private unitRoot!: PhaserLib.GameObjects.Container;
   private fxRoot!: PhaserLib.GameObjects.Container;
   private trajectoryLayer!: PhaserLib.GameObjects.Container;
-    private cameraRoot!: PhaserLib.GameObjects.Container;
-    private cameraState = { scale: 1, targetScale: 1, x: 0, y: 0, targetX: 0, targetY: 0 };
-    private lastCameraPulse = 0;
+  private cameraRoot!: PhaserLib.GameObjects.Container;
+  private cameraState = { scale: 1, targetScale: 1, x: 0, y: 0, targetX: 0, targetY: 0 };
+  private lastCameraPulse = 0;
+    private allyGroup!: PhaserLib.GameObjects.Container;
+    private enemyGroup!: PhaserLib.GameObjects.Container;
+    private introTimer?: PhaserLib.Time.TimerEvent;
+    private introTweens: PhaserLib.Tweens.Tween[] = [];
   private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
   private stageBlobs: DepthBlob[] = [];
   private dustParticles: DustParticle[] = [];
@@ -174,9 +178,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private hitStopTimer?: PhaserLib.Time.TimerEvent;
   private prevTweenScale = 1;
   private renderInput?: BattleRenderInput;
-  private allyHp = 1;
-  private enemyHp = 1;
-  private lastHpRatios = new Map<string, number>();
+    private allyHp = 1;
+    private enemyHp = 1;
+    private lastHpRatios = new Map<string, number>();
     private resultLayer?: PhaserLib.GameObjects.Container;
     private resultText?: PhaserLib.GameObjects.Text;
     private resultDim?: PhaserLib.GameObjects.Rectangle;
@@ -192,6 +196,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.bgRoot = this.add.container(0, 0).setDepth(0);
       this.stageRoot = this.add.container(0, 0).setDepth(1);
       this.unitRoot = this.add.container(0, 0).setDepth(2);
+      this.allyGroup = this.add.container(0, 0);
+      this.enemyGroup = this.add.container(0, 0);
+      this.unitRoot.add([this.allyGroup, this.enemyGroup]);
       this.fxRoot = this.add.container(0, 0).setDepth(3);
       this.trajectoryLayer = this.add.container(0, 0).setDepth(1.5);
       this.cameraRoot.add([this.bgRoot, this.stageRoot, this.trajectoryLayer, this.unitRoot, this.fxRoot]);
@@ -215,6 +222,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.overlayCard?.destroy();
         this.resultTimer?.remove(false);
         this.resultLayer?.destroy();
+        this.introTimer?.remove(false);
+        this.introTweens.forEach((t) => t.stop());
       });
 
       this.renderInput = options.renderInput;
@@ -255,10 +264,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.recalcHpTotals();
       this.layout(this.scale.gameSize);
 
-      this.queue.start(async (evt) => {
-        await this.processEvent(evt);
-      });
-      this.queue.enqueue(replay.events);
+      // Delay combat playback until intro transition finishes
+      const startPlayback = () => {
+        this.queue.start(async (evt) => {
+          await this.processEvent(evt);
+        });
+        this.queue.enqueue(replay.events);
+      };
+      this.playIntroTransition(startPlayback);
     }
 
     private showError(message: string) {
@@ -417,7 +430,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       visual.setPosition(stagger.x, stagger.y);
       visual.setScale(stagger.scale);
 
-      this.unitRoot.add(container);
+      const targetGroup = spec.team === "ally" ? this.allyGroup : this.enemyGroup;
+      targetGroup.add(container);
       return {
         spec: { ...spec },
         container,
@@ -449,6 +463,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       if (this.statusText) {
         this.statusText.setPosition(18, height - 32);
       }
+      this.cameraRoot.setPosition(this.cameraState.x, this.cameraState.y);
+      this.cameraRoot.setScale(this.cameraState.scale);
     }
 
     private layoutBackground(width: number, height: number) {
@@ -628,6 +644,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         unit.container.setScale(layout.cardScale);
         this.applyVisualTransform(unit, this.time.now, true, this.allyHp >= this.enemyHp ? "ally" : "enemy");
       });
+      this.allyGroup.setPosition(0, 0);
+      this.enemyGroup.setPosition(0, 0);
     }
 
     private layoutHud(width: number, _height: number) {
@@ -954,6 +972,77 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       }
       const leadBiasAlpha = unit.spec.team === leadTeam ? 1 : 0.9;
       unit.container.setAlpha(Math.max(0.55, tierAlpha * leadBiasAlpha));
+    }
+
+    private playIntroTransition(onComplete: () => void) {
+      const speedScale = 1 / (this.speed || 1);
+      const preBeat = 380 * speedScale;
+      const slideDuration = 400 * speedScale;
+      const staggerDelay = 120 * speedScale;
+      const settle = 100 * speedScale;
+      const totalDelay = preBeat + slideDuration + staggerDelay + settle;
+
+      // reset camera/teams
+      this.cameraRoot.setPosition(0, 40);
+      this.cameraRoot.setAlpha(0.92);
+      this.cameraState = { scale: 0.98, targetScale: 1, x: 0, y: 40, targetX: 0, targetY: 0 };
+      this.cameraRoot.setScale(this.cameraState.scale);
+      this.allyGroup.setPosition(-32, 0);
+      this.enemyGroup.setPosition(32, 0);
+      this.allyGroup.setAlpha(0);
+      this.enemyGroup.setAlpha(0);
+
+      const dim = this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, 0x0b1224, 0.5)
+        .setOrigin(0, 0)
+        .setDepth(2.8);
+      this.cameraRoot.add(dim);
+
+      const tweens: PhaserLib.Tweens.Tween[] = [];
+      this.time.delayedCall(preBeat, () => {
+        tweens.push(
+          this.tweens.add({
+            targets: this.cameraRoot,
+            y: 0,
+            alpha: 1,
+            duration: slideDuration,
+            ease: "Quad.easeOut",
+          })
+        );
+        tweens.push(
+          this.tweens.add({
+            targets: dim,
+            alpha: 0,
+            duration: slideDuration,
+            ease: "Quad.easeOut",
+            onComplete: () => dim.destroy(),
+          })
+        );
+        tweens.push(
+          this.tweens.add({
+            targets: this.allyGroup,
+            x: 0,
+            alpha: 1,
+            duration: 240 * speedScale,
+            ease: "Quad.easeOut",
+          })
+        );
+        tweens.push(
+          this.tweens.add({
+            targets: this.enemyGroup,
+            x: 0,
+            alpha: 1,
+            delay: staggerDelay,
+            duration: 240 * speedScale,
+            ease: "Quad.easeOut",
+          })
+        );
+      });
+      this.introTimer = this.time.delayedCall(totalDelay, () => {
+        onComplete();
+        this.introTweens = [];
+      });
+      this.introTweens = tweens;
     }
 
     private playHitStop(durationMs: number, targetId?: string) {
