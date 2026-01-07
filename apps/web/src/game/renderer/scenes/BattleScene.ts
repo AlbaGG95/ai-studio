@@ -37,6 +37,7 @@ type UnitView = {
   hpText: PhaserLib.GameObjects.Text;
   hpWidth: number;
   idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number };
+  stagger: { x: number; y: number; scale: number; depth: number };
 };
 
 const ALLY_COLOR = 0x7ce4ff;
@@ -55,6 +56,10 @@ const BASE_CARD_HEIGHT = 110;
 const DEBUG_LAYOUT = false;
 const DEBUG_STAGE = false;
 const ENABLE_IDLE_MOTION = true;
+const ENABLE_FORMATION_STAGGER = true;
+const STAGGER_X = { back: 10, mid: 0, front: 12 };
+const STAGGER_Y = { back: -6, mid: 0, front: 6 };
+const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
 
 type FormationLayout = {
   battleArea: { x: number; y: number; width: number; height: number };
@@ -318,8 +323,21 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const scaleAmp = 0.01 + ((phaseSeed % 6) / 1000);
       const idle = { bobPhase: phaseSeed * 0.17, scalePhase: phaseSeed * 0.11, bobAmp, scaleAmp };
 
+       const tierOrder: Array<"back" | "mid" | "front"> = ["back", "mid", "front", "mid", "back"];
+       const tier = tierOrder[spec.slotIndex % tierOrder.length];
+       const dir = spec.team === "enemy" ? -1 : 1;
+       const stagger = {
+         x: dir * (tier === "back" ? -STAGGER_X.back : tier === "front" ? STAGGER_X.front : STAGGER_X.mid),
+         y: tier === "back" ? STAGGER_Y.back : tier === "front" ? STAGGER_Y.front : STAGGER_Y.mid,
+         scale: tier === "back" ? STAGGER_SCALE.back : tier === "front" ? STAGGER_SCALE.front : STAGGER_SCALE.mid,
+         depth: tier === "front" ? 3 : tier === "mid" ? 2 : 1,
+       };
+       visual.setDepth(stagger.depth);
+       visual.setPosition(stagger.x, stagger.y);
+       visual.setScale(stagger.scale);
+
       this.unitRoot.add(container);
-      return { spec: { ...spec }, container, visual, hpFill, hpText, hpWidth: baseHpWidth, idle };
+      return { spec: { ...spec }, container, visual, hpFill, hpText, hpWidth: baseHpWidth, idle, stagger };
     }
 
     private layout(size: PhaserLib.Structs.Size) {
@@ -497,6 +515,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         const pos = unit.spec.team === "ally" ? layout.allySlots[slotIdx] : layout.enemySlots[slotIdx];
         unit.container.setPosition(pos.x, pos.y);
         unit.container.setScale(layout.cardScale);
+        this.applyVisualTransform(unit, this.time.now, true);
       });
     }
 
@@ -628,7 +647,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       if (!unit) return;
       const pos = unit.container;
       const visualOffsetY = unit.visual.y || 0;
-      this.floats.spawn(kind, Math.round(value), targetId, pos.x, pos.y + visualOffsetY - 24, this.speed);
+      const visualOffsetX = unit.visual.x || 0;
+      this.floats.spawn(kind, Math.round(value), targetId, pos.x + visualOffsetX, pos.y + visualOffsetY - 24, this.speed);
     }
 
     private flashTarget(targetId: string, isCrit: boolean) {
@@ -674,15 +694,21 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         });
       }
 
-      if (ENABLE_IDLE_MOTION) {
-        const bobFreq = 0.0019;
-        const scaleFreq = 0.0012;
-        this.units.forEach((unit) => {
-          const bob = Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp;
-          const breathe = 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp;
-          unit.visual.setY(bob);
-          unit.visual.setScale(breathe);
-        });
+      this.units.forEach((unit) => this.applyVisualTransform(unit, time, false));
+    }
+
+    private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean) {
+      const baseX = ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0;
+      const baseY = ENABLE_FORMATION_STAGGER ? unit.stagger.y : 0;
+      const baseScale = ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1;
+      const bobFreq = 0.0019;
+      const scaleFreq = 0.0012;
+      const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp : 0;
+      const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp : 1;
+      unit.visual.setPosition(baseX, baseY + bob);
+      unit.visual.setScale(baseScale * breathe);
+      if (forceDepth || ENABLE_FORMATION_STAGGER) {
+        unit.visual.setDepth(unit.stagger.depth);
       }
     }
   };
