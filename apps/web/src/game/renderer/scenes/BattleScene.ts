@@ -37,6 +37,7 @@ const BASE_CARD_HEIGHT = 110;
 const DEBUG_LAYOUT = false;
 
 type FormationLayout = {
+  battleArea: { x: number; y: number; width: number; height: number };
   allySlots: Array<{ x: number; y: number }>;
   enemySlots: Array<{ x: number; y: number }>;
   cardScale: number;
@@ -45,38 +46,36 @@ type FormationLayout = {
 };
 
 function computeFormationLayout(viewportWidth: number, viewportHeight: number): FormationLayout {
-  const paddingX = Math.max(18, viewportWidth * 0.04);
-  const leftPadding = paddingX;
-  const rightPadding = Math.max(paddingX, 180); // leave room for HUD buttons on the right
+  const clamp = (min: number, max: number, value: number) => Math.min(max, Math.max(min, value));
+  const topSafe = clamp(70, 120, Math.round(viewportHeight * 0.12));
+  const bottomSafe = clamp(100, 170, Math.round(viewportHeight * 0.18));
+  const sideSafe = clamp(90, 150, Math.round(viewportWidth * 0.12));
 
-  const topPadding = Math.max(28, viewportHeight * 0.05);
-  const hudSafeTop = Math.max(topPadding, 110); // keep below HUD row without pushing too low
-  const bottomGuard = Math.max(70, viewportHeight * 0.12); // keep status text and bottom gap visible
+  const battleArea = {
+    x: sideSafe,
+    y: topSafe,
+    width: Math.max(240, viewportWidth - sideSafe * 2),
+    height: Math.max(240, viewportHeight - topSafe - bottomSafe),
+  };
 
-  const availableHeight = Math.max(viewportHeight - hudSafeTop - bottomGuard, BASE_CARD_HEIGHT * 3.5);
-  const slotGapRaw = availableHeight / 5;
-  const slotGap = Math.min(Math.max(slotGapRaw, BASE_CARD_HEIGHT * 0.9), BASE_CARD_HEIGHT * 1.45);
-  const usedHeight = slotGap * 5;
-  const freeSpace = Math.max(0, viewportHeight - hudSafeTop - bottomGuard - usedHeight);
-  const startY = hudSafeTop + freeSpace * 0.5;
-
-  const cardScale = Math.min(1, Math.max(0.75, availableHeight / (BASE_CARD_HEIGHT * 5)));
+  const slotHeight = battleArea.height / 5;
+  const cardScale = Math.min(1, slotHeight / BASE_CARD_HEIGHT);
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
 
-  const allyX = leftPadding + cardWidth * 0.6;
-  const enemyX = viewportWidth - rightPadding - cardWidth * 0.6;
+  const allyX = battleArea.x + cardWidth * 0.6;
+  const enemyX = battleArea.x + battleArea.width - cardWidth * 0.6;
 
   const allySlots = Array.from({ length: 5 }).map((_, idx) => ({
     x: allyX,
-    y: startY + slotGap * (idx + 0.5),
+    y: battleArea.y + slotHeight * (idx + 0.5),
   }));
   const enemySlots = Array.from({ length: 5 }).map((_, idx) => ({
     x: enemyX,
-    y: startY + slotGap * (idx + 0.5),
+    y: battleArea.y + slotHeight * (idx + 0.5),
   }));
 
-  return { allySlots, enemySlots, cardScale, cardWidth, cardHeight };
+  return { battleArea, allySlots, enemySlots, cardScale, cardWidth, cardHeight };
 }
 
 export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOptions = {}) {
@@ -301,17 +300,6 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       ground.setSize(width, height * 0.35);
     }
 
-    private slotPosition(team: "ally" | "enemy", slotIndex: number, width: number, height: number) {
-      const centerY = height * 0.55;
-      const xBase = team === "ally" ? width * 0.22 : width * 0.78;
-      const yOffsets = [-110, -55, 0, 55, 110];
-      const clampedSlot = Math.max(0, Math.min(4, slotIndex));
-      const y = centerY + yOffsets[clampedSlot];
-      const x = team === "ally" ? xBase + clampedSlot * 8 : xBase - clampedSlot * 8;
-      const scale = Math.max(0.78, Math.min(1, width / 1100));
-      return { x, y, scale };
-    }
-
     private layoutUnits(width: number, height: number) {
       const layout = this.layoutState ?? computeFormationLayout(width, height);
       this.layoutState = layout;
@@ -322,6 +310,19 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.debugRects = [];
       }
       if (DEBUG_LAYOUT) {
+        const bounds = this.add
+          .rectangle(
+            layout.battleArea.x + layout.battleArea.width / 2,
+            layout.battleArea.y + layout.battleArea.height / 2,
+            layout.battleArea.width,
+            layout.battleArea.height,
+            0x00ffff,
+            0.08
+          )
+          .setOrigin(0.5);
+        bounds.setStrokeStyle(1, 0x00ffff, 0.4);
+        bounds.setDepth(1);
+        this.debugRects.push(bounds);
         [...layout.allySlots, ...layout.enemySlots].forEach((slot) => {
           const rect = this.add
             .rectangle(slot.x, slot.y, layout.cardWidth, layout.cardHeight, 0x00ff00, 0.1)
