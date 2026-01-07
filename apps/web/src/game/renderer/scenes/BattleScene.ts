@@ -14,6 +14,21 @@ type BattleSceneOptions = {
   onBack?: () => void;
 };
 
+type DepthBlob = {
+  shape: PhaserLib.GameObjects.Arc;
+  baseX: number;
+  baseY: number;
+  amp: number;
+  speed: number;
+};
+
+type DustParticle = {
+  shape: PhaserLib.GameObjects.Arc;
+  sway: number;
+  speed: number;
+  phase: number;
+};
+
 type UnitView = {
   spec: CombatUnitSnapshot;
   container: PhaserLib.GameObjects.Container;
@@ -31,10 +46,12 @@ const TILE_BORDER = 0x1f2b46;
 const SKY = 0x0a1226;
 const MID = 0x0c172d;
 const GROUND = 0x0a1322;
+const STAGE_BAND = 0x111a2c;
 
 const BASE_CARD_WIDTH = 140;
 const BASE_CARD_HEIGHT = 110;
 const DEBUG_LAYOUT = false;
+const DEBUG_STAGE = false;
 
 type FormationLayout = {
   battleArea: { x: number; y: number; width: number; height: number };
@@ -59,29 +76,28 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
   };
 
   const rows = 5;
-  const usableHeight = battleArea.height * 0.75;
+  const usableHeight = battleArea.height * 0.85;
   const startY = battleArea.y + (battleArea.height - usableHeight) / 2;
-  const compactSlot = usableHeight / rows;
-  const maxScaleByHeight = (compactSlot * 0.85) / BASE_CARD_HEIGHT;
-  const maxScaleByWidth = (battleArea.width * 0.45) / BASE_CARD_WIDTH;
-  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.4);
-  const cardScale = clamp(1.0, 1.4, rawScale);
+  const slotHeight = usableHeight / rows;
+  const maxScaleByHeight = (slotHeight * 0.9) / BASE_CARD_HEIGHT;
+  const maxScaleByWidth = (battleArea.width * 0.42) / BASE_CARD_WIDTH;
+  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.15);
+  const cardScale = clamp(0.9, 1.15, rawScale);
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
 
   const formationCenterX = battleArea.x + battleArea.width / 2;
-  const columnSeparation = clamp(220, battleArea.width * 0.48, 420);
+  const columnSeparation = clamp(260, battleArea.width * 0.5, 500);
   const allyX = formationCenterX - columnSeparation / 2;
   const enemyX = formationCenterX + columnSeparation / 2;
-  const overlapPx = 6;
 
   const allySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: allyX,
-    y: startY + compactSlot * (idx + 0.5) - idx * overlapPx,
+    y: startY + slotHeight * (idx + 0.5),
   }));
   const enemySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: enemyX,
-    y: startY + compactSlot * (idx + 0.5) - idx * overlapPx,
+    y: startY + slotHeight * (idx + 0.5),
   }));
 
   return { battleArea, allySlots, enemySlots, cardScale, cardWidth, cardHeight };
@@ -89,7 +105,14 @@ function computeFormationLayout(viewportWidth: number, viewportHeight: number): 
 
 export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOptions = {}) {
   return class BattleScene extends Phaser.Scene {
+    private bgRoot!: PhaserLib.GameObjects.Container;
+    private stageRoot!: PhaserLib.GameObjects.Container;
+    private unitRoot!: PhaserLib.GameObjects.Container;
+    private fxRoot!: PhaserLib.GameObjects.Container;
     private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
+    private stageBlobs: DepthBlob[] = [];
+    private dustParticles: DustParticle[] = [];
+    private groundBandRect?: { x: number; y: number; width: number; height: number };
     private units = new Map<string, UnitView>();
     private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
@@ -104,13 +127,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private speed: 1 | 2 = 1;
     private autoEnabled = false;
     private layoutState?: FormationLayout;
-    private debugRects: PhaserLib.GameObjects.Rectangle[] = [];
+    private debugRects: PhaserLib.GameObjects.GameObject[] = [];
 
     constructor() {
       super("battle");
     }
 
     create() {
+      this.bgRoot = this.add.container(0, 0).setDepth(0);
+      this.stageRoot = this.add.container(0, 0).setDepth(1);
+      this.unitRoot = this.add.container(0, 0).setDepth(2);
+      this.fxRoot = this.add.container(0, 0).setDepth(3);
       this.createBackground();
       this.layout(this.scale.gameSize);
       this.floats = new FloatingTextManager(this);
@@ -184,6 +211,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       mid.setAlpha(0.92);
       ground.setAlpha(0.96);
       this.backgroundLayers = [sky, mid, ground];
+      this.bgRoot.add(this.backgroundLayers);
     }
 
     private createHud() {
@@ -279,6 +307,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         container.setAlpha(0.96);
       }
 
+      this.unitRoot.add(container);
       return { spec: { ...spec }, container, hpFill, hpText, hpWidth: baseHpWidth };
     }
 
@@ -286,6 +315,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const { width, height } = size;
       this.layoutState = computeFormationLayout(width, height);
       this.layoutBackground(width, height);
+      this.layoutStage();
       this.layoutUnits(width, height);
       this.layoutHud(width, height);
       if (this.overlay) {
@@ -307,6 +337,96 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       mid.setSize(width, height * 0.4);
       ground.setPosition(0, height * 0.65);
       ground.setSize(width, height * 0.35);
+    }
+
+    private layoutStage() {
+      const layout = this.layoutState;
+      if (!layout) return;
+      const area = layout.battleArea;
+
+      this.stageRoot.removeAll(true);
+      this.stageBlobs = [];
+      this.dustParticles = [];
+      this.groundBandRect = undefined;
+
+      const bandWidth = area.width * 0.9;
+      const bandHeight = area.height * 0.55;
+      const bandX = area.x + (area.width - bandWidth) / 2;
+      const bandY = area.y + area.height * 0.4;
+      this.groundBandRect = { x: bandX, y: bandY, width: bandWidth, height: bandHeight };
+
+      const band = this.add.graphics();
+      band.fillStyle(STAGE_BAND, 0.34);
+      band.fillRoundedRect(bandX, bandY, bandWidth, bandHeight, 18);
+      band.fillStyle(0x1c2940, 0.18);
+      band.fillRoundedRect(bandX + 10, bandY + 8, bandWidth - 20, bandHeight * 0.52, 14);
+      band.lineStyle(2, 0x5eead4, 0.08);
+      band.strokeRoundedRect(bandX + 6, bandY + 6, bandWidth - 12, bandHeight - 12, 14);
+      this.stageRoot.add(band);
+
+      const stripes = this.add.graphics();
+      const stripeCount = 5;
+      for (let i = 0; i < stripeCount; i += 1) {
+        const t = i / (stripeCount - 1);
+        const y = bandY + bandHeight * 0.25 + bandHeight * 0.55 * t;
+        const alpha = 0.06 - t * 0.015;
+        stripes.lineStyle(1.6, 0xffffff, alpha);
+        stripes.beginPath();
+        stripes.moveTo(bandX + 12, y);
+        stripes.lineTo(bandX + bandWidth - 12, y);
+        stripes.strokePath();
+      }
+      stripes.setAlpha(0.8);
+      this.stageRoot.add(stripes);
+
+      const vignette = this.add.graphics();
+      const vgAlpha = 0.06;
+      vignette.fillStyle(0x030712, vgAlpha);
+      vignette.fillRect(area.x, area.y, 16, area.height);
+      vignette.fillRect(area.x + area.width - 16, area.y, 16, area.height);
+      vignette.fillRect(area.x, area.y, area.width, 12);
+      vignette.fillRect(area.x, area.y + area.height - 12, area.width, 12);
+      this.stageRoot.add(vignette);
+
+      const blobCount = 3;
+      for (let i = 0; i < blobCount; i += 1) {
+        const radius = bandWidth * 0.18;
+        const baseX = bandX + bandWidth * (0.25 + 0.25 * i);
+        const baseY = bandY + bandHeight * (0.35 + 0.1 * i);
+        const shape = this.add.circle(baseX, baseY, radius, 0x0f172a, 0.04);
+        this.stageRoot.add(shape);
+        this.stageBlobs.push({
+          shape,
+          baseX,
+          baseY,
+          amp: 12 + i * 6,
+          speed: 0.2 + i * 0.08,
+        });
+      }
+
+      const dustCount = 18;
+      for (let i = 0; i < dustCount; i += 1) {
+        const radius = 1.2 + Math.random() * 1.6;
+        const cx = bandX + Math.random() * bandWidth;
+        const cy = bandY + Math.random() * bandHeight;
+        const particle = this.add.circle(cx, cy, radius, 0xffffff, 0.08);
+        this.stageRoot.add(particle);
+        this.dustParticles.push({
+          shape: particle,
+          sway: 6 + Math.random() * 8,
+          speed: 8 + Math.random() * 12,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+
+      if (DEBUG_STAGE) {
+        const debug = this.add.graphics();
+        debug.lineStyle(1, 0x00ff00, 0.4);
+        debug.strokeRect(area.x, area.y, area.width, area.height);
+        debug.lineStyle(1, 0xffff00, 0.5);
+        debug.strokeRect(bandX, bandY, bandWidth, bandHeight);
+        this.stageRoot.add(debug);
+      }
     }
 
     private layoutUnits(width: number, height: number) {
@@ -332,29 +452,25 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         bounds.setStrokeStyle(1, 0x00ffff, 0.4);
         bounds.setDepth(1);
         this.debugRects.push(bounds);
-        const allyGuide = this.add
-          .rectangle(
-            layout.allySlots[0]?.x ?? 0,
-            layout.battleArea.y + layout.battleArea.height / 2,
-            2,
-            layout.battleArea.height,
-            0x00ffff,
-            0.2
-          )
-          .setOrigin(0.5);
-        const enemyGuide = this.add
-          .rectangle(
-            layout.enemySlots[0]?.x ?? 0,
-            layout.battleArea.y + layout.battleArea.height / 2,
-            2,
-            layout.battleArea.height,
-            0x00ffff,
-            0.2
-          )
-          .setOrigin(0.5);
-        allyGuide.setDepth(1);
-        enemyGuide.setDepth(1);
-        this.debugRects.push(allyGuide, enemyGuide);
+        layout.allySlots.forEach((slot) => {
+          const line = this.add
+            .rectangle(
+              layout.battleArea.x + layout.battleArea.width / 2,
+              slot.y,
+              layout.battleArea.width,
+              1,
+              0x00ffff,
+              0.2
+            )
+            .setOrigin(0.5);
+          line.setDepth(1);
+          this.debugRects.push(line);
+        });
+        [...layout.allySlots, ...layout.enemySlots].forEach((slot) => {
+          const dot = this.add.circle(slot.x, slot.y, 3, 0x00ffff, 0.6);
+          dot.setDepth(2);
+          this.debugRects.push(dot);
+        });
         [...layout.allySlots, ...layout.enemySlots].forEach((slot) => {
           const rect = this.add
             .rectangle(slot.x, slot.y, layout.cardWidth, layout.cardHeight, 0x00ff00, 0.1)
@@ -513,6 +629,38 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const unit = this.units.get(targetId);
       if (!unit) return;
       healFlash(this, unit.container, this.speed);
+    }
+
+    update(_time: number, delta: number) {
+      const dt = delta / 1000;
+      const time = this.time.now;
+
+      this.stageBlobs.forEach((blob) => {
+        const offset = Math.sin(time * 0.00035 * blob.speed) * blob.amp;
+        blob.shape.setPosition(blob.baseX + offset, blob.baseY + offset * 0.3);
+      });
+
+      if (this.groundBandRect) {
+        const { x, y, width, height } = this.groundBandRect;
+        this.dustParticles.forEach((p) => {
+          const swayOffset = Math.sin(time * 0.001 + p.phase) * p.sway * dt;
+          const nextX = p.shape.x + swayOffset;
+          const nextY = p.shape.y - p.speed * dt;
+          let wrappedX = nextX;
+          let wrappedY = nextY;
+          if (nextY < y - 6) {
+            wrappedY = y + height + 6;
+          } else if (nextY > y + height + 6) {
+            wrappedY = y - 6;
+          }
+          if (nextX < x - 6) {
+            wrappedX = x + width + 6;
+          } else if (nextX > x + width + 6) {
+            wrappedX = x - 6;
+          }
+          p.shape.setPosition(wrappedX, wrappedY);
+        });
+      }
     }
   };
 }
