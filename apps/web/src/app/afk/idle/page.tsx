@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "../afk.module.css";
 import { ProceduralIcon } from "../components/ProceduralIcon";
 import { generateIcon } from "@/lib/afkProcedural";
@@ -11,63 +11,155 @@ function format(num: number | undefined) {
   return num.toLocaleString("es-ES");
 }
 
+function formatDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+type AnimatedCounters = { gold: number; exp: number; materials: number };
+
+function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: string) {
+  const [value, setValue] = useState<AnimatedCounters>(target);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const start = performance.now();
+    const from = { gold: 0, exp: 0, materials: 0 };
+
+    const step = () => {
+      const now = performance.now();
+      const t = Math.min(1, (now - start) / durationMs);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+      setValue({
+        gold: Math.round(from.gold + (target.gold - from.gold) * ease),
+        exp: Math.round(from.exp + (target.exp - from.exp) * ease),
+        materials: Math.round(from.materials + (target.materials - from.materials) * ease),
+      });
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [target.gold, target.exp, target.materials, durationMs, triggerKey]);
+
+  return value;
+}
+
 export default function IdlePage() {
   const { state, bank, claimIdle } = useAfk();
   const [now, setNow] = useState(Date.now());
+  const [lastCollected, setLastCollected] = useState<AnimatedCounters | null>(null);
+  const [glow, setGlow] = useState(false);
+  const [collectKey, setCollectKey] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  if (!state) {
-    return (
-      <div className={styles.card}>
-        <p className={styles.muted}>Cargando botín AFK...</p>
-      </div>
-    );
-  }
+  const idleState = state?.idle;
+  const sinceClaimMs = Math.max(0, now - (idleState?.lastClaimAt ?? now));
+  const capMs = 8 * 3600000;
+  const cappedMs = Math.min(capMs, sinceClaimMs);
+  const capPct = Math.min(100, Math.round((cappedMs / capMs) * 100));
 
-  const sinceClaimHours = Math.max(0, (now - state.idle.lastClaimAt) / 3600000);
-  const cappedHours = Math.min(8, sinceClaimHours);
-  const capPct = Math.min(100, Math.round((cappedHours / 8) * 100));
+  const unclaimed: AnimatedCounters = {
+    gold: Math.round(bank?.gold ?? 0),
+    exp: Math.round(bank?.exp ?? 0),
+    materials: Math.round(bank?.materials ?? 0),
+  };
+
+  const perMinute = idleState?.ratePerMinute ?? { gold: 0, exp: 0, materials: 0 };
+  const projected = useMemo(() => {
+    const minutes = Math.floor(cappedMs / 60000);
+    return {
+      gold: Math.round(perMinute.gold * minutes),
+      exp: Math.round(perMinute.exp * minutes),
+      materials: Math.round(perMinute.materials * minutes),
+    };
+  }, [cappedMs, perMinute.exp, perMinute.gold, perMinute.materials]);
+
+  const animatedCollect = useCountUp(lastCollected ?? { gold: 0, exp: 0, materials: 0 }, 900, collectKey);
+
+  const handleCollect = () => {
+    if (!state) return;
+    if (!unclaimed.gold && !unclaimed.exp && !unclaimed.materials) {
+      claimIdle();
+      return;
+    }
+    setLastCollected(unclaimed);
+    setCollectKey(`${Date.now()}`);
+    setGlow(true);
+    claimIdle();
+    setTimeout(() => setGlow(false), 900);
+  };
 
   return (
     <div className={styles.grid}>
       <div className={`${styles.card} ${styles.heroBanner}`}>
         <div>
           <p className={styles.kicker}>Idle Rewards</p>
-          <h1 className={styles.title}>Botín offline listo</h1>
+          <h1 className={styles.title}>Bot\u30f3 offline listo</h1>
           <p className={styles.muted}>
-            Cap de acumulación 8h · progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir generando.
+            Cap de acumulaci\u042dn 8h \u3077 progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
+            generando.
           </p>
           <div className={styles.progressBar} style={{ marginTop: 12 }}>
             <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
           </div>
           <div className={styles.actions} style={{ marginTop: 12 }}>
-            <button className={styles.buttonPrimary} onClick={claimIdle}>
+            <button
+              className={styles.buttonPrimary}
+              onClick={handleCollect}
+              style={{
+                boxShadow: glow ? "0 0 18px rgba(100, 239, 188, 0.45)" : "none",
+                transition: "box-shadow 140ms ease-out",
+              }}
+            >
               Reclamar
             </button>
           </div>
           <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-            Último claim: {new Date(state.idle.lastClaimAt).toLocaleTimeString()} · Última vista:{" "}
-            {new Date(state.idle.lastSeenAt).toLocaleTimeString()}
+            \u00daltimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} \u3077 \u00daltima vista:{" "}
+            {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
           </p>
+          {lastCollected && (
+            <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
+              Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats{" "}
+              {format(animatedCollect.materials)}
+            </p>
+          )}
         </div>
         <div className={styles.rewardIcons}>
-          <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(bank.gold)} oro`} />
-          <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(bank.exp)} exp`} />
-          <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(bank.materials)} mats`} />
+          <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(unclaimed.gold)} oro sin reclamar`} />
+          <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(unclaimed.exp)} exp sin reclamar`} />
+          <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(unclaimed.materials)} mats sin reclamar`} />
         </div>
       </div>
 
       <div className={styles.card}>
         <p className={styles.sectionTitle}>Tasa por minuto</p>
         <p className={styles.muted}>
-          Oro {format(state.idle.ratePerMinute.gold)} / EXP {format(state.idle.ratePerMinute.exp)} / Materiales{" "}
-          {format(state.idle.ratePerMinute.materials)}
+          Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
         </p>
         <p className={styles.muted}>Aumenta al vencer stages y subir upgrades.</p>
+        <div className={styles.row} style={{ marginTop: 8, justifyContent: "space-between" }}>
+          <span className={styles.tag}>Tiempo offline</span>
+          <span className={styles.muted}>{formatDuration(cappedMs)}</span>
+        </div>
+        <div className={styles.row} style={{ marginTop: 4, justifyContent: "space-between" }}>
+          <span className={styles.tag}>Estimado en ventana</span>
+          <span className={styles.muted}>
+            Oro {format(projected.gold)} / EXP {format(projected.exp)} / Mats {format(projected.materials)}
+          </span>
+        </div>
       </div>
     </div>
   );

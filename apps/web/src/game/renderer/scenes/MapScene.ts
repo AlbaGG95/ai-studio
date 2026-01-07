@@ -39,7 +39,7 @@ type NodeView = {
 };
 
 type FogBlob = {
-  shape: PhaserLib.GameObjects.Arc;
+  shape: PhaserLib.GameObjects.Shape;
   vx: number;
   vy: number;
 };
