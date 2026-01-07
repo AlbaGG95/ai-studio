@@ -1,19 +1,9 @@
-import {
-  generateCampaignGraph,
-  simulateCombatTimeline,
-  type AfkHero,
-  type AfkUpgrade,
-  type AfkStage,
-  type CampaignGraph,
-  type CampaignNode,
-} from "@ai-studio/core";
+import { AFK_STAGES, simulateCombatTimeline, type AfkHero, type AfkUpgrade, type AfkStage } from "@ai-studio/core";
 
-import { loadProgress, loadRoster } from "@/lib/afk/storage";
+import { loadRoster } from "@/lib/afk/storage";
+import { getCurrentStageId, loadCampaignViewModelFromStorage } from "../../campaign/campaignViewModel";
 import { CombatEvent, CombatReplay, CombatSnapshot, CombatUnitSnapshot } from "../types/combat";
 
-const GRAPH_SEED_DEFAULT = 12345;
-const CHAPTERS = 8;
-const NODES_PER_CHAPTER = 10;
 const BASE_TICK_MS = 620;
 
 // Data source: simulateCombatTimeline from packages/core/afk/engineAdapter.ts (events + frames).
@@ -24,30 +14,6 @@ function parseQueryParam(name: string): string | null {
   const params = new URLSearchParams(window.location.search);
   const value = params.get(name);
   return value;
-}
-
-function stageFromNode(node: CampaignNode): AfkStage {
-  const materials =
-    node.rewards.items?.reduce((acc, item) => acc + item.qty, 0) ??
-    Math.max(1, Math.round(node.recommendedPower * 0.012));
-  return {
-    id: node.id,
-    chapter: node.chapterIndex + 1,
-    index: node.index,
-    recommendedPower: node.recommendedPower,
-    enemyPower: Math.max(120, Math.round(node.recommendedPower * 0.95)),
-    reward: { gold: node.rewards.gold, exp: node.rewards.exp, materials },
-    unlocked: true,
-  };
-}
-
-function findNode(graph: CampaignGraph, nodeId?: string | null) {
-  if (!nodeId) return graph.chapters[0]?.nodes[0] ?? null;
-  for (const chapter of graph.chapters) {
-    const found = chapter.nodes.find((n) => n.id === nodeId);
-    if (found) return found;
-  }
-  return graph.chapters[0]?.nodes[0] ?? null;
 }
 
 function pickAllies(roster: { heroes: AfkHero[]; team: string[] }) {
@@ -141,24 +107,24 @@ function eventsFromTimeline(timeline: ReturnType<typeof simulateCombatTimeline>)
   return events;
 }
 
-export async function getCombatReplay(): Promise<CombatReplay | null> {
+function resolveStage(stageId: string | null | undefined): AfkStage {
+  const found = AFK_STAGES.find((stage) => stage.id === stageId);
+  return found ?? AFK_STAGES[0];
+}
+
+export async function getCombatReplay(options: { stageId?: string } = {}): Promise<CombatReplay | null> {
   const roster = loadRoster();
-  const progress = loadProgress();
-
-  const seedParam = parseQueryParam("seed");
-  const nodeParam = parseQueryParam("nodeId");
-  const graphSeed = Number.isFinite(Number(seedParam)) ? Number(seedParam) : GRAPH_SEED_DEFAULT;
-  const graph = generateCampaignGraph({ seed: graphSeed, chaptersCount: CHAPTERS, nodesPerChapter: NODES_PER_CHAPTER });
-  const node = findNode(graph, nodeParam ?? progress?.currentNodeId ?? graph.startNodeId);
-  if (!node) return null;
-
-  const stage = stageFromNode(node);
-  const stageLabel = `${stage.chapter}-${stage.index + 1}`;
+  const vm = loadCampaignViewModelFromStorage();
+  const completed = new Set(vm?.stages.filter((s) => s.state === "completed").map((s) => s.id));
+  const paramStage = options.stageId ?? parseQueryParam("stageId");
+  const currentStageId = paramStage && AFK_STAGES.some((s) => s.id === paramStage) ? paramStage : getCurrentStageId(AFK_STAGES, completed);
+  const stage = resolveStage(currentStageId);
+  const stageLabel = stage.id;
 
   const heroes = pickAllies(roster);
   const upgrades: AfkUpgrade[] = [];
 
-  const timeline = simulateCombatTimeline(heroes, stage, upgrades, { tickMs: BASE_TICK_MS }, `${graphSeed}-${node.id}`);
+  const timeline = simulateCombatTimeline(heroes, stage, upgrades, { tickMs: BASE_TICK_MS }, stage.id);
   const snapshot = snapshotFromTimeline(timeline, stageLabel);
   if (!snapshot) return null;
 

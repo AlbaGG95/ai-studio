@@ -280,11 +280,13 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       const hit = this.add.circle(0, 0, 46, 0x000000, 0.001);
       hit.setInteractive(new Phaser.Geom.Circle(0, 0, 46), Phaser.Geom.Circle.Contains);
       hit.on("pointerdown", () => {
-        if (state === "locked") {
-          this.showToast("Locked");
+        if (state === "locked" || state === "completed") {
+          this.showToast(state === "completed" ? "Completed" : "Locked");
           return;
         }
-        options.onBattle?.(node.id);
+        if (state === "current" || state === "ready") {
+          options.onBattle?.(node.id);
+        }
       });
 
       const ring = this.add.circle(0, 0, 32, COLORS.base, 0.95);

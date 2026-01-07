@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import GameCanvas, { type SceneFactory } from "@/game/renderer/GameCanvas";
 import { createBattleScene } from "@/game/renderer/scenes/BattleScene";
@@ -11,11 +11,16 @@ import styles from "./battle.module.css";
 
 export function BattleCanvasClient() {
   const router = useRouter();
-  const { completeBattle } = useAfk();
+  const searchParams = useSearchParams();
+  const { state, stages, completeBattle } = useAfk();
+  const stageIdParam = searchParams.get("stageId") ?? undefined;
+  const fallbackStageId =
+    stageIdParam ?? stages.find((s) => s.id === state?.campaign.currentStageId)?.id ?? stages[0]?.id ?? "1-1";
   const sceneFactory: SceneFactory = useMemo(
     () =>
       (Phaser) =>
         createBattleScene(Phaser, {
+          stageId: fallbackStageId,
           onBack: () => router.push("/afk/renderer"),
           onContinue: () => router.push("/afk/idle"),
           onBattleEnd: ({ stageId, result }) => {
@@ -28,7 +33,7 @@ export function BattleCanvasClient() {
             });
           },
         }),
-    [completeBattle, router]
+    [completeBattle, fallbackStageId, router]
   );
 
   return (

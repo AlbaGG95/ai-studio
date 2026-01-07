@@ -11,6 +11,7 @@ import { EventQueue } from "../utils/EventQueue";
 type PhaserModule = typeof import("phaser");
 
 type BattleSceneOptions = {
+  stageId?: string;
   onBack?: () => void;
   onBattleEnd?: (payload: { stageId: string; result: "victory" | "defeat" }) => void;
   onContinue?: () => void;
@@ -201,7 +202,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private async bootReplay() {
-      const replay = await getCombatReplay();
+      const replay = await getCombatReplay({ stageId: options.stageId });
       if (!replay) {
         this.showEmpty();
         return;

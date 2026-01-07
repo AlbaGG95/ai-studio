@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { BattleCanvasClient } from "./BattleCanvasClient";
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function AfkBattlePage() {
   return (
     <div className={styles.page}>
-      <BattleCanvasClient />
+      <Suspense fallback={<div className={styles.page}>Cargando batalla...</div>}>
+        <BattleCanvasClient />
+      </Suspense>
     </div>
   );
 }

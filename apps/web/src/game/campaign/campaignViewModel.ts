@@ -23,23 +23,31 @@ function fallbackStageId(stages: AfkStage[]): string {
   return stages[0]?.id ?? "1-1";
 }
 
-function deriveStageState(stageId: string, unlocked: Set<string>, completed: Set<string>): CampaignStageView["state"] {
-  if (completed.has(stageId)) return "completed";
-  if (unlocked.has(stageId)) return "ready";
-  return "locked";
+export function getCurrentStageId(stages: AfkStage[], completed: Set<string>): string {
+  const fallback = fallbackStageId(stages);
+  for (const stage of stages) {
+    if (!completed.has(stage.id)) return stage.id;
+  }
+  return fallback;
+}
+
+export function isStageCompleted(stageId: string, completed: Set<string>): boolean {
+  return completed.has(stageId);
+}
+
+export function isStageUnlocked(stageId: string, currentStageId: string, completed: Set<string>): boolean {
+  return stageId === currentStageId || completed.has(stageId);
 }
 
 export function buildCampaignViewModel(state: AfkPlayerState | null, stages: AfkStage[] = AFK_STAGES): CampaignViewModel | null {
   if (!stages.length) return null;
 
   const validStageIds = new Set(stages.map((stage) => stage.id));
-  const safeCurrent = state?.campaign?.currentStageId ?? fallbackStageId(stages);
-  const currentStageId = validStageIds.has(safeCurrent) ? safeCurrent : fallbackStageId(stages);
-
-  const unlocked = new Set(
-    (state?.campaign?.unlockedStageIds ?? [currentStageId]).filter((id) => validStageIds.has(id)).concat(currentStageId)
-  );
   const completed = new Set((state?.campaign?.completedStageIds ?? []).filter((id) => validStageIds.has(id)));
+  const currentStageId = getCurrentStageId(stages, completed);
+
+  const unlocked = new Set<string>(completed);
+  unlocked.add(currentStageId);
 
   const stagesView: CampaignStageView[] = stages.map((stage, index) => ({
     id: stage.id,
@@ -47,7 +55,7 @@ export function buildCampaignViewModel(state: AfkPlayerState | null, stages: Afk
     index,
     recommendedPower: stage.recommendedPower,
     reward: stage.reward as AfkReward,
-    state: deriveStageState(stage.id, unlocked, completed),
+    state: isStageCompleted(stage.id, completed) ? "completed" : isStageUnlocked(stage.id, currentStageId, completed) ? "ready" : "locked",
   }));
 
   const chapterLabel = `Chapter ${stages[0]?.chapter ?? 1}`;

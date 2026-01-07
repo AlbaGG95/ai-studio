@@ -7,6 +7,7 @@ import { useAfk } from "@/lib/afkStore";
 import { CampaignMap } from "./components/CampaignMap";
 import { ProceduralIcon } from "./components/ProceduralIcon";
 import { biomeForStage, generateIcon } from "@/lib/afkProcedural";
+import { buildCampaignViewModel } from "@/game/campaign/campaignViewModel";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -17,38 +18,39 @@ export default function CampaignPage() {
   const { state, stages, loading, setCurrentStage } = useAfk();
   const router = useRouter();
 
-  if (loading || !state) {
+  const campaign = buildCampaignViewModel(state, stages);
+
+  if (loading || !state || !campaign) {
     return (
       <div className={styles.card}>
-        <p className={styles.muted}>Cargando campaña...</p>
+        <p className={styles.muted}>Cargando campana...</p>
       </div>
     );
   }
 
-  const unlocked = new Set(state.campaign.unlockedStageIds);
-  const completed = new Set(state.campaign.completedStageIds);
-  const currentId = state.campaign.currentStageId;
-  const nextStage =
-    stages.find((s) => unlocked.has(s.id) && !completed.has(s.id)) ??
-    stages.find((s) => unlocked.has(s.id)) ??
-    stages[0];
-  const biome = biomeForStage(nextStage ?? stages[0]);
+  const stageStateMap = new Map(campaign.stages.map((stage) => [stage.id, stage.state]));
+  const completed = new Set(campaign.stages.filter((s) => s.state === "completed").map((s) => s.id));
+  const unlocked = new Set<string>(completed);
+  unlocked.add(campaign.currentStageId);
+  const currentId = campaign.currentStageId;
+  const currentStage = stages.find((s) => s.id === currentId) ?? stages[0];
+  const nextStage = currentStage ?? stages[0];
+  const biome = biomeForStage(nextStage);
 
   return (
     <div className={styles.grid}>
       <div className={`${styles.card} ${styles.heroBanner}`}>
         <div>
-          <p className={styles.kicker}>Capítulo {stages[0].chapter}</p>
-          <h1 className={styles.title}>Mapa vivo de campaña</h1>
+          <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
+          <h1 className={styles.title}>Mapa vivo de campana</h1>
           <p className={styles.muted}>
-            Progreso {state.campaign.completedStageIds.length}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el botín
-            idle.
+            Progreso {completed.size}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el boton idle.
           </p>
           <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
-            <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage?.id}`}>
-              Luchar stage {nextStage?.id ?? "1-1"}
+            <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
+              Luchar stage {nextStage.id}
             </Link>
-            <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage?.id ?? currentId)}>
+            <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
               Fijar stage actual
             </button>
           </div>
@@ -67,8 +69,12 @@ export default function CampaignPage() {
           currentId={currentId}
           unlocked={unlocked}
           completed={completed}
-          onSelect={setCurrentStage}
+          onSelect={(id) => {
+            if (!unlocked.has(id)) return;
+            setCurrentStage(id);
+          }}
           onBattle={(id) => {
+            if (!unlocked.has(id)) return;
             setCurrentStage(id);
             router.push(`/afk/battle?stageId=${id}`);
           }}
@@ -79,12 +85,16 @@ export default function CampaignPage() {
         <p className={styles.sectionTitle}>Progreso y recompensas</p>
         <div className={styles.stageTimeline}>
           {stages.map((stage) => {
-            const isUnlocked = unlocked.has(stage.id);
-            const isCompleted = completed.has(stage.id);
+            const stageState = stageStateMap.get(stage.id) ?? "locked";
+            const isUnlocked = stageState !== "locked";
+            const isCompleted = stageState === "completed";
             const isCurrent = stage.id === currentId;
             const status = isCompleted ? "Completado" : isUnlocked ? "Disponible" : "Bloqueado";
             return (
-              <div key={stage.id} className={`${styles.stageChip} ${isCurrent ? styles.currentStage : ""} ${!isUnlocked ? styles.locked : ""}`}>
+              <div
+                key={stage.id}
+                className={`${styles.stageChip} ${isCurrent ? styles.currentStage : ""} ${!isUnlocked ? styles.locked : ""}`}
+              >
                 <div className={styles.row}>
                   <span className={styles.tag}>{stage.id}</span>
                   <span className={styles.muted}>{status}</span>
@@ -96,7 +106,7 @@ export default function CampaignPage() {
                   <ProceduralIcon icon={generateIcon(`${stage.id}-mat`)} label={`+${format(stage.reward.materials)} mats`} />
                 </div>
                 <div className={styles.actions}>
-                  <button className={styles.buttonGhost} disabled={!isUnlocked} onClick={() => setCurrentStage(stage.id)}>
+                  <button className={styles.buttonGhost} disabled={!isUnlocked} onClick={() => isUnlocked && setCurrentStage(stage.id)}>
                     Seleccionar
                   </button>
                   <Link
