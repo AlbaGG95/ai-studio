@@ -39,6 +39,7 @@ type UnitView = {
   idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number };
   stagger: { x: number; y: number; scale: number; depth: number };
   motionOffset: { x: number; y: number; scaleX: number; scaleY: number };
+  hitImpact: { scale: number; x: number; y: number };
   anticipationTween?: PhaserLib.Tweens.Tween;
 };
 
@@ -60,6 +61,7 @@ const DEBUG_STAGE = false;
 const ENABLE_IDLE_MOTION = true;
 const ENABLE_FORMATION_STAGGER = true;
 const ENABLE_ATTACK_ANTICIPATION = true;
+const ENABLE_HIT_STOP = true;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
@@ -139,6 +141,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private autoEnabled = false;
     private layoutState?: FormationLayout;
     private debugRects: PhaserLib.GameObjects.GameObject[] = [];
+    private isHitStop = false;
+    private hitStopTimer?: PhaserLib.Time.TimerEvent;
+    private prevTweenScale = 1;
 
     constructor() {
       super("battle");
@@ -350,6 +355,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         idle,
         stagger,
         motionOffset: { x: 0, y: 0, scaleX: 1, scaleY: 1 },
+        hitImpact: { scale: 1, x: 0, y: 0 },
       };
     }
 
@@ -554,6 +560,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           if (evt.type === "crit") {
             screenShake(this, 0.006, 140, this.speed);
           }
+          this.playHitStop(evt.type === "crit" ? 60 : 45, evt.targetId);
           break;
         }
         case "heal": {
@@ -681,6 +688,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     update(_time: number, delta: number) {
       const dt = delta / 1000;
       const time = this.time.now;
+      if (this.isHitStop) return;
 
       this.stageBlobs.forEach((blob) => {
         const offset = Math.sin(time * 0.00035 * blob.speed) * blob.amp;
@@ -721,11 +729,45 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const bob = ENABLE_IDLE_MOTION ? Math.sin(time * bobFreq + unit.idle.bobPhase) * unit.idle.bobAmp : 0;
       const breathe = ENABLE_IDLE_MOTION ? 1 + Math.sin(time * scaleFreq + unit.idle.scalePhase) * unit.idle.scaleAmp : 1;
       const offset = unit.motionOffset;
-      unit.visual.setPosition(baseX + offset.x, baseY + bob + offset.y);
-      unit.visual.setScale(baseScale * breathe * offset.scaleX, baseScale * breathe * offset.scaleY);
+      const impact = unit.hitImpact;
+      unit.visual.setPosition(baseX + offset.x + impact.x, baseY + bob + offset.y + impact.y);
+      unit.visual.setScale(
+        baseScale * breathe * offset.scaleX * impact.scale,
+        baseScale * breathe * offset.scaleY * impact.scale
+      );
       if (forceDepth || ENABLE_FORMATION_STAGGER) {
         unit.visual.setDepth(unit.stagger.depth);
       }
+    }
+
+    private playHitStop(durationMs: number, targetId?: string) {
+      if (!ENABLE_HIT_STOP) return;
+      this.hitStopTimer?.destroy();
+      const target = targetId ? this.units.get(targetId) : undefined;
+      this.isHitStop = true;
+      this.prevTweenScale = this.tweens.timeScale ?? 1;
+      this.tweens.timeScale = 0;
+
+      if (target) {
+        const impactScale = durationMs >= 60 ? 0.93 : 0.95;
+        const impactX = (Math.random() > 0.5 ? 1 : -1) * (durationMs >= 60 ? 3 : 2);
+        target.hitImpact.scale = impactScale;
+        target.hitImpact.x = impactX;
+        target.hitImpact.y = 0;
+        this.applyVisualTransform(target, this.time.now, false);
+      }
+
+      const dur = Math.max(25, Math.round(durationMs / this.speed));
+      this.hitStopTimer = this.time.delayedCall(dur, () => {
+        this.isHitStop = false;
+        this.tweens.timeScale = this.prevTweenScale || 1;
+        if (target) {
+          target.hitImpact.scale = 1;
+          target.hitImpact.x = 0;
+          target.hitImpact.y = 0;
+          this.applyVisualTransform(target, this.time.now, false);
+        }
+      });
     }
 
     private playAttackAnticipation(attacker: UnitView, target: UnitView) {
