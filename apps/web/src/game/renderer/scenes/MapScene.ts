@@ -8,6 +8,7 @@ type PhaserModule = typeof import("phaser");
 type MapSceneOptions = {
   onBattle?: (stageId: string) => void;
   campaign?: CampaignViewModel | null;
+  teamPower?: number;
 };
 
 type StageState = "locked" | "ready" | "completed";
@@ -128,8 +129,9 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
   private safeArea = { x: 0, y: 0, width: 0, height: 0 };
   private debugBounds?: PhaserLib.GameObjects.Rectangle;
   private graphBounds?: PhaserLib.Geom.Rectangle;
-  private readonly DEBUG_MAP = false;
-  private shimmerPhase = 0;
+    private readonly DEBUG_MAP = false;
+    private shimmerPhase = 0;
+    private teamPower: number = 0;
 
   create() {
     this.mapRoot = this.add.container(0, 0);
@@ -168,6 +170,7 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
         this.showEmpty();
         return;
       }
+      this.teamPower = options.teamPower ?? 0;
       const progress = campaignToMapProgress(campaign);
       this.progress = progress;
       this.chapterText?.setText(progress.chapterLabel);
@@ -308,6 +311,18 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       });
       stateLabel.setOrigin(0.5);
 
+      const recommended =
+        state === "current"
+          ? this.add.text(0, 28, `Recomendado: ${node.power ?? 0}`, {
+              fontFamily: "Chakra Petch, sans-serif",
+              fontSize: "10px",
+              color: "#e2e8f0",
+            })
+          : null;
+      if (recommended) {
+        recommended.setOrigin(0.5);
+      }
+
       const markers = this.add.container(0, 40);
       const colors = [0xfbbf24, 0x22d3ee, 0xa855f7];
       colors.forEach((color, idx) => {
@@ -316,9 +331,11 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       });
 
       container.add([hit, ring, core, label, stateLabel, markers]);
+      if (recommended) container.add(recommended);
       container.setScale(1);
 
       let pulse: PhaserLib.GameObjects.Arc | undefined;
+      const powerReady = state === "current" && this.teamPower >= (node.power ?? 0);
       if (state === "current" || state === "ready") {
         pulse = this.add.circle(0, 0, 38, 0x000000, 0);
         pulse.setStrokeStyle(2, COLORS.current, state === "current" ? 0.85 : 0.5);
@@ -326,8 +343,8 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
         if (ENABLE_NODE_BREATHING) {
           const breathe = this.tweens.add({
             targets: pulse,
-            scale: { from: 1, to: 1.08 },
-            alpha: { from: 0.25, to: 0.45 },
+            scale: { from: 1, to: powerReady ? 1.12 : 1.08 },
+            alpha: { from: powerReady ? 0.4 : 0.25, to: powerReady ? 0.7 : 0.45 },
             duration: 2800,
             yoyo: true,
             repeat: -1,

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "../afk.module.css";
 import { HeroPortrait } from "../components/HeroPortrait";
 import { ProceduralIcon } from "../components/ProceduralIcon";
 import { buildSkillset, generateIcon } from "@/lib/afkProcedural";
-import { levelUpCostLabel, useAfk } from "@/lib/afkStore";
+import { getTeamPower, levelUpCostLabel, useAfk } from "@/lib/afkStore";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -13,14 +13,41 @@ function format(num: number | undefined) {
 }
 
 export default function HeroesPage() {
-  const { state, heroVisuals, levelUpHero, toggleActive } = useAfk();
+  const { state, heroVisuals, levelUpHero, toggleActive, lastBattleSummary } = useAfk();
   const [tab, setTab] = useState<"heroes" | "formations" | "portraits">("heroes");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [powerHighlight, setPowerHighlight] = useState(false);
+  const [upgradeHint, setUpgradeHint] = useState(false);
 
   const heroes = state?.heroes ?? [];
   const selectedHero = heroes.find((h) => h.id === (selectedId ?? heroes[0]?.id)) ?? heroes[0];
   const selectedVisual = selectedHero && heroVisuals[selectedHero.id] ? heroVisuals[selectedHero.id] : undefined;
   const skillset = useMemo(() => (selectedHero ? buildSkillset(selectedHero as any) : []), [selectedHero]);
+  const teamPower = useMemo(() => getTeamPower(state ?? null), [state]);
+
+  const canUpgrade =
+    state?.heroes?.some((hero) => {
+      const cost = levelUpCostLabel(hero);
+      return cost.gold <= (state?.resources.gold ?? 0);
+    }) ?? false;
+
+  useEffect(() => {
+    if (lastBattleSummary) {
+      setPowerHighlight(true);
+      const t = setTimeout(() => setPowerHighlight(false), 1400);
+      return () => clearTimeout(t);
+    }
+    return;
+  }, [lastBattleSummary]);
+
+  useEffect(() => {
+    if (canUpgrade) {
+      setUpgradeHint(true);
+      const t = setTimeout(() => setUpgradeHint(false), 1600);
+      return () => clearTimeout(t);
+    }
+    return;
+  }, [canUpgrade]);
 
   if (!state) {
     return (
@@ -35,9 +62,24 @@ export default function HeroesPage() {
       <div className={styles.card}>
         <p className={styles.sectionTitle}>Recursos</p>
         <p className={styles.muted}>
-          Oro {format(state.resources.gold)} 嫉 EXP {format(state.resources.exp)} 嫉 Materiales {format(state.resources.materials)}
+          Oro {format(state.resources.gold)} · EXP {format(state.resources.exp)} · Materiales {format(state.resources.materials)}
         </p>
         <p className={styles.muted}>Activos {state.activeHeroIds.length}/5 en combate</p>
+      </div>
+
+      <div className={styles.card}>
+        <p className={styles.sectionTitle}>Poder de equipo</p>
+        <h2
+          className={styles.title}
+          style={{
+            color: powerHighlight ? "#bbf7d0" : undefined,
+            textShadow: powerHighlight ? "0 0 12px rgba(74,222,128,0.45)" : "none",
+            transition: "all 160ms ease-out",
+          }}
+        >
+          {format(teamPower)} {powerHighlight ? "↑" : ""}
+        </h2>
+        <p className={styles.mutedSmall}>Sube con mejoras, idle y victorias.</p>
       </div>
 
       <div className={`${styles.card} ${styles.fullWidth}`}>
@@ -59,6 +101,7 @@ export default function HeroesPage() {
               const visual = heroVisuals[hero.id];
               const cost = levelUpCostLabel(hero);
               const isActive = state.activeHeroIds.includes(hero.id);
+              const canAfford = cost.gold <= state.resources.gold;
               return (
                 <div
                   key={hero.id}
@@ -74,16 +117,23 @@ export default function HeroesPage() {
                       <strong>{hero.name}</strong>
                       <span className={styles.tag}>Lvl {hero.level}</span>
                     </div>
-                    <p className={styles.muted}>Rol {hero.role} 嫉 Poder {format(hero.power)}</p>
+                    <p className={styles.muted}>Rol {hero.role} · Poder {format(hero.power)}</p>
                     <p className={styles.muted}>
-                      HP {format(hero.stats.hp)} 嫉 ATK {format(hero.stats.atk)} 嫉 DEF {format(hero.stats.def)} 嫉 SPD {format(hero.stats.speed)}
+                      HP {format(hero.stats.hp)} · ATK {format(hero.stats.atk)} · DEF {format(hero.stats.def)} · SPD {format(hero.stats.speed)}
                     </p>
                     <div className={styles.actions}>
                       <button className={styles.buttonGhost} onClick={() => toggleActive(hero.id)}>
                         {isActive ? "Quitar del equipo" : "Activar"}
                       </button>
-                      <button className={styles.buttonPrimary} onClick={() => levelUpHero(hero.id)}>
-                        Subir (+{format(cost.gold)} oro)
+                      <button
+                        className={styles.buttonPrimary}
+                        onClick={() => levelUpHero(hero.id)}
+                        style={{
+                          boxShadow: upgradeHint && canAfford ? "0 0 14px rgba(251,191,36,0.45)" : "none",
+                          transition: "box-shadow 160ms ease-out",
+                        }}
+                      >
+                        {canAfford && upgradeHint ? "Upgrade disponible" : "Subir"} (+{format(cost.gold)} oro)
                       </button>
                     </div>
                   </div>

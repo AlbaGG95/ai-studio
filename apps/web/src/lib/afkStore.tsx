@@ -33,6 +33,7 @@ type AfkContextValue = {
   bank: AfkReward;
   lastBattleSummary: LastBattleSummary | null;
   heroVisuals: Record<string, AfkHeroVisual>;
+  teamPower: number;
   setCurrentStage: (stageId: string) => void;
   claimIdle: () => void;
   levelUpHero: (heroId: string) => boolean;
@@ -60,6 +61,14 @@ export type LastBattleSummary = {
   next: AfkReward;
   delta: AfkReward;
 };
+
+export function getTeamPower(state: AfkPlayerState | null): number {
+  if (!state) return 0;
+  const activeIds = new Set(state.activeHeroIds);
+  return state.heroes
+    .filter((hero) => activeIds.has(hero.id))
+    .reduce((acc, hero) => acc + (hero.power ?? 0), 0);
+}
 
 function stageById(stageId: string | undefined): AfkStage {
   if (!stageId) return AFK_STAGES[0];
@@ -319,12 +328,14 @@ export function AfkProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   const bank = state?.idle.bank ?? { gold: 0, exp: 0, materials: 0 };
+  const teamPower = getTeamPower(state);
 
   const value: AfkContextValue = {
     state,
     stages: AFK_STAGES,
     loading,
     bank,
+    teamPower,
     lastBattleSummary,
     heroVisuals,
     setCurrentStage,
