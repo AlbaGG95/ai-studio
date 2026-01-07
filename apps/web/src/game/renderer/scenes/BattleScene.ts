@@ -62,6 +62,9 @@ const ENABLE_IDLE_MOTION = true;
 const ENABLE_FORMATION_STAGGER = true;
 const ENABLE_ATTACK_ANTICIPATION = true;
 const ENABLE_HIT_STOP = true;
+const ENABLE_TRAJECTORY_FX = true;
+const DEBUG_FX = false;
+const VISUAL_SIDE_OFFSET = 4;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
@@ -122,10 +125,13 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     private stageRoot!: PhaserLib.GameObjects.Container;
     private unitRoot!: PhaserLib.GameObjects.Container;
     private fxRoot!: PhaserLib.GameObjects.Container;
+    private trajectoryLayer!: PhaserLib.GameObjects.Container;
     private backgroundLayers: PhaserLib.GameObjects.Rectangle[] = [];
     private stageBlobs: DepthBlob[] = [];
     private dustParticles: DustParticle[] = [];
     private groundBandRect?: { x: number; y: number; width: number; height: number };
+    private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
+    private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private units = new Map<string, UnitView>();
     private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
@@ -154,6 +160,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.stageRoot = this.add.container(0, 0).setDepth(1);
       this.unitRoot = this.add.container(0, 0).setDepth(2);
       this.fxRoot = this.add.container(0, 0).setDepth(3);
+      this.trajectoryLayer = this.add.container(0, 0).setDepth(1.5);
       this.createBackground();
       this.layout(this.scale.gameSize);
       this.floats = new FloatingTextManager(this);
@@ -436,6 +443,19 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       vignette.fillRect(area.x, area.y + area.height - 12, area.width, 12);
       this.stageRoot.add(vignette);
 
+      const centerGlow = this.add.graphics();
+      const glowWidth = bandWidth * 0.35;
+      const glowHeight = bandHeight * 0.5;
+      centerGlow.fillStyle(0x1f2937, 0.12);
+      centerGlow.fillRoundedRect(
+        bandX + (bandWidth - glowWidth) / 2,
+        bandY + (bandHeight - glowHeight) / 2,
+        glowWidth,
+        glowHeight,
+        20
+      );
+      this.stageRoot.add(centerGlow);
+
       const blobCount = 3;
       for (let i = 0; i < blobCount; i += 1) {
         const radius = bandWidth * 0.18;
@@ -554,15 +574,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         }
         case "hit":
         case "crit": {
-          this.applyDelta(evt.targetId, -evt.value);
-          this.spawnFloat(evt.type, evt.targetId, evt.value);
-          this.flashTarget(evt.targetId, evt.type === "crit");
-          if (evt.type === "crit") {
-            screenShake(this, 0.006, 140, this.speed);
-          }
-          this.playHitStop(evt.type === "crit" ? 60 : 45, evt.targetId);
-          break;
-        }
+      this.applyDelta(evt.targetId, -evt.value);
+      this.spawnFloat(evt.type, evt.targetId, evt.value);
+      this.flashTarget(evt.targetId, evt.type === "crit");
+      if (evt.type === "crit") {
+        screenShake(this, 0.006, 140, this.speed);
+      }
+      this.spawnTrajectoryFx(evt.sourceId, evt.targetId, evt.type);
+      this.playHitStop(evt.type === "crit" ? 60 : 45, evt.targetId);
+      break;
+    }
         case "heal": {
           this.applyDelta(evt.targetId, evt.value);
           this.spawnFloat("heal", evt.targetId, evt.value);
@@ -721,7 +742,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private applyVisualTransform(unit: UnitView, time: number, forceDepth: boolean) {
-      const baseX = ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0;
+      const baseX = (ENABLE_FORMATION_STAGGER ? unit.stagger.x : 0) + (unit.spec.team === "ally" ? -VISUAL_SIDE_OFFSET : VISUAL_SIDE_OFFSET);
       const baseY = ENABLE_FORMATION_STAGGER ? unit.stagger.y : 0;
       const baseScale = ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1;
       const bobFreq = 0.0019;
@@ -751,11 +772,11 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       if (target) {
         const impactScale = durationMs >= 60 ? 0.93 : 0.95;
         const impactX = (Math.random() > 0.5 ? 1 : -1) * (durationMs >= 60 ? 3 : 2);
-        target.hitImpact.scale = impactScale;
-        target.hitImpact.x = impactX;
-        target.hitImpact.y = 0;
-        this.applyVisualTransform(target, this.time.now, false);
-      }
+      target.hitImpact.scale = impactScale;
+      target.hitImpact.x = impactX;
+      target.hitImpact.y = 0;
+      this.applyVisualTransform(target, this.time.now, false);
+    }
 
       const dur = Math.max(25, Math.round(durationMs / this.speed));
       this.hitStopTimer = this.time.delayedCall(dur, () => {
@@ -814,6 +835,135 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         });
         attacker.anticipationTween = upTween;
       });
+    }
+
+    private getUnitWorldPoint(unitId: string) {
+      const unit = this.units.get(unitId);
+      if (!unit) return null;
+      // Apply current visual offsets to derive world point consistent with FX anchoring.
+      const x = unit.container.x + unit.visual.x;
+      const y = unit.container.y + unit.visual.y;
+      return { x, y };
+    }
+
+    private isRangedUnit(unit: UnitView) {
+      return unit.spec.slotIndex >= 3;
+    }
+
+    private spawnTrajectoryFx(attackerId: string | undefined, targetId: string | undefined, kind: "hit" | "crit") {
+      if (!ENABLE_TRAJECTORY_FX) return;
+      if (!attackerId || !targetId) return;
+      const attacker = this.units.get(attackerId);
+      const target = this.units.get(targetId);
+      if (!attacker || !target) return;
+      const from = this.getUnitWorldPoint(attackerId);
+      const to = this.getUnitWorldPoint(targetId);
+      if (!from || !to) return;
+
+      if (this.isRangedUnit(attacker)) {
+        this.spawnProjectile(from, to, kind === "crit");
+      } else {
+        this.spawnSlash(from, to, kind === "crit");
+      }
+    }
+
+    private spawnSlash(from: { x: number; y: number }, to: { x: number; y: number }, isCrit: boolean) {
+      const maxActive = 4;
+      if (this.activeSlashes.length >= maxActive) {
+        const old = this.activeSlashes.shift();
+        old?.destroy();
+      }
+      const gfx = this.add.graphics();
+      const color = isCrit ? 0xfacc15 : 0x7dd3fc;
+      gfx.lineStyle(4, color, 0.45);
+      const midX = (from.x + to.x) / 2 + (Math.random() - 0.5) * 18;
+      const midY = (from.y + to.y) / 2 + (Math.random() - 0.5) * 12;
+      gfx.beginPath();
+      gfx.moveTo(from.x, from.y);
+      gfx.lineTo(midX, midY);
+      gfx.lineTo(to.x, to.y);
+      gfx.strokePath();
+      gfx.setAlpha(0.9);
+      gfx.setDepth(6);
+      this.trajectoryLayer.add(gfx);
+      this.activeSlashes.push(gfx);
+
+      const duration = Math.max(110, Math.round((isCrit ? 150 : 130) / this.speed));
+      this.tweens.add({
+        targets: gfx,
+        alpha: 0,
+        rotation: (Math.random() - 0.5) * 0.5,
+        duration,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          gfx.destroy();
+          this.activeSlashes = this.activeSlashes.filter((s) => s !== gfx);
+        },
+      });
+
+      if (DEBUG_FX) {
+        const dot = this.add.circle(to.x, to.y, 3, 0xff0000, 0.8);
+        dot.setDepth(7);
+        this.trajectoryLayer.add(dot);
+        this.tweens.add({
+          targets: dot,
+          alpha: 0,
+          duration,
+          onComplete: () => dot.destroy(),
+        });
+      }
+    }
+
+    private spawnProjectile(from: { x: number; y: number }, to: { x: number; y: number }, isCrit: boolean) {
+      const maxActive = 5;
+      if (this.activeProjectiles.length >= maxActive) {
+        const old = this.activeProjectiles.shift();
+        old?.destroy();
+      }
+      const radius = isCrit ? 6 : 5;
+      const orb = this.add.circle(from.x, from.y, radius, 0x7ce4ff, 0.9);
+      orb.setStrokeStyle(2, isCrit ? 0xfacc15 : 0x22d3ee, 0.9);
+      orb.setDepth(6);
+      this.trajectoryLayer.add(orb);
+      this.activeProjectiles.push(orb);
+
+      const duration = Math.max(140, Math.round((isCrit ? 220 : 180) / this.speed));
+      this.tweens.add({
+        targets: orb,
+        x: to.x,
+        y: to.y,
+        scale: isCrit ? 1.1 : 1,
+        alpha: { from: 1, to: 0.4 },
+        duration,
+        ease: "Sine.easeOut",
+        onComplete: () => {
+          this.spawnImpactBurst(to, isCrit);
+          orb.destroy();
+          this.activeProjectiles = this.activeProjectiles.filter((p) => p !== orb);
+        },
+      });
+    }
+
+    private spawnImpactBurst(point: { x: number; y: number }, isCrit: boolean) {
+      const burstCount = isCrit ? 4 : 3;
+      for (let i = 0; i < burstCount; i += 1) {
+        const r = isCrit ? 3 : 2;
+        const dot = this.add.circle(point.x, point.y, r, isCrit ? 0xfef08a : 0x7ce4ff, 0.8);
+        dot.setDepth(7);
+        this.trajectoryLayer.add(dot);
+        const dx = (Math.random() - 0.5) * 14;
+        const dy = (Math.random() - 0.5) * 12;
+        this.tweens.add({
+          targets: dot,
+          x: point.x + dx,
+          y: point.y + dy,
+          alpha: 0,
+          scale: 0.4,
+          duration: Math.max(120, Math.round(180 / this.speed)),
+          ease: "Quad.easeOut",
+          onComplete: () => dot.destroy(),
+        });
+      }
     }
   };
 }
