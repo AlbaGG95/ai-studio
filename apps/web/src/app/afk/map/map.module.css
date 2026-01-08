@@ -2,7 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 60vh;
+  min-height: 100vh;
+  padding: clamp(12px, 2vw, 20px);
 }
 
 .header {
@@ -34,11 +35,14 @@
 .canvasShell {
   border: 1px solid var(--border, #1f2b46);
   border-radius: 16px;
-  padding: 8px;
+  padding: clamp(6px, 1.2vw, 10px);
   background: radial-gradient(circle at 30% 30%, rgba(111, 184, 255, 0.12), rgba(14, 21, 36, 0.8));
-  height: 70vh;
-  min-height: 360px;
+  height: clamp(420px, 72vh, 960px);
+  min-height: 340px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  width: 100%;
+  overflow: auto;
+  touch-action: pan-x pan-y;
 }
 
 .canvasFrame {
@@ -48,6 +52,7 @@
   overflow: hidden;
   background: linear-gradient(180deg, rgba(10, 15, 28, 0.9), rgba(8, 12, 20, 0.9));
   border: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
 }
 
 .hint {
@@ -58,7 +63,7 @@
 
 @media (max-width: 640px) {
   .canvasShell {
-    height: 62vh;
-    min-height: 320px;
+    height: clamp(360px, 68vh, 760px);
+    min-height: 300px;
   }
 }

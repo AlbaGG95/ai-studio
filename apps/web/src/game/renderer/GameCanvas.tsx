@@ -24,6 +24,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
     let game: PhaserLib.Game | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
+    let resizeRaf: number | null = null;
     let destroyAudioListeners: Array<() => void> = [];
     let isDestroyed = false;
 
@@ -116,9 +117,14 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       safeResumeAudio();
 
       const applyResize = () => {
-        if (!game) return;
-        const { width: w, height: h } = getSize();
-        game.scale.resize(w, h);
+        if (resizeRaf) {
+          cancelAnimationFrame(resizeRaf);
+        }
+        resizeRaf = requestAnimationFrame(() => {
+          if (!game || (game as unknown as { isDestroyed?: boolean }).isDestroyed) return;
+          const { width: w, height: h } = getSize();
+          game.scale.resize(w, h);
+        });
       };
 
       if (typeof ResizeObserver !== "undefined" && containerRef.current) {
@@ -127,6 +133,12 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       } else if (typeof window !== "undefined") {
         resizeHandler = applyResize;
         window.addEventListener("resize", resizeHandler);
+      }
+
+      const { width: w, height: h } = getSize();
+      if (game) {
+        const { width: w, height: h } = getSize();
+        game.scale.resize(w, h);
       }
     };
 
@@ -138,6 +150,9 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       }
       if (resizeHandler) {
         window.removeEventListener("resize", resizeHandler);
+      }
+      if (resizeRaf) {
+        cancelAnimationFrame(resizeRaf);
       }
       destroyAudioListeners.forEach((off) => off());
       destroyAudioListeners = [];

@@ -87,7 +87,7 @@ export function BattleCanvasClient() {
   }
 
   return (
-    <>
+    <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <p className={styles.kicker}>Battle Renderer</p>
@@ -110,6 +110,6 @@ export function BattleCanvasClient() {
       <p className={styles.hint}>
         Abre /afk/battle en mobile o desktop. Usa Speed/Auto/Back dentro del canvas; la UI se adapta al resize.
       </p>
-    </>
+    </div>
   );
 }
