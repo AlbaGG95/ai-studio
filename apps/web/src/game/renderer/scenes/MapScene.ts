@@ -174,7 +174,7 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       this.progress = progress;
       this.chapterText?.setText(progress.chapterLabel);
       this.buildMap(progress);
-      this.graphBounds = this.mapLayer.getBounds();
+      this.graphBounds = this.computeGraphBounds(progress.nodes);
       this.layout(this.scale.width, this.scale.height);
     }
 
@@ -382,6 +382,23 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       return marker;
     }
 
+    private computeGraphBounds(nodes: MapNode[]) {
+      if (!nodes.length) return new Phaser.Geom.Rectangle(0, 0, MAP_WIDTH, MAP_HEIGHT);
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      nodes.forEach((n) => {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x);
+        maxY = Math.max(maxY, n.y);
+      });
+      const size = Math.max(maxX - minX, maxY - minY);
+      const pad = Math.max(60, size * 0.12);
+      return new Phaser.Geom.Rectangle(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2);
+    }
+
     private stateColor(state: NodeView["state"]) {
       if (state === "current") return COLORS.current;
       if (state === "completed") return COLORS.completed;
@@ -421,9 +438,9 @@ export function createMapScene(Phaser: PhaserModule, options: MapSceneOptions = 
       const graphW = this.graphBounds.width;
       const graphH = this.graphBounds.height;
       const scale = clamp(
-        0.8,
-        1.4,
-        Math.min(this.safeArea.width / graphW, this.safeArea.height / graphH) * 0.9
+        0.35,
+        1.25,
+        Math.min(this.safeArea.width / graphW, this.safeArea.height / graphH) * 0.94
       );
 
       const offsetX =

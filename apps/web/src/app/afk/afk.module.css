@@ -116,6 +116,10 @@
   min-height: 0;
 }
 
+.page:not(.gameRoute) .content {
+  padding-bottom: calc(16px + var(--bottombar-h));
+}
+
 .gameRoute .content {
   margin-top: 0;
   padding: 0;
