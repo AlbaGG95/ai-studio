@@ -24,6 +24,59 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
     let game: PhaserLib.Game | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
+    let destroyAudioListeners: Array<() => void> = [];
+    let isDestroyed = false;
+
+    const getAudioContext = (): AudioContext | null => {
+      if (!game || isDestroyed) return null;
+      const soundManager = (game as { sound?: { context?: AudioContext } }).sound;
+      const ctx = soundManager?.context;
+      if (!ctx || ctx.state === "closed") return null;
+      return ctx;
+    };
+
+    const safeResumeAudio = () => {
+      const ctx = getAudioContext();
+      if (!ctx || ctx.state !== "suspended") return;
+      try {
+        void ctx.resume();
+      } catch {
+        /* ignore invalid resume */
+      }
+    };
+
+    const safeSuspendAudio = () => {
+      const ctx = getAudioContext();
+      if (!ctx || ctx.state !== "running") return;
+      try {
+        void ctx.suspend();
+      } catch {
+        /* ignore invalid suspend */
+      }
+    };
+
+    const attachAudioLifecycle = () => {
+      if (typeof document === "undefined" || typeof window === "undefined") return;
+
+      const handleVisibility = () => {
+        if (document.visibilityState === "hidden") {
+          safeSuspendAudio();
+        } else {
+          safeResumeAudio();
+        }
+      };
+
+      const handleBlur = () => safeSuspendAudio();
+      const handleFocus = () => safeResumeAudio();
+
+      document.addEventListener("visibilitychange", handleVisibility);
+      window.addEventListener("blur", handleBlur);
+      window.addEventListener("focus", handleFocus);
+
+      destroyAudioListeners.push(() => document.removeEventListener("visibilitychange", handleVisibility));
+      destroyAudioListeners.push(() => window.removeEventListener("blur", handleBlur));
+      destroyAudioListeners.push(() => window.removeEventListener("focus", handleFocus));
+    };
 
     const setup = async () => {
       const phaserModule = (await import("phaser")) as unknown as { default: PhaserModule };
@@ -59,6 +112,9 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         disableContextMenu: true,
       });
 
+      attachAudioLifecycle();
+      safeResumeAudio();
+
       const applyResize = () => {
         if (!game) return;
         const { width: w, height: h } = getSize();
@@ -83,6 +139,9 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       if (resizeHandler) {
         window.removeEventListener("resize", resizeHandler);
       }
+      destroyAudioListeners.forEach((off) => off());
+      destroyAudioListeners = [];
+      isDestroyed = true;
       if (game) {
         game.destroy(true);
         game = null;

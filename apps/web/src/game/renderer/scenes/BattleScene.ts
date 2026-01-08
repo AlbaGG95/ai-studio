@@ -66,6 +66,8 @@ const SKY = 0x0a1226;
 const MID = 0x0c172d;
 const GROUND = 0x0a1322;
 const STAGE_BAND = 0x111a2c;
+const TOP_BAR_HEIGHT = 92;
+const SMALL_WIDTH_BREAKPOINT = 420;
 
 const BASE_CARD_WIDTH = 140;
 const BASE_CARD_HEIGHT = 110;
@@ -99,16 +101,17 @@ type FormationLayout = {
 };
 
 function computeFormationLayout(viewportWidth: number, viewportHeight: number): FormationLayout {
+  const effectiveHeight = Math.max(240, viewportHeight - TOP_BAR_HEIGHT);
   const clamp = (min: number, max: number, value: number) => Math.min(max, Math.max(min, value));
-  const topSafe = clamp(70, 120, Math.round(viewportHeight * 0.12));
-  const bottomSafe = clamp(100, 170, Math.round(viewportHeight * 0.18));
+  const topSafe = clamp(70, 120, Math.round(effectiveHeight * 0.12));
+  const bottomSafe = clamp(100, 170, Math.round(effectiveHeight * 0.18));
   const sideSafe = clamp(90, 150, Math.round(viewportWidth * 0.12));
 
   const battleArea = {
     x: sideSafe,
-    y: topSafe,
+    y: TOP_BAR_HEIGHT + topSafe,
     width: Math.max(240, viewportWidth - sideSafe * 2),
-    height: Math.max(240, viewportHeight - topSafe - bottomSafe),
+    height: Math.max(240, effectiveHeight - topSafe - bottomSafe),
   };
 
   const rows = 5;
@@ -158,15 +161,17 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
   private dustParticles: DustParticle[] = [];
   private groundBandRect?: { x: number; y: number; width: number; height: number };
   private centerPulse?: PhaserLib.GameObjects.Graphics;
+    private hudRoot!: PhaserLib.GameObjects.Container;
+    private hudBar?: PhaserLib.GameObjects.Rectangle;
     private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
     private units = new Map<string, UnitView>();
   private replay: CombatReplay | null = null;
     private stageLabel?: PhaserLib.GameObjects.Text;
-    private hudSpeed?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
-    private hudAuto?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
-    private hudBack?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text };
+    private hudSpeed?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text; bg: PhaserLib.GameObjects.Rectangle };
+    private hudAuto?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text; bg: PhaserLib.GameObjects.Rectangle };
+    private hudBack?: { container: PhaserLib.GameObjects.Container; label: PhaserLib.GameObjects.Text; bg: PhaserLib.GameObjects.Rectangle };
     private statusText?: PhaserLib.GameObjects.Text;
     private overlay?: PhaserLib.GameObjects.Text;
     private overlayCard?: BattleEndOverlay;
@@ -206,6 +211,10 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.fxRoot = this.add.container(0, 0).setDepth(3);
       this.trajectoryLayer = this.add.container(0, 0).setDepth(1.5);
       this.cameraRoot.add([this.bgRoot, this.stageRoot, this.trajectoryLayer, this.unitRoot, this.fxRoot]);
+      this.hudRoot = this.add.container(0, 0).setDepth(10);
+      this.hudBar = this.add.rectangle(0, 0, this.scale.width, TOP_BAR_HEIGHT, 0x0b1222, 0.72).setOrigin(0, 0);
+      this.hudBar.setStrokeStyle(1, TILE_BORDER, 0.65);
+      this.hudRoot.add(this.hudBar);
       this.createBackground();
       this.layout(this.scale.gameSize);
       this.floats = new FloatingTextManager(this);
@@ -262,6 +271,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         fontSize: "20px",
         color: "#f8fafc",
       });
+      this.stageLabel.setOrigin(0, 0.5);
+      this.hudRoot.add(this.stageLabel);
 
       this.createHud();
       this.buildUnits(replay.snapshot.units);
@@ -369,19 +380,18 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private createHud() {
-      const { width } = this.scale;
-      this.hudSpeed = this.createHudButton(width - 140, 18, "Speed x1", () => {
+      this.hudSpeed = this.createHudButton(0, 0, "Speed x1", () => {
         this.speed = this.speed === 1 ? 2 : 1;
         this.queue.setSpeed(this.speed);
         this.hudSpeed?.label.setText(`Speed x${this.speed}`);
       });
 
-      this.hudAuto = this.createHudButton(width - 140, 62, "Auto Off", () => {
+      this.hudAuto = this.createHudButton(0, 0, "Auto Off", () => {
         this.autoEnabled = !this.autoEnabled;
         this.hudAuto?.label.setText(this.autoEnabled ? "Auto On" : "Auto Off");
       });
 
-      this.hudBack = this.createHudButton(width - 140, 106, "Back", () => {
+      this.hudBack = this.createHudButton(0, 0, "Back", () => {
         if (options.onBack) {
           options.onBack();
           return;
@@ -390,6 +400,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
           window.location.href = "/afk/renderer";
         }
       });
+
+      this.hudRoot.add([this.hudSpeed.container, this.hudAuto.container, this.hudBack.container]);
     }
 
     private createHudButton(x: number, y: number, label: string, onClick: () => void) {
@@ -409,7 +421,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       btnBg.on("pointerup", () => onClick());
 
       container.add([btnBg, text]);
-      return { container, label: text };
+      return { container, label: text, bg: btnBg };
     }
 
     private buildUnits(units: CombatUnitSnapshot[]) {
@@ -707,11 +719,45 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
     }
 
     private layoutHud(width: number, _height: number) {
-      this.stageLabel?.setPosition(18, 16);
-      const right = width - 140;
-      this.hudSpeed?.container.setPosition(right, 18);
-      this.hudAuto?.container.setPosition(right, 62);
-      this.hudBack?.container.setPosition(right, 106);
+      if (this.hudBar) {
+        this.hudBar.setSize(width, TOP_BAR_HEIGHT);
+        this.hudBar.setPosition(0, 0);
+      }
+
+      const padding = 16;
+      const isSmall = width <= SMALL_WIDTH_BREAKPOINT;
+      const buttonHeight = 34;
+      const spacing = isSmall ? 8 : 12;
+      const minButtonWidth = isSmall ? 76 : 96;
+      const maxButtonWidth = isSmall ? 104 : 120;
+
+      if (this.stageLabel) {
+        this.stageLabel.setFontSize(isSmall ? "18px" : "20px");
+        this.stageLabel.setPosition(padding, TOP_BAR_HEIGHT / 2);
+      }
+
+      const labelWidth = this.stageLabel?.width ?? 0;
+      const availableRowWidth = Math.max(160, width - padding * 2 - labelWidth);
+      let buttonWidth = Math.min(
+        maxButtonWidth,
+        Math.max(minButtonWidth, Math.floor((availableRowWidth - spacing * 2) / 3))
+      );
+      const minFitWidth = 60;
+      if (buttonWidth * 3 + spacing * 2 > availableRowWidth) {
+        const fitted = Math.floor((availableRowWidth - spacing * 2) / 3);
+        buttonWidth = Math.max(minFitWidth, Math.min(buttonWidth, fitted));
+      }
+      const rowWidth = Math.min(buttonWidth * 3 + spacing * 2, availableRowWidth);
+      const startX = Math.max(padding + labelWidth + spacing, width - padding - rowWidth);
+      const y = (TOP_BAR_HEIGHT - buttonHeight) / 2;
+
+      const buttons = [this.hudSpeed, this.hudAuto, this.hudBack];
+      buttons.forEach((btn, idx) => {
+        if (!btn) return;
+        btn.bg.setSize(buttonWidth, buttonHeight);
+        btn.label.setPosition(buttonWidth / 2, buttonHeight / 2);
+        btn.container.setPosition(startX + idx * (buttonWidth + spacing), y);
+      });
     }
 
     private async processEvent(evt: CombatEvent) {
