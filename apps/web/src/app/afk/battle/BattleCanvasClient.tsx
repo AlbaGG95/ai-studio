@@ -66,17 +66,6 @@ export function BattleCanvasClient() {
   if (!renderInput) {
     return (
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <p className={styles.kicker}>Battle Renderer</p>
-            <h1 className={styles.title}>Cargando combate...</h1>
-          </div>
-          <div className={styles.actions}>
-            <Link className={styles.ghost} href="/afk/renderer">
-              Volver al hub
-            </Link>
-          </div>
-        </header>
         <div className={styles.canvasShell}>
           <div className={styles.canvasFrame} style={{ alignItems: "center", justifyContent: "center" }}>
             <p className={styles.subtle}>Preparando replay...</p>
@@ -88,28 +77,11 @@ export function BattleCanvasClient() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.kicker}>Battle Renderer</p>
-          <h1 className={styles.title}>5v5 combat replay</h1>
-          <p className={styles.subtle}>Renderer pasivo: consume snapshot y eventos reales del motor.</p>
-        </div>
-        <div className={styles.actions}>
-          <Link className={styles.ghost} href="/afk/renderer">
-            Volver al hub
-          </Link>
-        </div>
-      </header>
-
       <div className={styles.canvasShell}>
         <div className={styles.canvasFrame}>
           <GameCanvas sceneFactory={sceneFactory} backgroundColor="#050911" />
         </div>
       </div>
-
-      <p className={styles.hint}>
-        Abre /afk/battle en mobile o desktop. Usa Speed/Auto/Back dentro del canvas; la UI se adapta al resize.
-      </p>
     </div>
   );
 }

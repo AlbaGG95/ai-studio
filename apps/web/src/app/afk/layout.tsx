@@ -22,11 +22,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, bank } = useAfk();
   const isHome = pathname === "/afk" || pathname === "/afk/";
+  const isGameRoute = pathname?.startsWith("/afk/battle") || pathname?.startsWith("/afk/map");
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${isGameRoute ? styles.gameRoute : ""}`}>
       <div className={styles.skyLayer} />
-      <div className={styles.pageInner}>
+      <div className={`${styles.pageInner} ${isGameRoute ? styles.gameRouteInner : ""}`}>
         <header className={styles.topHud}>
           <div>
             <div className={styles.brand}>AFK Arena-like</div>
