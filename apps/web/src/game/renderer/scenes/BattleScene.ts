@@ -15,6 +15,7 @@ import {
   ENABLE_UNIT_IDLE_MOTION,
 } from "../flags";
 import { createPortraitSprite, getOrCreatePortraitTexture } from "../avatars/portraitFactory";
+import { palette } from "../theme/palette";
 
 type PhaserModule = typeof import("phaser");
 
@@ -57,16 +58,16 @@ type UnitView = {
   anticipationTween?: PhaserLib.Tweens.Tween;
 };
 
-const ALLY_COLOR = 0x7ce4ff;
-const ENEMY_COLOR = 0xffb86c;
-const HP_COLOR = 0x4ade80;
-const HP_BG = 0x0f172a;
-const TILE_BG = 0x0b1222;
-const TILE_BORDER = 0x1f2b46;
-const SKY = 0x0a1226;
-const MID = 0x0c172d;
-const GROUND = 0x0a1322;
-const STAGE_BAND = 0x111a2c;
+const ALLY_COLOR = palette.accentCool;
+const ENEMY_COLOR = palette.accentWarm;
+const HP_COLOR = palette.success;
+const HP_BG = palette.panelAlt;
+const TILE_BG = palette.panel;
+const TILE_BORDER = palette.stroke;
+const SKY = palette.background;
+const MID = palette.backgroundAlt;
+const GROUND = palette.background;
+const STAGE_BAND = palette.panelAlt;
 const TOP_BAR_HEIGHT = 92;
 const SMALL_WIDTH_BREAKPOINT = 420;
 
@@ -91,6 +92,7 @@ const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
 const ROLE_SCALE = { front: 1.15, dps: 1, support: 0.9 };
 const ROLE_Y = { front: 6, dps: 0, support: -4 };
+const CARD_RADIUS = 12;
 
 type FormationLayout = {
   battleArea: { x: number; y: number; width: number; height: number };
@@ -272,7 +274,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.stageLabel = this.add.text(18, 16, `Stage ${replay.snapshot.stageLabel ?? this.stageId}`, {
         fontFamily: "Chakra Petch, sans-serif",
         fontSize: "20px",
-        color: "#f8fafc",
+        color: "#f5eddc",
       });
       this.stageLabel.setOrigin(0, 0.5);
       this.hudRoot.add(this.stageLabel);
@@ -409,18 +411,18 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
     private createHudButton(x: number, y: number, label: string, onClick: () => void) {
       const container = this.add.container(x, y);
-      const btnBg = this.add.rectangle(0, 0, 120, 34, 0x111a2c, 0.9).setOrigin(0, 0);
-      btnBg.setStrokeStyle(1, TILE_BORDER, 0.8);
+      const btnBg = this.add.rectangle(0, 0, 120, 34, palette.panelAlt, 0.92).setOrigin(0, 0);
+      btnBg.setStrokeStyle(1.5, palette.stroke, 0.9);
       btnBg.setInteractive({ useHandCursor: true });
       const text = this.add.text(60, 17, label, {
         fontFamily: "Chakra Petch, sans-serif",
         fontSize: "14px",
-        color: "#e2e8f0",
+        color: "#f5eddc",
       });
       text.setOrigin(0.5);
 
-      btnBg.on("pointerover", () => btnBg.setFillStyle(0x16233a, 0.95));
-      btnBg.on("pointerout", () => btnBg.setFillStyle(0x111a2c, 0.9));
+      btnBg.on("pointerover", () => btnBg.setFillStyle(palette.panel, 0.96));
+      btnBg.on("pointerout", () => btnBg.setFillStyle(palette.panelAlt, 0.92));
       btnBg.on("pointerup", () => onClick());
 
       container.add([btnBg, text]);
@@ -442,8 +444,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const tileHeight = 110;
       const color = spec.team === "ally" ? ALLY_COLOR : ENEMY_COLOR;
 
-      const tile = this.add.rectangle(0, 0, tileWidth, tileHeight, TILE_BG, 0.9);
-      tile.setStrokeStyle(2, TILE_BORDER, 0.8);
+      const tile = this.add.rectangle(0, 0, tileWidth, tileHeight, TILE_BG, 0.92);
+      tile.setStrokeStyle(2, TILE_BORDER, 0.9);
       tile.setOrigin(0.5);
 
       const role = this.inferVisualRole(spec.slotIndex);
@@ -458,12 +460,12 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const name = this.add.text(tileWidth * 0.02, -20, spec.name, {
         fontFamily: "Space Grotesk, sans-serif",
         fontSize: "16px",
-        color: "#dbeafe",
+        color: "#f5eddc",
       });
       name.setOrigin(0, 0.5);
 
-      const hpBg = this.add.rectangle(0, tileHeight * 0.2, tileWidth * 0.7, 12, HP_BG, 0.9).setOrigin(0.5);
-      hpBg.setStrokeStyle(1, TILE_BORDER, 0.8);
+      const hpBg = this.add.rectangle(0, tileHeight * 0.2, tileWidth * 0.7, 12, HP_BG, 0.95).setOrigin(0.5);
+      hpBg.setStrokeStyle(1, TILE_BORDER, 0.7);
 
       const baseHpWidth = hpBg.width;
       const hpFill = this.add
@@ -473,7 +475,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const hpText = this.add.text(hpBg.x, hpBg.y, `${Math.round((spec.hp / spec.maxHp) * 100)}%`, {
         fontFamily: "Chakra Petch, sans-serif",
         fontSize: "12px",
-        color: "#b7ffe2",
+        color: "#f5eddc",
       });
       hpText.setOrigin(0.5);
 
@@ -553,6 +555,9 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       mid.setSize(width, height * 0.4);
       ground.setPosition(0, height * 0.65);
       ground.setSize(width, height * 0.35);
+      sky.setAlpha(0.9);
+      mid.setAlpha(0.82);
+      ground.setAlpha(0.9);
     }
 
     private layoutStage() {
@@ -572,11 +577,11 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.groundBandRect = { x: bandX, y: bandY, width: bandWidth, height: bandHeight };
 
       const band = this.add.graphics();
-      band.fillStyle(STAGE_BAND, 0.34);
+      band.fillStyle(STAGE_BAND, 0.38);
       band.fillRoundedRect(bandX, bandY, bandWidth, bandHeight, 18);
-      band.fillStyle(0x1c2940, 0.18);
+      band.fillStyle(palette.backgroundAlt, 0.18);
       band.fillRoundedRect(bandX + 10, bandY + 8, bandWidth - 20, bandHeight * 0.52, 14);
-      band.lineStyle(2, 0x5eead4, 0.08);
+      band.lineStyle(2, palette.stroke, 0.12);
       band.strokeRoundedRect(bandX + 6, bandY + 6, bandWidth - 12, bandHeight - 12, 14);
       this.stageRoot.add(band);
 
@@ -585,8 +590,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       for (let i = 0; i < stripeCount; i += 1) {
         const t = i / (stripeCount - 1);
         const y = bandY + bandHeight * 0.25 + bandHeight * 0.55 * t;
-        const alpha = 0.06 - t * 0.015;
-        stripes.lineStyle(1.6, 0xffffff, alpha);
+        const alpha = 0.05 - t * 0.012;
+        stripes.lineStyle(1.6, palette.text, alpha);
         stripes.beginPath();
         stripes.moveTo(bandX + 12, y);
         stripes.lineTo(bandX + bandWidth - 12, y);
@@ -597,7 +602,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
       const vignette = this.add.graphics();
       const vgAlpha = 0.06;
-      vignette.fillStyle(0x030712, vgAlpha);
+      vignette.fillStyle(palette.background, vgAlpha);
       vignette.fillRect(area.x, area.y, 16, area.height);
       vignette.fillRect(area.x + area.width - 16, area.y, 16, area.height);
       vignette.fillRect(area.x, area.y, area.width, 12);
@@ -607,7 +612,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const centerGlow = this.add.graphics();
       const glowWidth = bandWidth * 0.35;
       const glowHeight = bandHeight * 0.5;
-      centerGlow.fillStyle(0x1f2937, 0.12);
+      centerGlow.fillStyle(palette.panelAlt, 0.12);
       centerGlow.fillRoundedRect(
         bandX + (bandWidth - glowWidth) / 2,
         bandY + (bandHeight - glowHeight) / 2,
@@ -643,7 +648,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         const radius = 1.2 + Math.random() * 1.6;
         const cx = bandX + Math.random() * bandWidth;
         const cy = bandY + Math.random() * bandHeight;
-        const particle = this.add.circle(cx, cy, radius, 0xffffff, 0.08);
+        const particle = this.add.circle(cx, cy, radius, palette.text, 0.06);
         this.stageRoot.add(particle);
         this.dustParticles.push({
           shape: particle,

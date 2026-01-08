@@ -1,18 +1,19 @@
 import type PhaserLib from "phaser";
+import { palette } from "../theme/palette";
 
 type VisualRole = "front" | "dps" | "support";
 
 const SIZE = 72;
 
 const ROLE_ACCENTS: Record<VisualRole, number> = {
-  front: 0xffb27f,
-  dps: 0x9ad8ff,
-  support: 0xb4f0c2,
+  front: palette.accentWarm,
+  dps: palette.accentCool,
+  support: palette.success,
 };
 
 const TEAM_BORDER: Record<"ally" | "enemy", number> = {
-  ally: 0x7ce4ff,
-  enemy: 0xffb86c,
+  ally: palette.accentCool,
+  enemy: palette.accentWarm,
 };
 
 export function getOrCreatePortraitTexture(
@@ -35,11 +36,11 @@ export function getOrCreatePortraitTexture(
   g.strokeCircle(half, half, half - 2);
 
   // Gradient-like background using concentric fills
-  g.fillStyle(accent, 0.22);
+  g.fillStyle(accent, 0.18);
   g.fillCircle(half, half, half - 5);
-  g.fillStyle(0x0c1222, 0.85);
+  g.fillStyle(palette.backgroundAlt, 0.9);
   g.fillCircle(half, half, half - 8);
-  g.fillStyle(0x0f172a, 0.65);
+  g.fillStyle(palette.panel, 0.7);
   g.fillCircle(half, half + 4, half - 14);
 
   // Bust silhouette
@@ -68,7 +69,7 @@ export function getOrCreatePortraitTexture(
   const text = scene.add.text(half, half + 14, initials, {
     fontFamily: "Chakra Petch, sans-serif",
     fontSize: "12px",
-    color: "#e2e8f0",
+    color: "#e8edf5",
     align: "center",
   });
   text.setOrigin(0.5);
