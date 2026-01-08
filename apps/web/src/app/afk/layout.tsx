@@ -25,7 +25,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const isGameRoute = pathname?.startsWith("/afk/battle") || pathname?.startsWith("/afk/map");
 
   return (
-    <div className={`${styles.page} ${isGameRoute ? styles.gameRoute : ""}`}>
+    <div className={`${styles.page} ${isGameRoute ? `${styles.gameRoute} ${styles.gameScreen}` : ""}`}>
       <div className={styles.skyLayer} />
       <div className={`${styles.pageInner} ${isGameRoute ? styles.gameRouteInner : ""}`}>
         <header className={styles.topHud}>
