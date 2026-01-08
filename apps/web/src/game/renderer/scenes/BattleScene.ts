@@ -14,6 +14,7 @@ import {
   ENABLE_TRAJECTORY_FX,
   ENABLE_UNIT_IDLE_MOTION,
 } from "../flags";
+import { createPortraitSprite, getOrCreatePortraitTexture } from "../avatars/portraitFactory";
 
 type PhaserModule = typeof import("phaser");
 
@@ -163,6 +164,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
   private centerPulse?: PhaserLib.GameObjects.Graphics;
     private hudRoot!: PhaserLib.GameObjects.Container;
     private hudBar?: PhaserLib.GameObjects.Rectangle;
+    private portraitKeys = new Set<string>();
     private activeProjectiles: PhaserLib.GameObjects.GameObject[] = [];
     private activeSlashes: PhaserLib.GameObjects.GameObject[] = [];
     private pressureMarkers: PhaserLib.GameObjects.Graphics[] = [];
@@ -233,6 +235,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.scale.off("resize", handleResize);
         this.floats?.clear();
         this.overlayCard?.destroy();
+        this.portraitKeys.forEach((key) => this.textures.remove(key));
         this.resultTimer?.remove(false);
         this.resultLayer?.destroy();
         this.introTimer?.remove(false);
@@ -443,8 +446,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       tile.setStrokeStyle(2, TILE_BORDER, 0.8);
       tile.setOrigin(0.5);
 
-      const avatar = this.add.circle(-tileWidth * 0.24, -8, 28, color, 0.8);
-      avatar.setStrokeStyle(3, color, 0.9);
+      const role = this.inferVisualRole(spec.slotIndex);
+      const portraitKey = getOrCreatePortraitTexture(this, spec.id, spec.name, role, spec.team);
+      this.portraitKeys.add(portraitKey);
+      const isSmallViewport = this.scale.width <= SMALL_WIDTH_BREAKPOINT;
+      const portraitScale = isSmallViewport ? 0.84 : 0.9;
+      const portrait = createPortraitSprite(this, portraitKey, portraitScale);
+      portrait.setPosition(-tileWidth * 0.34, -tileHeight * 0.24);
+      portrait.setDepth(3);
 
       const name = this.add.text(tileWidth * 0.02, -20, spec.name, {
         fontFamily: "Space Grotesk, sans-serif",
@@ -468,7 +477,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       });
       hpText.setOrigin(0.5);
 
-      visual.add([tile, avatar, name, hpBg, hpFill, hpText]);
+      visual.add([tile, portrait, name, hpBg, hpFill, hpText]);
 
       container.add(visual);
 
@@ -480,7 +489,6 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const bobAmp = 2.6 + ((phaseSeed % 15) / 10);
       const scaleAmp = 0.01 + ((phaseSeed % 6) / 1000);
       const idle = { bobPhase: phaseSeed * 0.17, scalePhase: phaseSeed * 0.11, bobAmp, scaleAmp, speedMult: 1 };
-      const role = this.inferVisualRole(spec.slotIndex);
       this.applyRoleIdleParams(idle, role);
 
       const tierOrder: Array<"back" | "mid" | "front"> = ["back", "mid", "front", "mid", "back"];
