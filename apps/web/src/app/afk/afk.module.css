@@ -660,3 +660,22 @@
     max-width: none;
   }
 }
+
+@media (max-width: 520px) {
+  .page {
+    padding: max(var(--pad), env(safe-area-inset-top, 0px)) var(--pad)
+      max(var(--pad), env(safe-area-inset-bottom, 0px));
+  }
+
+  .pageInner {
+    max-width: none;
+  }
+
+  .content {
+    border-radius: 0;
+  }
+
+  .bottomNav {
+    border-radius: 0;
+  }
+}
