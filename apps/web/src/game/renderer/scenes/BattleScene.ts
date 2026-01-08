@@ -41,13 +41,15 @@ type DustParticle = {
 
 type UnitView = {
   spec: CombatUnitSnapshot;
+  role: "front" | "dps" | "support";
   container: PhaserLib.GameObjects.Container;
   visual: PhaserLib.GameObjects.Container;
   hpFill: PhaserLib.GameObjects.Rectangle;
   hpText: PhaserLib.GameObjects.Text;
   hpWidth: number;
-  idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number };
+  idle: { bobPhase: number; scalePhase: number; bobAmp: number; scaleAmp: number; speedMult: number };
   stagger: { x: number; y: number; scale: number; depth: number };
+  roleOffset: { x: number; y: number; scale: number };
   motionOffset: { x: number; y: number; scaleX: number; scaleY: number };
   hitImpact: { scale: number; x: number; y: number };
   pressureOffset: { x: number; y: number };
@@ -84,6 +86,8 @@ const BOB_BACK_MULT = 0.88;
 const STAGGER_X = { back: 10, mid: 0, front: 12 };
 const STAGGER_Y = { back: -6, mid: 0, front: 6 };
 const STAGGER_SCALE = { back: 0.96, mid: 1, front: 1.04 };
+const ROLE_SCALE = { front: 1.15, dps: 1, support: 0.9 };
+const ROLE_Y = { front: 6, dps: 0, support: -4 };
 
 type FormationLayout = {
   battleArea: { x: number; y: number; width: number; height: number };
@@ -304,6 +308,54 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       this.enemyHp = Math.max(1, enemies);
     }
 
+    private inferVisualRole(slotIndex: number): "front" | "dps" | "support" {
+      if (slotIndex <= 1) return "front";
+      if (slotIndex <= 3) return "dps";
+      return "support";
+    }
+
+    private applyRoleIdleParams(idle: UnitView["idle"], role: UnitView["role"]) {
+      if (role === "front") {
+        idle.bobAmp *= 0.65;
+        idle.scaleAmp *= 0.7;
+        idle.speedMult = 0.9;
+      } else if (role === "dps") {
+        idle.bobAmp *= 0.9;
+        idle.scaleAmp *= 1;
+        idle.speedMult = 1.08;
+      } else {
+        idle.bobAmp *= 1.1;
+        idle.scaleAmp *= 1.05;
+        idle.speedMult = 0.95;
+      }
+    }
+
+    private addRoleSilhouetteMarkers(
+      container: PhaserLib.GameObjects.Container,
+      role: UnitView["role"],
+      team: "ally" | "enemy",
+      tileWidth: number
+    ) {
+      const dir = team === "ally" ? 1 : -1;
+      if (role === "front") {
+        const base = this.add.ellipse(0, tileWidth * 0.2, tileWidth * 0.95, 14, 0x0b111c, 0.5);
+        base.setStrokeStyle(1.5, team === "ally" ? ALLY_COLOR : ENEMY_COLOR, 0.22);
+        base.setDepth(-2);
+        container.addAt(base, 0);
+      } else if (role === "dps") {
+        const wedge = this.add.triangle(0, tileWidth * 0.08, -12, 8, 12, 8, dir * 22, -6, 0xffffff, 0.18);
+        wedge.setStrokeStyle(1, team === "ally" ? ALLY_COLOR : ENEMY_COLOR, 0.2);
+        wedge.setDepth(-2);
+        container.addAt(wedge, 0);
+      } else {
+        const halo = this.add.arc(0, -tileWidth * 0.18, 18, team === "ally" ? 200 : -20, team === "ally" ? 340 : 160, false, 0xffffff, 0.22);
+        halo.lineWidth = 2;
+        halo.setStrokeStyle(2, team === "ally" ? ALLY_COLOR : ENEMY_COLOR, 0.26);
+        halo.setDepth(-2);
+        container.addAt(halo, 0);
+      }
+    }
+
     private createBackground() {
       const { width, height } = this.scale;
       const sky = this.add.rectangle(0, 0, width, height * 0.6, SKY, 1).setOrigin(0, 0);
@@ -415,25 +467,30 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const phaseSeed = spec.slotIndex * 17 + (spec.team === "ally" ? 11 : 23) + [...spec.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
       const bobAmp = 2.6 + ((phaseSeed % 15) / 10);
       const scaleAmp = 0.01 + ((phaseSeed % 6) / 1000);
-      const idle = { bobPhase: phaseSeed * 0.17, scalePhase: phaseSeed * 0.11, bobAmp, scaleAmp };
+      const idle = { bobPhase: phaseSeed * 0.17, scalePhase: phaseSeed * 0.11, bobAmp, scaleAmp, speedMult: 1 };
+      const role = this.inferVisualRole(spec.slotIndex);
+      this.applyRoleIdleParams(idle, role);
 
-       const tierOrder: Array<"back" | "mid" | "front"> = ["back", "mid", "front", "mid", "back"];
-       const tier = tierOrder[spec.slotIndex % tierOrder.length];
-       const dir = spec.team === "enemy" ? -1 : 1;
-       const stagger = {
-         x: dir * (tier === "back" ? -STAGGER_X.back : tier === "front" ? STAGGER_X.front : STAGGER_X.mid),
-         y: tier === "back" ? STAGGER_Y.back : tier === "front" ? STAGGER_Y.front : STAGGER_Y.mid,
-         scale: tier === "back" ? STAGGER_SCALE.back : tier === "front" ? STAGGER_SCALE.front : STAGGER_SCALE.mid,
-         depth: tier === "front" ? 3 : tier === "mid" ? 2 : 1,
-       };
+      const tierOrder: Array<"back" | "mid" | "front"> = ["back", "mid", "front", "mid", "back"];
+      const tier = tierOrder[spec.slotIndex % tierOrder.length];
+      const dir = spec.team === "enemy" ? -1 : 1;
+      const stagger = {
+        x: dir * (tier === "back" ? -STAGGER_X.back : tier === "front" ? STAGGER_X.front : STAGGER_X.mid),
+        y: tier === "back" ? STAGGER_Y.back : tier === "front" ? STAGGER_Y.front : STAGGER_Y.mid,
+        scale: tier === "back" ? STAGGER_SCALE.back : tier === "front" ? STAGGER_SCALE.front : STAGGER_SCALE.mid,
+        depth: tier === "front" ? 3 : tier === "mid" ? 2 : 1,
+      };
+      const roleOffset = { x: 0, y: ROLE_Y[role], scale: ROLE_SCALE[role] };
       visual.setDepth(stagger.depth);
-      visual.setPosition(stagger.x, stagger.y);
-      visual.setScale(stagger.scale);
+      visual.setPosition(stagger.x + roleOffset.x, stagger.y + roleOffset.y);
+      visual.setScale(stagger.scale * roleOffset.scale);
+      this.addRoleSilhouetteMarkers(container, role, spec.team, tileWidth);
 
       const targetGroup = spec.team === "ally" ? this.allyGroup : this.enemyGroup;
       targetGroup.add(container);
       return {
         spec: { ...spec },
+        role,
         container,
         visual,
         hpFill,
@@ -441,6 +498,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         hpWidth: baseHpWidth,
         idle,
         stagger,
+        roleOffset,
         motionOffset: { x: 0, y: 0, scaleX: 1, scaleY: 1 },
         hitImpact: { scale: 1, x: 0, y: 0 },
         pressureOffset: { x: 0, y: 0 },
@@ -947,8 +1005,8 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
       const tierScale = tier === "front" ? FRONT_SCALE : tier === "back" ? BACK_SCALE : CENTER_PROTAG_SCALE;
       const baseScale = (ENABLE_FORMATION_STAGGER ? unit.stagger.scale : 1) * tierScale;
       const pressure = unit.pressureOffset;
-      const bobFreq = 0.0019;
-      const scaleFreq = 0.0012;
+      const bobFreq = 0.0019 * unit.idle.speedMult;
+      const scaleFreq = 0.0012 * unit.idle.speedMult;
       const bobStrength = tier === "front" ? BOB_FRONT_MULT : tier === "back" ? BOB_BACK_MULT : BOB_CENTER_MULT;
       const tierAlpha = tier === "front" ? 1 : tier === "center" ? 1 : 0.9;
       const bob = ENABLE_UNIT_IDLE_MOTION
