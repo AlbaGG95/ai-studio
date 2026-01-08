@@ -19,20 +19,31 @@ type GameCanvasProps = {
 
 export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const gameRef = useRef<PhaserLib.Game | null>(null);
+  const isBootedRef = useRef(false);
+  const lastSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const pendingRafRef = useRef<number | null>(null);
+  const fallbackToCanvasRef = useRef(false);
 
   useEffect(() => {
     const MIN_W = 2;
     const MIN_H = 2;
-    let game: PhaserLib.Game | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
-    let resizeRaf: number | null = null;
     let destroyAudioListeners: Array<() => void> = [];
     let isDestroyed = false;
-    let lastSize: { width: number; height: number } | null = null;
     let resizeErrored = false;
+    let audioBound = false;
+    let bootErrorCleanup: (() => void) | null = null;
+    let Phaser: PhaserModule | null = null;
+    let SceneClass: Phaser.Types.Scenes.SceneType | null = null;
+
+    isBootedRef.current = false;
+    lastSizeRef.current = null;
+    fallbackToCanvasRef.current = false;
 
     const getAudioContext = (): AudioContext | null => {
+      const game = gameRef.current;
       if (!game || isDestroyed) return null;
       const soundManager = (game as { sound?: { context?: AudioContext } }).sound;
       const ctx = soundManager?.context;
@@ -83,82 +94,191 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       destroyAudioListeners.push(() => window.removeEventListener("focus", handleFocus));
     };
 
-    const setup = async () => {
-      const phaserModule = (await import("phaser")) as unknown as { default: PhaserModule };
-      const Phaser = phaserModule.default as PhaserModule;
-      if (!containerRef.current) return;
+    const getSafeSize = (): { width: number; height: number } | null => {
+      const el = containerRef.current;
+      if (!el || !el.isConnected) return null;
+      const rect = el.getBoundingClientRect();
+      const width = Math.floor(rect?.width ?? 0);
+      const height = Math.floor(rect?.height ?? 0);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+      if (width < MIN_W || height < MIN_H) return null;
+      return { width, height };
+    };
 
-      const factory = sceneFactory ?? createBootScene;
-      const SceneClass = factory(Phaser, sceneOptions);
+    const getErrorMessage = (err: unknown) => {
+      if (err instanceof Error) return err.message;
+      if (typeof err === "string") return err;
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return String(err);
+      }
+    };
 
-      const getSize = (): { width: number; height: number } | null => {
-        const el = containerRef.current;
-        if (!el || !el.isConnected) return null;
-        const rect = el.getBoundingClientRect();
-        const width = Math.floor(rect?.width ?? 0);
-        const height = Math.floor(rect?.height ?? 0);
-        if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-        if (width < MIN_W || height < MIN_H) return null;
-        return { width, height };
+    const isWebGlFramebufferError = (err: unknown) => {
+      const message = getErrorMessage(err);
+      return /incomplete attachment|framebuffer|webgl/i.test(message);
+    };
+
+    const destroyGame = () => {
+      if (bootErrorCleanup) {
+        bootErrorCleanup();
+        bootErrorCleanup = null;
+      }
+      if (gameRef.current) {
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+      }
+      isBootedRef.current = false;
+    };
+
+    const attachBootErrorGuard = () => {
+      if (typeof window === "undefined") return null;
+      const handleError = (event: ErrorEvent) => {
+        if (isDestroyed || fallbackToCanvasRef.current) return;
+        if (isBootedRef.current) return;
+        const errorPayload = event.error ?? event.message;
+        if (!isWebGlFramebufferError(errorPayload)) return;
+        event.preventDefault();
+        fallbackToCanvasRef.current = true;
+        const fallbackSize = lastSizeRef.current ?? getSafeSize();
+        destroyGame();
+        if (fallbackSize) {
+          createGame(fallbackSize);
+        }
       };
+      window.addEventListener("error", handleError);
+      return () => window.removeEventListener("error", handleError);
+    };
 
-      const initialSize = getSize() ?? { width: 800, height: 600 };
-      const { width, height } = initialSize;
+    const createGame = (size: { width: number; height: number }) => {
+      if (!containerRef.current || !Phaser || !SceneClass) return;
+      if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return;
+      if (size.width < MIN_W || size.height < MIN_H) return;
 
-      game = new Phaser.Game({
-        type: Phaser.AUTO,
-        width,
-        height,
+      const renderType = fallbackToCanvasRef.current ? Phaser.CANVAS : Phaser.WEBGL;
+      const resolution =
+        typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+      const config: Phaser.Types.Core.GameConfig & { resolution: number } = {
+        type: renderType,
+        width: size.width,
+        height: size.height,
         parent: containerRef.current,
         backgroundColor: backgroundColor ?? "#030712",
+        resolution,
         scale: {
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,
-          width,
-          height,
+          width: size.width,
+          height: size.height,
         },
         scene: [SceneClass],
         disableContextMenu: true,
-      });
-
-      attachAudioLifecycle();
-      safeResumeAudio();
-
-      const applyResize = () => {
-        if (resizeRaf) {
-          cancelAnimationFrame(resizeRaf);
-        }
-        resizeRaf = requestAnimationFrame(() => {
-          if (!game || (game as unknown as { isDestroyed?: boolean }).isDestroyed) return;
-          const size = getSize();
-          if (!size) return;
-          if (lastSize && lastSize.width === size.width && lastSize.height === size.height) return;
-          try {
-            game.scale.resize(size.width, size.height);
-            lastSize = size;
-            resizeErrored = false;
-          } catch (err) {
-            if (!resizeErrored) {
-              console.error("Phaser resize skipped due to error", err);
-            }
-            resizeErrored = true;
-          }
-        });
       };
 
-      if (typeof ResizeObserver !== "undefined" && containerRef.current) {
-        resizeObserver = new ResizeObserver(applyResize);
-        resizeObserver.observe(containerRef.current);
-      } else if (typeof window !== "undefined") {
-        resizeHandler = applyResize;
-        window.addEventListener("resize", resizeHandler);
-      }
+      const startGame = (gameConfig: Phaser.Types.Core.GameConfig & { resolution: number }) => {
+        const newGame = new Phaser.Game(gameConfig);
+        gameRef.current = newGame;
+        lastSizeRef.current = size;
+        isBootedRef.current = false;
+        newGame.events?.once?.(Phaser.Core.Events.READY, () => {
+          isBootedRef.current = true;
+          if (bootErrorCleanup) {
+            bootErrorCleanup();
+            bootErrorCleanup = null;
+          }
+        });
+        if (!audioBound) {
+          attachAudioLifecycle();
+          audioBound = true;
+        }
+        safeResumeAudio();
+        resizeErrored = false;
+        return newGame;
+      };
 
-      requestAnimationFrame(applyResize);
-      requestAnimationFrame(applyResize);
+      try {
+        if (renderType === Phaser.WEBGL) {
+          bootErrorCleanup = attachBootErrorGuard();
+        }
+        startGame(config);
+      } catch (err) {
+        if (renderType === Phaser.WEBGL) {
+          fallbackToCanvasRef.current = true;
+          destroyGame();
+          try {
+            startGame({ ...config, type: Phaser.CANVAS });
+          } catch (fallbackErr) {
+            console.error("Phaser boot failed after Canvas fallback", fallbackErr);
+          }
+        } else {
+          console.error("Phaser boot failed", err);
+        }
+      }
+    };
+
+    const safeResize = (size: { width: number; height: number }) => {
+      if (!gameRef.current) return;
+      const lastSize = lastSizeRef.current;
+      if (lastSize && lastSize.width === size.width && lastSize.height === size.height) return;
+      try {
+        gameRef.current.scale.resize(size.width, size.height);
+        lastSizeRef.current = size;
+        resizeErrored = false;
+      } catch (err) {
+        if (isWebGlFramebufferError(err) && !fallbackToCanvasRef.current) {
+          fallbackToCanvasRef.current = true;
+          const fallbackSize = lastSizeRef.current ?? size;
+          destroyGame();
+          if (fallbackSize) {
+            createGame(fallbackSize);
+          }
+          return;
+        }
+        if (!resizeErrored) {
+          console.error("Phaser resize skipped due to error", err);
+        }
+        resizeErrored = true;
+      }
+    };
+
+    const scheduleResize = () => {
+      if (pendingRafRef.current) return;
+      pendingRafRef.current = requestAnimationFrame(() => {
+        pendingRafRef.current = requestAnimationFrame(() => {
+          pendingRafRef.current = null;
+          if (isDestroyed) return;
+          const size = getSafeSize();
+          if (!size) return;
+          if (!gameRef.current) {
+            createGame(size);
+            return;
+          }
+          safeResize(size);
+        });
+      });
+    };
+
+    const setup = async () => {
+      const phaserModule = (await import("phaser")) as unknown as { default: PhaserModule };
+      if (isDestroyed) return;
+      Phaser = phaserModule.default as PhaserModule;
+      const factory = sceneFactory ?? createBootScene;
+      SceneClass = factory(Phaser, sceneOptions);
+      scheduleResize();
     };
 
     setup();
+
+    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+      resizeObserver = new ResizeObserver(scheduleResize);
+      resizeObserver.observe(containerRef.current);
+    } else if (typeof window !== "undefined") {
+      resizeHandler = scheduleResize;
+      window.addEventListener("resize", resizeHandler);
+    }
+
+    scheduleResize();
 
     return () => {
       if (resizeObserver) {
@@ -167,16 +287,14 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       if (resizeHandler) {
         window.removeEventListener("resize", resizeHandler);
       }
-      if (resizeRaf) {
-        cancelAnimationFrame(resizeRaf);
+      if (pendingRafRef.current) {
+        cancelAnimationFrame(pendingRafRef.current);
+        pendingRafRef.current = null;
       }
       destroyAudioListeners.forEach((off) => off());
       destroyAudioListeners = [];
       isDestroyed = true;
-      if (game) {
-        game.destroy(true);
-        game = null;
-      }
+      destroyGame();
     };
   }, [sceneFactory, backgroundColor, sceneOptions]);
 
