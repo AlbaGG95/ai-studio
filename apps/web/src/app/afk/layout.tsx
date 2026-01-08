@@ -23,44 +23,50 @@ function Shell({ children }: { children: React.ReactNode }) {
   const { state, bank } = useAfk();
   const isHome = pathname === "/afk" || pathname === "/afk/";
   const isGameRoute = pathname?.startsWith("/afk/battle") || pathname?.startsWith("/afk/map");
+  const isShellRoute = pathname?.startsWith("/afk");
 
   return (
     <div className={`${styles.page} ${isGameRoute ? `${styles.gameRoute} ${styles.gameScreen}` : ""}`}>
       <div className={styles.skyLayer} />
       <div className={`${styles.pageInner} ${isGameRoute ? styles.gameRouteInner : ""}`}>
-        <header className={styles.topHud}>
-          <div>
-            <div className={styles.brand}>AFK Arena-like</div>
-            <p className={styles.muted}>Auto idle RPG con renderer 2.5D</p>
-          </div>
-          <div className={styles.hudStats}>
-            <span>Oro {format(state?.resources.gold)}</span>
-            <span>EXP {format(state?.resources.exp)}</span>
-            <span>Materiales {format(state?.resources.materials)}</span>
-          </div>
-          <div className={styles.idleChip}>
-            AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp / {format(bank.materials)} mats
-          </div>
-          {!isHome && (
-            <Link className={styles.hubLink} href="/afk">
-              Volver al hub
-            </Link>
-          )}
-        </header>
-        <section className={styles.content}>{children}</section>
-        {isHome && (
-          <nav className={styles.bottomNav}>
-            {nav.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
-                  <span className={styles.navLabel}>{item.label}</span>
-                  <span className={styles.navHint}>{item.hint}</span>
+        {!isShellRoute && (
+          <>
+            <header className={styles.topHud}>
+              <div>
+                <div className={styles.brand}>AFK Arena-like</div>
+                <p className={styles.muted}>Auto idle RPG con renderer 2.5D</p>
+              </div>
+              <div className={styles.hudStats}>
+                <span>Oro {format(state?.resources.gold)}</span>
+                <span>EXP {format(state?.resources.exp)}</span>
+                <span>Materiales {format(state?.resources.materials)}</span>
+              </div>
+              <div className={styles.idleChip}>
+                AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp / {format(bank.materials)} mats
+              </div>
+              {!isHome && (
+                <Link className={styles.hubLink} href="/afk">
+                  Volver al hub
                 </Link>
-              );
-            })}
-          </nav>
+              )}
+            </header>
+            <section className={styles.content}>{children}</section>
+            {isHome && (
+              <nav className={styles.bottomNav}>
+                {nav.map((item) => {
+                  const active = pathname === item.href;
+                  return (
+                    <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
+                      <span className={styles.navLabel}>{item.label}</span>
+                      <span className={styles.navHint}>{item.hint}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+          </>
         )}
+        {isShellRoute && children}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { createMapScene } from "@/game/renderer/scenes/MapScene";
 import { buildCampaignViewModel } from "@/game/campaign/campaignViewModel";
 import { getTeamPower, useAfk } from "@/lib/afkStore";
 import styles from "./map.module.css";
+import { GameScreenShell } from "../components/GameScreenShell";
 
 export function MapCanvasClient() {
   const router = useRouter();
@@ -48,18 +49,18 @@ export function MapCanvasClient() {
 
   if (loading || !state || !campaign) {
     return (
-      <div className={styles.page}>
+      <GameScreenShell className={styles.page}>
         <div className={styles.canvasShell}>
           <div className={styles.canvasFrame} style={{ alignItems: "center", justifyContent: "center" }}>
             <p className={styles.subtle}>Cargando mapa...</p>
           </div>
         </div>
-      </div>
+      </GameScreenShell>
     );
   }
 
   return (
-    <div className={styles.page}>
+    <GameScreenShell className={styles.page}>
       <div className={styles.canvasShell}>
         <div className={styles.canvasFrame}>
           <GameCanvas sceneFactory={sceneFactory} backgroundColor="#0b1224" />
@@ -111,6 +112,6 @@ export function MapCanvasClient() {
           </div>
         </>
       )}
-    </div>
+    </GameScreenShell>
   );
 }

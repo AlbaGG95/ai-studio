@@ -11,6 +11,7 @@ import styles from "./battle.module.css";
 import { useEffect, useState } from "react";
 import { getCombatReplay } from "@/game/renderer/adapters/combatAdapter";
 import type { BattleRenderInput } from "@/game/renderer/contracts/renderContract";
+import { GameScreenShell } from "../components/GameScreenShell";
 
 export function BattleCanvasClient() {
   const router = useRouter();
@@ -65,23 +66,23 @@ export function BattleCanvasClient() {
 
   if (!renderInput) {
     return (
-      <div className={styles.page}>
+      <GameScreenShell className={styles.page}>
         <div className={styles.canvasShell}>
           <div className={styles.canvasFrame} style={{ alignItems: "center", justifyContent: "center" }}>
             <p className={styles.subtle}>Preparando replay...</p>
           </div>
         </div>
-      </div>
+      </GameScreenShell>
     );
   }
 
   return (
-    <div className={styles.page}>
+    <GameScreenShell className={styles.page}>
       <div className={styles.canvasShell}>
         <div className={styles.canvasFrame}>
           <GameCanvas sceneFactory={sceneFactory} backgroundColor="#050911" />
         </div>
       </div>
-    </div>
+    </GameScreenShell>
   );
 }
