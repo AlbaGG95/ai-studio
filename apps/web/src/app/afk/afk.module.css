@@ -70,6 +70,18 @@
   font-weight: 700;
 }
 
+.hubLink {
+  justify-self: end;
+  align-self: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+  font-weight: 700;
+}
+
 .content {
   margin-top: 16px;
   background: rgba(12, 18, 30, 0.9);
@@ -658,6 +670,11 @@
 
   .pageInner {
     max-width: none;
+  }
+
+  .hubLink {
+    justify-self: start;
+    width: fit-content;
   }
 }
 

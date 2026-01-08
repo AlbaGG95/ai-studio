@@ -21,6 +21,7 @@ function format(num: number | undefined) {
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, bank } = useAfk();
+  const isHome = pathname === "/afk" || pathname === "/afk/";
 
   return (
     <div className={styles.page}>
@@ -39,19 +40,26 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div className={styles.idleChip}>
             AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp / {format(bank.materials)} mats
           </div>
+          {!isHome && (
+            <Link className={styles.hubLink} href="/afk">
+              Volver al hub
+            </Link>
+          )}
         </header>
         <section className={styles.content}>{children}</section>
-        <nav className={styles.bottomNav}>
-          {nav.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
-                <span className={styles.navLabel}>{item.label}</span>
-                <span className={styles.navHint}>{item.hint}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {isHome && (
+          <nav className={styles.bottomNav}>
+            {nav.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
+                  <span className={styles.navLabel}>{item.label}</span>
+                  <span className={styles.navHint}>{item.hint}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );
