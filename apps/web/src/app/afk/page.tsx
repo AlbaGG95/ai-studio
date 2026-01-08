@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import styles from "./afk.module.css";
 import { useAfk } from "@/lib/afkStore";
 import { CampaignMap } from "./components/CampaignMap";
-import { ProceduralIcon } from "./components/ProceduralIcon";
-import { biomeForStage, generateIcon } from "@/lib/afkProcedural";
+import { biomeForStage } from "@/lib/afkProcedural";
 import { buildCampaignViewModel } from "@/game/campaign/campaignViewModel";
+import { GameScreenShell } from "./components/GameScreenShell";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -22,9 +22,9 @@ export default function CampaignPage() {
 
   if (loading || !state || !campaign) {
     return (
-      <div className={styles.card}>
-        <p className={styles.muted}>Cargando campana...</p>
-      </div>
+      <GameScreenShell className={`${styles.homeShell} ${styles.page}`}>
+        <div className={styles.homeBg} />
+      </GameScreenShell>
     );
   }
 
@@ -38,90 +38,83 @@ export default function CampaignPage() {
   const biome = biomeForStage(nextStage);
 
   return (
-    <div className={styles.homeStack}>
-      <div className={`${styles.card} ${styles.heroBanner}`}>
-        <div>
-          <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
-          <h1 className={styles.title}>Mapa vivo de campana</h1>
-          <p className={styles.muted}>
-            Progreso {completed.size}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el boton idle.
-          </p>
+    <GameScreenShell
+      className={`${styles.homeShell} ${styles.page}`}
+      background={
+        <div className={styles.homeBg}>
+          <CampaignMap
+            stages={stages}
+            currentId={currentId}
+            unlocked={unlocked}
+            completed={completed}
+            onSelect={() => {}}
+            onBattle={() => {}}
+          />
+        </div>
+      }
+      topHud={
+        <div className={`${styles.card} ${styles.heroBanner}`} style={{ margin: 0 }}>
+          <div>
+            <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
+            <h1 className={styles.title}>Mapa vivo de campana</h1>
+            <p className={styles.muted}>
+              Progreso {completed.size}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el boton idle.
+            </p>
+            <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
+              <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
+                Luchar stage {nextStage.id}
+              </Link>
+              <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
+                Fijar stage actual
+              </button>
+            </div>
+          </div>
+          <div className={styles.biomeBadge}>
+            <span className={styles.tag}>Bioma</span>
+            <strong>{biome.name}</strong>
+            <p className={styles.mutedSmall}>{biome.props.join(" Жњ ")}</p>
+          </div>
+        </div>
+      }
+      bottomNav={
+        <nav className={styles.bottomNav}>
+          <Link href="/afk/map" className={styles.navButton}>
+            <span className={styles.navLabel}>Campaña</span>
+            <span className={styles.navHint}>Mapa</span>
+          </Link>
+          <Link href="/afk/battle" className={styles.navButton}>
+            <span className={styles.navLabel}>Batalla</span>
+            <span className={styles.navHint}>Auto 5v5</span>
+          </Link>
+          <Link href="/afk/heroes" className={styles.navButton}>
+            <span className={styles.navLabel}>Héroes</span>
+            <span className={styles.navHint}>Roster</span>
+          </Link>
+          <Link href="/afk/idle" className={styles.navButton}>
+            <span className={styles.navLabel}>Idle</span>
+            <span className={styles.navHint}>Botín</span>
+          </Link>
+          <Link href="/afk/inventory" className={styles.navButton}>
+            <span className={styles.navLabel}>Inventario</span>
+            <span className={styles.navHint}>Equipo</span>
+          </Link>
+        </nav>
+      }
+    >
+      <div className={styles.homeOverlay}>
+        <div className={styles.card} style={{ maxWidth: 400 }}>
+          <p className={styles.sectionTitle}>Stage actual</p>
+          <p className={styles.muted}>Recomendado {format(nextStage.recommendedPower)}</p>
           <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
             <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
-              Luchar stage {nextStage.id}
+              Luchar
             </Link>
             <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
-              Fijar stage actual
+              Seleccionar
             </button>
           </div>
         </div>
-        <div className={styles.biomeBadge}>
-          <span className={styles.tag}>Bioma</span>
-          <strong>{biome.name}</strong>
-          <p className={styles.mutedSmall}>{biome.props.join(" · ")}</p>
-        </div>
       </div>
-
-      <div className={`${styles.card} ${styles.fullWidth}`}>
-        <p className={styles.sectionTitle}>Menu</p>
-        <div className={styles.stageTimeline}>
-          {stages.map((stage) => {
-            const stageState = stageStateMap.get(stage.id) ?? "locked";
-            const isUnlocked = stageState !== "locked";
-            const isCompleted = stageState === "completed";
-            const isCurrent = stage.id === currentId;
-            const status = isCompleted ? "Completado" : isUnlocked ? "Disponible" : "Bloqueado";
-            return (
-              <div
-                key={stage.id}
-                className={`${styles.stageChip} ${isCurrent ? styles.currentStage : ""} ${!isUnlocked ? styles.locked : ""}`}
-              >
-                <div className={styles.row}>
-                  <span className={styles.tag}>{stage.id}</span>
-                  <span className={styles.muted}>{status}</span>
-                </div>
-                <p className={styles.cardTitle}>Poder recomendado {format(stage.recommendedPower)}</p>
-                <div className={styles.rewardIcons}>
-                  <ProceduralIcon icon={generateIcon(`${stage.id}-gold`)} label={`+${format(stage.reward.gold)} oro`} />
-                  <ProceduralIcon icon={generateIcon(`${stage.id}-exp`)} label={`+${format(stage.reward.exp)} exp`} />
-                  <ProceduralIcon icon={generateIcon(`${stage.id}-mat`)} label={`+${format(stage.reward.materials)} mats`} />
-                </div>
-                <div className={styles.actions}>
-                  <button className={styles.buttonGhost} disabled={!isUnlocked} onClick={() => isUnlocked && setCurrentStage(stage.id)}>
-                    Seleccionar
-                  </button>
-                  <Link
-                    href={`/afk/battle?stageId=${stage.id}`}
-                    className={`${styles.buttonPrimary} ${!isUnlocked ? styles.disabled : ""}`}
-                    aria-disabled={!isUnlocked}
-                  >
-                    Luchar
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className={`${styles.card} ${styles.fullWidth}`}>
-        <p className={styles.sectionTitle}>World map</p>
-        <CampaignMap
-          stages={stages}
-          currentId={currentId}
-          unlocked={unlocked}
-          completed={completed}
-          onSelect={(id) => {
-            if (!unlocked.has(id)) return;
-            setCurrentStage(id);
-          }}
-          onBattle={(id) => {
-            if (!unlocked.has(id)) return;
-            setCurrentStage(id);
-            router.push(`/afk/battle?stageId=${id}`);
-          }}
-        />
-      </div>
-    </div>
+    </GameScreenShell>
   );
 }
