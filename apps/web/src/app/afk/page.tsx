@@ -38,7 +38,7 @@ export default function CampaignPage() {
   const biome = biomeForStage(nextStage);
 
   return (
-    <div className={styles.grid}>
+    <div className={styles.homeStack}>
       <div className={`${styles.card} ${styles.heroBanner}`}>
         <div>
           <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
@@ -63,26 +63,7 @@ export default function CampaignPage() {
       </div>
 
       <div className={`${styles.card} ${styles.fullWidth}`}>
-        <p className={styles.sectionTitle}>World map</p>
-        <CampaignMap
-          stages={stages}
-          currentId={currentId}
-          unlocked={unlocked}
-          completed={completed}
-          onSelect={(id) => {
-            if (!unlocked.has(id)) return;
-            setCurrentStage(id);
-          }}
-          onBattle={(id) => {
-            if (!unlocked.has(id)) return;
-            setCurrentStage(id);
-            router.push(`/afk/battle?stageId=${id}`);
-          }}
-        />
-      </div>
-
-      <div className={`${styles.card} ${styles.fullWidth}`}>
-        <p className={styles.sectionTitle}>Progreso y recompensas</p>
+        <p className={styles.sectionTitle}>Menu</p>
         <div className={styles.stageTimeline}>
           {stages.map((stage) => {
             const stageState = stageStateMap.get(stage.id) ?? "locked";
@@ -121,6 +102,25 @@ export default function CampaignPage() {
             );
           })}
         </div>
+      </div>
+
+      <div className={`${styles.card} ${styles.fullWidth}`}>
+        <p className={styles.sectionTitle}>World map</p>
+        <CampaignMap
+          stages={stages}
+          currentId={currentId}
+          unlocked={unlocked}
+          completed={completed}
+          onSelect={(id) => {
+            if (!unlocked.has(id)) return;
+            setCurrentStage(id);
+          }}
+          onBattle={(id) => {
+            if (!unlocked.has(id)) return;
+            setCurrentStage(id);
+            router.push(`/afk/battle?stageId=${id}`);
+          }}
+        />
       </div>
     </div>
   );

@@ -146,6 +146,11 @@
   gap: 12px;
 }
 
+.homeStack {
+  display: grid;
+  gap: var(--gap);
+}
+
 .fullWidth {
   grid-column: 1 / -1;
 }
@@ -294,7 +299,7 @@
   padding: 12px;
   background: radial-gradient(circle at 30% 30%, rgba(103, 232, 249, 0.05), transparent 40%), #0b1222;
   cursor: grab;
-  min-height: 360px;
+  min-height: clamp(240px, 42vh, 520px);
   width: 100%;
 }
 
