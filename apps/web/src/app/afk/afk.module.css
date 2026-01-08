@@ -8,12 +8,14 @@
   --accent: #6bb5ff;
   --accent-strong: #fbbf24;
   --success: #34d399;
+  min-height: 100dvh;
   min-height: 100vh;
   background: radial-gradient(circle at 20% 20%, rgba(57, 101, 191, 0.2), transparent 32%), radial-gradient(circle at 80% 10%, rgba(104, 224, 255, 0.16), transparent 36%), linear-gradient(180deg, #0b1222 0%, #0a0f1f 100%);
   color: var(--text);
-  padding: 18px;
-  padding-bottom: 110px;
+  padding: var(--pad);
+  padding-bottom: calc(var(--pad) + var(--bottombar-h) + env(safe-area-inset-bottom, 0px));
   position: relative;
+  width: 100%;
 }
 
 .skyLayer {
@@ -26,9 +28,13 @@
 
 .pageInner {
   position: relative;
-  max-width: 1180px;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--pad) * 2);
 }
 
 .topHud {
@@ -71,6 +77,8 @@
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+  flex: 1;
+  min-height: 0;
 }
 
 .grid {
@@ -227,20 +235,22 @@
   background: radial-gradient(circle at 30% 30%, rgba(103, 232, 249, 0.05), transparent 40%), #0b1222;
   cursor: grab;
   min-height: 360px;
+  width: 100%;
 }
 
 .mapInner {
   position: relative;
-  width: 1100px;
-  height: 580px;
+  width: 100%;
+  aspect-ratio: 1100 / 580;
+  min-height: 360px;
   transform: translateZ(0);
 }
 
 .mapBg {
   position: absolute;
   inset: 0;
-  width: 1100px;
-  height: 580px;
+  width: 100%;
+  height: 100%;
 }
 
 .stageNode {
@@ -582,11 +592,10 @@
 }
 
 .bottomNav {
-  position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100%, 1100px);
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 6px;
@@ -596,6 +605,7 @@
   padding: 8px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
   z-index: 3;
+  margin-top: var(--gap);
 }
 
 .navButton {
@@ -646,11 +656,7 @@
     grid-template-columns: 1fr;
   }
 
-  .bottomNav {
-    position: sticky;
-    bottom: 0;
-    transform: none;
-    left: 0;
-    width: 100%;
+  .pageInner {
+    max-width: none;
   }
 }
