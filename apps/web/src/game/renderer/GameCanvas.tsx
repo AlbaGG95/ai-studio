@@ -21,12 +21,16 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const MIN_W = 2;
+    const MIN_H = 2;
     let game: PhaserLib.Game | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
     let resizeRaf: number | null = null;
     let destroyAudioListeners: Array<() => void> = [];
     let isDestroyed = false;
+    let lastSize: { width: number; height: number } | null = null;
+    let resizeErrored = false;
 
     const getAudioContext = (): AudioContext | null => {
       if (!game || isDestroyed) return null;
@@ -87,15 +91,19 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       const factory = sceneFactory ?? createBootScene;
       const SceneClass = factory(Phaser, sceneOptions);
 
-      const getSize = () => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        return {
-          width: Math.max(1, Math.floor(rect?.width ?? 800)),
-          height: Math.max(1, Math.floor(rect?.height ?? 600)),
-        };
+      const getSize = (): { width: number; height: number } | null => {
+        const el = containerRef.current;
+        if (!el || !el.isConnected) return null;
+        const rect = el.getBoundingClientRect();
+        const width = Math.floor(rect?.width ?? 0);
+        const height = Math.floor(rect?.height ?? 0);
+        if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+        if (width < MIN_W || height < MIN_H) return null;
+        return { width, height };
       };
 
-      const { width, height } = getSize();
+      const initialSize = getSize() ?? { width: 800, height: 600 };
+      const { width, height } = initialSize;
 
       game = new Phaser.Game({
         type: Phaser.AUTO,
@@ -122,8 +130,19 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         }
         resizeRaf = requestAnimationFrame(() => {
           if (!game || (game as unknown as { isDestroyed?: boolean }).isDestroyed) return;
-          const { width: w, height: h } = getSize();
-          game.scale.resize(w, h);
+          const size = getSize();
+          if (!size) return;
+          if (lastSize && lastSize.width === size.width && lastSize.height === size.height) return;
+          try {
+            game.scale.resize(size.width, size.height);
+            lastSize = size;
+            resizeErrored = false;
+          } catch (err) {
+            if (!resizeErrored) {
+              console.error("Phaser resize skipped due to error", err);
+            }
+            resizeErrored = true;
+          }
         });
       };
 
@@ -135,11 +154,8 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         window.addEventListener("resize", resizeHandler);
       }
 
-      const { width: w, height: h } = getSize();
-      if (game) {
-        const { width: w, height: h } = getSize();
-        game.scale.resize(w, h);
-      }
+      requestAnimationFrame(applyResize);
+      requestAnimationFrame(applyResize);
     };
 
     setup();
