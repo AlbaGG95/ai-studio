@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "../afk.module.css";
@@ -17,8 +17,8 @@ function formatDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return ${hours}h m;
-  return ${minutes}m;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 type AnimatedCounters = { gold: number; exp: number; materials: number };
@@ -117,7 +117,7 @@ export default function IdlePage() {
       return;
     }
     setLastCollected(unclaimed);
-    setCollectKey(${Date.now()});
+    setCollectKey(`${Date.now()}`);
     setGlow(true);
     claimIdle();
     setTimeout(() => setGlow(false), 900);
@@ -135,16 +135,16 @@ export default function IdlePage() {
             }}
           />
         )}
-        <div className={${styles.card} }>
+        <div className={`${styles.card} ${styles.heroBanner}`}>
           <div>
             <p className={styles.kicker}>Idle Rewards</p>
-            <h1 className={styles.title}>BotÇün offline listo</h1>
+            <h1 className={styles.title}>Boton offline listo</h1>
             <p className={styles.muted}>
-              Cap de acumulaciÇün 8h ¶ú progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
+              Cap de acumulacion 8h y progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
               generando.
             </p>
             <div className={styles.progressBar} style={{ marginTop: 12 }}>
-              <div className={styles.progressFill} style={{ width: ${capPct}% }} />
+              <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
             </div>
             <div className={styles.actions} style={{ marginTop: 12 }}>
               <button
@@ -159,20 +159,19 @@ export default function IdlePage() {
               </button>
             </div>
             <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-              Çsltimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} ¶ú Çsltima vista:{" "}
+              Ultimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} y ultima vista: {" "}
               {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
             </p>
             {lastCollected && (
               <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-                Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats{" "}
-                {format(animatedCollect.materials)}
+                Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats {format(animatedCollect.materials)}
               </p>
             )}
           </div>
           <div className={styles.rewardIcons}>
-            <ProceduralIcon icon={generateIcon("idle-gold")} label={${format(unclaimed.gold)} oro sin reclamar} />
-            <ProceduralIcon icon={generateIcon("idle-exp")} label={${format(unclaimed.exp)} exp sin reclamar} />
-            <ProceduralIcon icon={generateIcon("idle-mat")} label={${format(unclaimed.materials)} mats sin reclamar} />
+            <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(unclaimed.gold)} oro sin reclamar`} />
+            <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(unclaimed.exp)} exp sin reclamar`} />
+            <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(unclaimed.materials)} mats sin reclamar`} />
           </div>
         </div>
 
@@ -190,7 +189,7 @@ export default function IdlePage() {
               (lastBattleSummary.delta.gold > 0 ||
                 lastBattleSummary.delta.exp > 0 ||
                 lastBattleSummary.delta.materials > 0)
-                ? " ƒÅ'"
+                ? " *"
                 : ""}
             </span>
           </p>

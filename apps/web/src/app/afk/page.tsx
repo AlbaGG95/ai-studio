@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,7 @@ export default function CampaignPage() {
   if (loading || !state || !campaign) {
     return (
       <AfkViewport>
-        <GameScreenShell className={${styles.homeShell} }>
+        <GameScreenShell className={`${styles.homeShell} ${styles.page}`}>
           <div className={styles.homeBg} />
         </GameScreenShell>
       </AfkViewport>
@@ -43,7 +43,7 @@ export default function CampaignPage() {
   return (
     <AfkViewport>
       <GameScreenShell
-        className={${styles.homeShell} }
+        className={`${styles.homeShell} ${styles.page}`}
         background={
           <div className={styles.homeBg}>
             <CampaignMap
@@ -57,7 +57,7 @@ export default function CampaignPage() {
           </div>
         }
         topHud={
-          <div className={${styles.card} } style={{ margin: 0 }}>
+          <div className={`${styles.card} ${styles.heroBanner}`} style={{ margin: 0 }}>
             <div>
               <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
               <h1 className={styles.title}>Mapa vivo de campana</h1>
@@ -65,7 +65,7 @@ export default function CampaignPage() {
                 Progreso {completed.size}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el boton idle.
               </p>
               <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
-                <Link className={styles.buttonPrimary} href={/afk/battle?stageId=}>
+                <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
                   Luchar stage {nextStage.id}
                 </Link>
                 <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
@@ -76,14 +76,14 @@ export default function CampaignPage() {
             <div className={styles.biomeBadge}>
               <span className={styles.tag}>Bioma</span>
               <strong>{biome.name}</strong>
-              <p className={styles.mutedSmall}>{biome.props.join(" Ñ-¥s ")}</p>
+              <p className={styles.mutedSmall}>{biome.props.join(" / ")}</p>
             </div>
           </div>
         }
         bottomNav={
           <nav className={styles.bottomNav}>
             <Link href="/afk/map" className={styles.navButton}>
-              <span className={styles.navLabel}>CampaÇña</span>
+              <span className={styles.navLabel}>Campana</span>
               <span className={styles.navHint}>Mapa</span>
             </Link>
             <Link href="/afk/battle" className={styles.navButton}>
@@ -91,12 +91,12 @@ export default function CampaignPage() {
               <span className={styles.navHint}>Auto 5v5</span>
             </Link>
             <Link href="/afk/heroes" className={styles.navButton}>
-              <span className={styles.navLabel}>HÇ¸roes</span>
+              <span className={styles.navLabel}>Heroes</span>
               <span className={styles.navHint}>Roster</span>
             </Link>
             <Link href="/afk/idle" className={styles.navButton}>
               <span className={styles.navLabel}>Idle</span>
-              <span className={styles.navHint}>BotÇðn</span>
+              <span className={styles.navHint}>Boton</span>
             </Link>
             <Link href="/afk/inventory" className={styles.navButton}>
               <span className={styles.navLabel}>Inventario</span>
@@ -110,7 +110,7 @@ export default function CampaignPage() {
             <p className={styles.sectionTitle}>Stage actual</p>
             <p className={styles.muted}>Recomendado {format(nextStage.recommendedPower)}</p>
             <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
-              <Link className={styles.buttonPrimary} href={/afk/battle?stageId=}>
+              <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
                 Luchar
               </Link>
               <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
