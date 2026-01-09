@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { BattleCanvasClient } from "./BattleCanvasClient";
 import styles from "./battle.module.css";
+import { AfkViewport } from "../components/AfkViewport";
 
 export const metadata: Metadata = {
   title: "AFK Battle (Phaser)",
@@ -10,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function AfkBattlePage() {
   return (
-    <div className={styles.page}>
+    <AfkViewport className={styles.page}>
       <Suspense fallback={<div className={styles.page}>Cargando batalla...</div>}>
         <BattleCanvasClient />
       </Suspense>
-    </div>
+    </AfkViewport>
   );
 }

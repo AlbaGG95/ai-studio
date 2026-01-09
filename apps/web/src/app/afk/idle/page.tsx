@@ -6,6 +6,7 @@ import { ProceduralIcon } from "../components/ProceduralIcon";
 import { generateIcon } from "@/lib/afkProcedural";
 import { useAfk } from "@/lib/afkStore";
 import { StageClearToast } from "../components/StageClearToast";
+import { AfkViewport } from "../components/AfkViewport";
 
 function format(num: number | undefined) {
   if (num === undefined) return "0";
@@ -16,8 +17,8 @@ function formatDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  if (hours > 0) return ${hours}h m;
+  return ${minutes}m;
 }
 
 type AnimatedCounters = { gold: number; exp: number; materials: number };
@@ -116,92 +117,96 @@ export default function IdlePage() {
       return;
     }
     setLastCollected(unclaimed);
-    setCollectKey(`${Date.now()}`);
+    setCollectKey(${Date.now()});
     setGlow(true);
     claimIdle();
     setTimeout(() => setGlow(false), 900);
   };
 
   return (
-    <div className={styles.grid}>
-      {showToast && lastBattleSummary && (
-        <StageClearToast
-          summary={lastBattleSummary}
-          onClose={() => {
-            setShowToast(false);
-            clearLastBattleSummary();
-          }}
-        />
-      )}
-      <div className={`${styles.card} ${styles.heroBanner}`}>
-        <div>
-          <p className={styles.kicker}>Idle Rewards</p>
-          <h1 className={styles.title}>BotÃ³n offline listo</h1>
-          <p className={styles.muted}>
-            Cap de acumulaciÃ³n 8h Â· progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
-            generando.
-          </p>
-          <div className={styles.progressBar} style={{ marginTop: 12 }}>
-            <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
+    <AfkViewport>
+      <div className={styles.grid}>
+        {showToast && lastBattleSummary && (
+          <StageClearToast
+            summary={lastBattleSummary}
+            onClose={() => {
+              setShowToast(false);
+              clearLastBattleSummary();
+            }}
+          />
+        )}
+        <div className={${styles.card} }>
+          <div>
+            <p className={styles.kicker}>Idle Rewards</p>
+            <h1 className={styles.title}>BotÇün offline listo</h1>
+            <p className={styles.muted}>
+              Cap de acumulaciÇün 8h ¶ú progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
+              generando.
+            </p>
+            <div className={styles.progressBar} style={{ marginTop: 12 }}>
+              <div className={styles.progressFill} style={{ width: ${capPct}% }} />
+            </div>
+            <div className={styles.actions} style={{ marginTop: 12 }}>
+              <button
+                className={styles.buttonPrimary}
+                onClick={handleCollect}
+                style={{
+                  boxShadow: glow ? "0 0 18px rgba(100, 239, 188, 0.45)" : "none",
+                  transition: "box-shadow 140ms ease-out",
+                }}
+              >
+                Reclamar
+              </button>
+            </div>
+            <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
+              Çsltimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} ¶ú Çsltima vista:{" "}
+              {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
+            </p>
+            {lastCollected && (
+              <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
+                Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats{" "}
+                {format(animatedCollect.materials)}
+              </p>
+            )}
           </div>
-          <div className={styles.actions} style={{ marginTop: 12 }}>
-            <button
-              className={styles.buttonPrimary}
-              onClick={handleCollect}
+          <div className={styles.rewardIcons}>
+            <ProceduralIcon icon={generateIcon("idle-gold")} label={${format(unclaimed.gold)} oro sin reclamar} />
+            <ProceduralIcon icon={generateIcon("idle-exp")} label={${format(unclaimed.exp)} exp sin reclamar} />
+            <ProceduralIcon icon={generateIcon("idle-mat")} label={${format(unclaimed.materials)} mats sin reclamar} />
+          </div>
+        </div>
+
+        <div className={styles.card}>
+          <p className={styles.sectionTitle}>Tasa por minuto</p>
+          <p className={styles.muted}>
+            <span
               style={{
-                boxShadow: glow ? "0 0 18px rgba(100, 239, 188, 0.45)" : "none",
-                transition: "box-shadow 140ms ease-out",
+                color: highlightRates ? "#bbf7d0" : undefined,
+                textShadow: highlightRates ? "0 0 12px rgba(74,222,128,0.4)" : "none",
               }}
             >
-              Reclamar
-            </button>
-          </div>
-          <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-            Ãšltimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} Â· Ãšltima vista:{" "}
-            {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
+              Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
+              {lastBattleSummary &&
+              (lastBattleSummary.delta.gold > 0 ||
+                lastBattleSummary.delta.exp > 0 ||
+                lastBattleSummary.delta.materials > 0)
+                ? " ƒÅ'"
+                : ""}
+            </span>
           </p>
-          {lastCollected && (
-            <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-              Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats{" "}
-              {format(animatedCollect.materials)}
-            </p>
-          )}
-        </div>
-        <div className={styles.rewardIcons}>
-          <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(unclaimed.gold)} oro sin reclamar`} />
-          <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(unclaimed.exp)} exp sin reclamar`} />
-          <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(unclaimed.materials)} mats sin reclamar`} />
-        </div>
-      </div>
-
-      <div className={styles.card}>
-        <p className={styles.sectionTitle}>Tasa por minuto</p>
-        <p className={styles.muted}>
-          <span
-            style={{
-              color: highlightRates ? "#bbf7d0" : undefined,
-              textShadow: highlightRates ? "0 0 12px rgba(74,222,128,0.4)" : "none",
-            }}
-          >
-            Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
-            {lastBattleSummary &&
-            (lastBattleSummary.delta.gold > 0 || lastBattleSummary.delta.exp > 0 || lastBattleSummary.delta.materials > 0)
-              ? " â†‘"
-              : ""}
-          </span>
-        </p>
-        <p className={styles.muted}>Aumenta al vencer stages y subir upgrades.</p>
-        <div className={styles.row} style={{ marginTop: 8, justifyContent: "space-between" }}>
-          <span className={styles.tag}>Tiempo offline</span>
-          <span className={styles.muted}>{formatDuration(cappedMs)}</span>
-        </div>
-        <div className={styles.row} style={{ marginTop: 4, justifyContent: "space-between" }}>
-          <span className={styles.tag}>Estimado en ventana</span>
-          <span className={styles.muted}>
-            Oro {format(projected.gold)} / EXP {format(projected.exp)} / Mats {format(projected.materials)}
-          </span>
+          <p className={styles.muted}>Aumenta al vencer stages y subir upgrades.</p>
+          <div className={styles.row} style={{ marginTop: 8, justifyContent: "space-between" }}>
+            <span className={styles.tag}>Tiempo offline</span>
+            <span className={styles.muted}>{formatDuration(cappedMs)}</span>
+          </div>
+          <div className={styles.row} style={{ marginTop: 4, justifyContent: "space-between" }}>
+            <span className={styles.tag}>Estimado en ventana</span>
+            <span className={styles.muted}>
+              Oro {format(projected.gold)} / EXP {format(projected.exp)} / Mats {format(projected.materials)}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </AfkViewport>
   );
 }

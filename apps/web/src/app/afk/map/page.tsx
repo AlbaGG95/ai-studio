@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AfkViewport } from "../components/AfkViewport";
 import { MapCanvasClient } from "./MapCanvasClient";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function AfkMapPage() {
-  return <MapCanvasClient />;
+  return (
+    <AfkViewport>
+      <MapCanvasClient />
+    </AfkViewport>
+  );
 }

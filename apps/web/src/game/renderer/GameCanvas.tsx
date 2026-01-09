@@ -368,9 +368,13 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       style={{
         width: "100%",
         height: "100%",
+        minWidth: 0,
+        minHeight: 0,
         position: "relative",
         overflow: "hidden",
         borderRadius: 12,
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <div
@@ -378,10 +382,11 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         style={{
           width: "100%",
           height: "100%",
+          minWidth: 0,
+          minHeight: 0,
           position: "relative",
           overflow: "hidden",
-          minWidth: 2,
-          minHeight: 2,
+          flex: 1,
         }}
       />
     </div>
