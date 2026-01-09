@@ -22,12 +22,18 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
   const gameRef = useRef<PhaserLib.Game | null>(null);
   const isBootedRef = useRef(false);
   const lastSizeRef = useRef<{ width: number; height: number } | null>(null);
-  const pendingRafRef = useRef<number | null>(null);
+  const pendingBootRafRef = useRef<number | null>(null);
+  const pendingResizeRafRef = useRef<number | null>(null);
+  const bootRetryTimeoutRef = useRef<number | null>(null);
+  const bootAttemptsRef = useRef(0);
+  const bootWarnedRef = useRef(false);
   const fallbackToCanvasRef = useRef(false);
 
   useEffect(() => {
     const MIN_W = 2;
     const MIN_H = 2;
+    const MAX_BOOT_ATTEMPTS = 60;
+    const BOOT_RETRY_DELAY_MS = 50;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
     let destroyAudioListeners: Array<() => void> = [];
@@ -103,6 +109,27 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
       if (width < MIN_W || height < MIN_H) return null;
       return { width, height };
+    };
+
+    const clearBootRetryTimeout = () => {
+      if (bootRetryTimeoutRef.current !== null) {
+        clearTimeout(bootRetryTimeoutRef.current);
+        bootRetryTimeoutRef.current = null;
+      }
+    };
+
+    const clearBootRaf = () => {
+      if (pendingBootRafRef.current) {
+        cancelAnimationFrame(pendingBootRafRef.current);
+        pendingBootRafRef.current = null;
+      }
+    };
+
+    const clearResizeRaf = () => {
+      if (pendingResizeRafRef.current) {
+        cancelAnimationFrame(pendingResizeRafRef.current);
+        pendingResizeRafRef.current = null;
+      }
     };
 
     const getErrorMessage = (err: unknown) => {
@@ -242,18 +269,57 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       }
     };
 
+    const scheduleBoot = (resetAttempts = false) => {
+      if (isDestroyed || gameRef.current) return;
+      if (!Phaser || !SceneClass) return;
+
+      if (resetAttempts) {
+        bootAttemptsRef.current = 0;
+        bootWarnedRef.current = false;
+        clearBootRetryTimeout();
+        clearBootRaf();
+      }
+
+      if (pendingBootRafRef.current) return;
+      pendingBootRafRef.current = requestAnimationFrame(() => {
+        pendingBootRafRef.current = requestAnimationFrame(() => {
+          pendingBootRafRef.current = null;
+          if (isDestroyed || gameRef.current) return;
+          const size = getSafeSize();
+          if (!size) {
+            if (bootAttemptsRef.current < MAX_BOOT_ATTEMPTS) {
+              bootAttemptsRef.current += 1;
+              clearBootRetryTimeout();
+              bootRetryTimeoutRef.current = window.setTimeout(() => {
+                bootRetryTimeoutRef.current = null;
+                scheduleBoot();
+              }, BOOT_RETRY_DELAY_MS);
+            } else if (!bootWarnedRef.current) {
+              console.warn("Phaser boot delayed: container has no valid size yet");
+              bootWarnedRef.current = true;
+            }
+            return;
+          }
+          bootAttemptsRef.current = 0;
+          bootWarnedRef.current = false;
+          createGame(size);
+        });
+      });
+    };
+
     const scheduleResize = () => {
-      if (pendingRafRef.current) return;
-      pendingRafRef.current = requestAnimationFrame(() => {
-        pendingRafRef.current = requestAnimationFrame(() => {
-          pendingRafRef.current = null;
+      if (isDestroyed) return;
+      if (!gameRef.current) {
+        scheduleBoot(true);
+        return;
+      }
+      if (pendingResizeRafRef.current) return;
+      pendingResizeRafRef.current = requestAnimationFrame(() => {
+        pendingResizeRafRef.current = requestAnimationFrame(() => {
+          pendingResizeRafRef.current = null;
           if (isDestroyed) return;
           const size = getSafeSize();
           if (!size) return;
-          if (!gameRef.current) {
-            createGame(size);
-            return;
-          }
           safeResize(size);
         });
       });
@@ -265,7 +331,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       Phaser = phaserModule.default as PhaserModule;
       const factory = sceneFactory ?? createBootScene;
       SceneClass = factory(Phaser, sceneOptions);
-      scheduleResize();
+      scheduleBoot(true);
     };
 
     setup();
@@ -287,10 +353,9 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       if (resizeHandler) {
         window.removeEventListener("resize", resizeHandler);
       }
-      if (pendingRafRef.current) {
-        cancelAnimationFrame(pendingRafRef.current);
-        pendingRafRef.current = null;
-      }
+      clearBootRetryTimeout();
+      clearBootRaf();
+      clearResizeRaf();
       destroyAudioListeners.forEach((off) => off());
       destroyAudioListeners = [];
       isDestroyed = true;
@@ -300,7 +365,6 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
 
   return (
     <div
-      ref={containerRef}
       style={{
         width: "100%",
         height: "100%",
@@ -308,6 +372,18 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         overflow: "hidden",
         borderRadius: 12,
       }}
-    />
+    >
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          overflow: "hidden",
+          minWidth: 2,
+          minHeight: 2,
+        }}
+      />
+    </div>
   );
 }
