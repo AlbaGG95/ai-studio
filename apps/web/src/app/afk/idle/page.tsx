@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "../afk.module.css";
@@ -23,7 +23,11 @@ function formatDuration(ms: number) {
 
 type AnimatedCounters = { gold: number; exp: number; materials: number };
 
-function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: string) {
+function useCountUp(
+  target: AnimatedCounters,
+  durationMs: number,
+  triggerKey: string
+) {
   const [value, setValue] = useState<AnimatedCounters>(target);
   const rafRef = useRef<number | null>(null);
 
@@ -38,7 +42,9 @@ function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: st
       setValue({
         gold: Math.round(from.gold + (target.gold - from.gold) * ease),
         exp: Math.round(from.exp + (target.exp - from.exp) * ease),
-        materials: Math.round(from.materials + (target.materials - from.materials) * ease),
+        materials: Math.round(
+          from.materials + (target.materials - from.materials) * ease
+        ),
       });
       if (t < 1) {
         rafRef.current = requestAnimationFrame(step);
@@ -55,9 +61,12 @@ function useCountUp(target: AnimatedCounters, durationMs: number, triggerKey: st
 }
 
 export default function IdlePage() {
-  const { state, bank, claimIdle, lastBattleSummary, clearLastBattleSummary } = useAfk();
+  const { state, bank, claimIdle, lastBattleSummary, clearLastBattleSummary } =
+    useAfk();
   const [now, setNow] = useState(Date.now());
-  const [lastCollected, setLastCollected] = useState<AnimatedCounters | null>(null);
+  const [lastCollected, setLastCollected] = useState<AnimatedCounters | null>(
+    null
+  );
   const [glow, setGlow] = useState(false);
   const [collectKey, setCollectKey] = useState("");
   const [highlightRates, setHighlightRates] = useState(false);
@@ -98,7 +107,11 @@ export default function IdlePage() {
     materials: Math.round(bank?.materials ?? 0),
   };
 
-  const perMinute = idleState?.ratePerMinute ?? { gold: 0, exp: 0, materials: 0 };
+  const perMinute = idleState?.ratePerMinute ?? {
+    gold: 0,
+    exp: 0,
+    materials: 0,
+  };
   const projected = useMemo(() => {
     const minutes = Math.floor(cappedMs / 60000);
     return {
@@ -108,7 +121,11 @@ export default function IdlePage() {
     };
   }, [cappedMs, perMinute.exp, perMinute.gold, perMinute.materials]);
 
-  const animatedCollect = useCountUp(lastCollected ?? { gold: 0, exp: 0, materials: 0 }, 900, collectKey);
+  const animatedCollect = useCountUp(
+    lastCollected ?? { gold: 0, exp: 0, materials: 0 },
+    900,
+    collectKey
+  );
 
   const handleCollect = () => {
     if (!state) return;
@@ -140,18 +157,23 @@ export default function IdlePage() {
             <p className={styles.kicker}>Idle Rewards</p>
             <h1 className={styles.title}>Boton offline listo</h1>
             <p className={styles.muted}>
-              Cap de acumulacion 8h y progreso {capPct}%. Reclama para transferir el banco a tus recursos y seguir
-              generando.
+              Cap de acumulacion 8h y progreso {capPct}%. Reclama para
+              transferir el banco a tus recursos y seguir generando.
             </p>
             <div className={styles.progressBar} style={{ marginTop: 12 }}>
-              <div className={styles.progressFill} style={{ width: `${capPct}%` }} />
+              <div
+                className={styles.progressFill}
+                style={{ width: `${capPct}%` }}
+              />
             </div>
             <div className={styles.actions} style={{ marginTop: 12 }}>
               <button
                 className={styles.buttonPrimary}
                 onClick={handleCollect}
                 style={{
-                  boxShadow: glow ? "0 0 18px rgba(100, 239, 188, 0.45)" : "none",
+                  boxShadow: glow
+                    ? "0 0 18px rgba(100, 239, 188, 0.45)"
+                    : "none",
                   transition: "box-shadow 140ms ease-out",
                 }}
               >
@@ -159,19 +181,36 @@ export default function IdlePage() {
               </button>
             </div>
             <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-              Ultimo claim: {idleState ? new Date(idleState.lastClaimAt).toLocaleTimeString() : "-"} y ultima vista: {" "}
-              {idleState ? new Date(idleState.lastSeenAt).toLocaleTimeString() : "-"}
+              Ultimo claim:{" "}
+              {idleState
+                ? new Date(idleState.lastClaimAt).toLocaleTimeString()
+                : "-"}{" "}
+              y ultima vista:{" "}
+              {idleState
+                ? new Date(idleState.lastSeenAt).toLocaleTimeString()
+                : "-"}
             </p>
             {lastCollected && (
               <p className={styles.mutedSmall} style={{ marginTop: 6 }}>
-                Recolectado: oro {format(animatedCollect.gold)} / exp {format(animatedCollect.exp)} / mats {format(animatedCollect.materials)}
+                Recolectado: oro {format(animatedCollect.gold)} / exp{" "}
+                {format(animatedCollect.exp)} / mats{" "}
+                {format(animatedCollect.materials)}
               </p>
             )}
           </div>
           <div className={styles.rewardIcons}>
-            <ProceduralIcon icon={generateIcon("idle-gold")} label={`${format(unclaimed.gold)} oro sin reclamar`} />
-            <ProceduralIcon icon={generateIcon("idle-exp")} label={`${format(unclaimed.exp)} exp sin reclamar`} />
-            <ProceduralIcon icon={generateIcon("idle-mat")} label={`${format(unclaimed.materials)} mats sin reclamar`} />
+            <ProceduralIcon
+              icon={generateIcon("idle-gold")}
+              label={`${format(unclaimed.gold)} oro sin reclamar`}
+            />
+            <ProceduralIcon
+              icon={generateIcon("idle-exp")}
+              label={`${format(unclaimed.exp)} exp sin reclamar`}
+            />
+            <ProceduralIcon
+              icon={generateIcon("idle-mat")}
+              label={`${format(unclaimed.materials)} mats sin reclamar`}
+            />
           </div>
         </div>
 
@@ -181,10 +220,13 @@ export default function IdlePage() {
             <span
               style={{
                 color: highlightRates ? "#bbf7d0" : undefined,
-                textShadow: highlightRates ? "0 0 12px rgba(74,222,128,0.4)" : "none",
+                textShadow: highlightRates
+                  ? "0 0 12px rgba(74,222,128,0.4)"
+                  : "none",
               }}
             >
-              Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} / Materiales {format(perMinute.materials)}
+              Oro {format(perMinute.gold)} / EXP {format(perMinute.exp)} /
+              Materiales {format(perMinute.materials)}
               {lastBattleSummary &&
               (lastBattleSummary.delta.gold > 0 ||
                 lastBattleSummary.delta.exp > 0 ||
@@ -193,15 +235,24 @@ export default function IdlePage() {
                 : ""}
             </span>
           </p>
-          <p className={styles.muted}>Aumenta al vencer stages y subir upgrades.</p>
-          <div className={styles.row} style={{ marginTop: 8, justifyContent: "space-between" }}>
+          <p className={styles.muted}>
+            Aumenta al vencer stages y subir upgrades.
+          </p>
+          <div
+            className={styles.row}
+            style={{ marginTop: 8, justifyContent: "space-between" }}
+          >
             <span className={styles.tag}>Tiempo offline</span>
             <span className={styles.muted}>{formatDuration(cappedMs)}</span>
           </div>
-          <div className={styles.row} style={{ marginTop: 4, justifyContent: "space-between" }}>
+          <div
+            className={styles.row}
+            style={{ marginTop: 4, justifyContent: "space-between" }}
+          >
             <span className={styles.tag}>Estimado en ventana</span>
             <span className={styles.muted}>
-              Oro {format(projected.gold)} / EXP {format(projected.exp)} / Mats {format(projected.materials)}
+              Oro {format(projected.gold)} / EXP {format(projected.exp)} / Mats{" "}
+              {format(projected.materials)}
             </span>
           </div>
         </div>

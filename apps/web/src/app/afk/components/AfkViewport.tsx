@@ -48,7 +48,10 @@ export function AfkViewport({ children, className, style }: AfkViewportProps) {
           flex: 1,
           minHeight: 0,
           minWidth: 0,
+          height: "100%",
           width: "100%",
+          position: "relative",
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
         }}

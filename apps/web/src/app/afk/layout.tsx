@@ -22,13 +22,22 @@ function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { state, bank } = useAfk();
   const isHome = pathname === "/afk" || pathname === "/afk/";
-  const isGameRoute = pathname?.startsWith("/afk/battle") || pathname?.startsWith("/afk/map");
+  const isGameRoute =
+    pathname?.startsWith("/afk/battle") || pathname?.startsWith("/afk/map");
   const isShellRoute = pathname?.startsWith("/afk");
 
   return (
-    <div className={`${styles.page} ${isGameRoute ? `${styles.gameRoute} ${styles.gameScreen}` : ""}`}>
+    <div
+      className={`${styles.page} ${
+        isGameRoute ? `${styles.gameRoute} ${styles.gameScreen}` : ""
+      }`}
+    >
       <div className={styles.skyLayer} />
-      <div className={`${styles.pageInner} ${isGameRoute ? styles.gameRouteInner : ""}`}>
+      <div
+        className={`${styles.pageInner} ${
+          isGameRoute ? styles.gameRouteInner : ""
+        }`}
+      >
         {!isShellRoute && (
           <>
             <header className={styles.topHud}>
@@ -42,7 +51,8 @@ function Shell({ children }: { children: React.ReactNode }) {
                 <span>Materiales {format(state?.resources.materials)}</span>
               </div>
               <div className={styles.idleChip}>
-                AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp / {format(bank.materials)} mats
+                AFK Bank +{format(bank.gold)} oro / {format(bank.exp)} exp /{" "}
+                {format(bank.materials)} mats
               </div>
               {!isHome && (
                 <Link className={styles.hubLink} href="/afk">
@@ -56,7 +66,13 @@ function Shell({ children }: { children: React.ReactNode }) {
                 {nav.map((item) => {
                   const active = pathname === item.href;
                   return (
-                    <Link key={item.href} href={item.href} className={`${styles.navButton} ${active ? styles.active : ""}`}>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`${styles.navButton} ${
+                        active ? styles.active : ""
+                      }`}
+                    >
                       <span className={styles.navLabel}>{item.label}</span>
                       <span className={styles.navHint}>{item.hint}</span>
                     </Link>

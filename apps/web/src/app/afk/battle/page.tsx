@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 export default function AfkBattlePage() {
   return (
     <AfkViewport className={styles.page}>
-      <Suspense fallback={<div className={styles.page}>Cargando batalla...</div>}>
+      <Suspense
+        fallback={<div className={styles.page}>Cargando batalla...</div>}
+      >
         <BattleCanvasClient />
       </Suspense>
     </AfkViewport>

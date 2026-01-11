@@ -46,6 +46,7 @@ type UnitView = {
   role: "front" | "dps" | "support";
   container: PhaserLib.GameObjects.Container;
   visual: PhaserLib.GameObjects.Container;
+  nameLabel: PhaserLib.GameObjects.Text;
   hpFill: PhaserLib.GameObjects.Rectangle;
   hpText: PhaserLib.GameObjects.Text;
   hpWidth: number;
@@ -73,6 +74,7 @@ const SMALL_WIDTH_BREAKPOINT = 420;
 
 const BASE_CARD_WIDTH = 140;
 const BASE_CARD_HEIGHT = 110;
+const BOTTOM_STATUS_HEIGHT = 36;
 const DEBUG_STAGE = false;
 const ENABLE_FORMATION_STAGGER = true;
 const ENABLE_ATTACK_ANTICIPATION = true;
@@ -95,6 +97,8 @@ const ROLE_Y = { front: 6, dps: 0, support: -4 };
 const CARD_RADIUS = 12;
 
 type FormationLayout = {
+  safeMargin: number;
+  playfield: { x: number; y: number; width: number; height: number };
   battleArea: { x: number; y: number; width: number; height: number };
   allySlots: Array<{ x: number; y: number }>;
   enemySlots: Array<{ x: number; y: number }>;
@@ -104,45 +108,57 @@ type FormationLayout = {
 };
 
 function computeFormationLayout(viewportWidth: number, viewportHeight: number): FormationLayout {
-  const effectiveHeight = Math.max(240, viewportHeight - TOP_BAR_HEIGHT);
-  const clamp = (min: number, max: number, value: number) => Math.min(max, Math.max(min, value));
-  const topSafe = clamp(70, 120, Math.round(effectiveHeight * 0.12));
-  const bottomSafe = clamp(100, 170, Math.round(effectiveHeight * 0.18));
-  const sideSafe = clamp(90, 150, Math.round(viewportWidth * 0.12));
-
-  const battleArea = {
-    x: sideSafe,
-    y: TOP_BAR_HEIGHT + topSafe,
-    width: Math.max(240, viewportWidth - sideSafe * 2),
-    height: Math.max(240, effectiveHeight - topSafe - bottomSafe),
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+  const safeMargin = clamp(Math.round(Math.min(viewportWidth, viewportHeight) * 0.04), 8, 24);
+  const hudHeight = TOP_BAR_HEIGHT;
+  const playfieldWidth = Math.max(180, viewportWidth - safeMargin * 2);
+  const playfieldHeight = Math.max(
+    220,
+    viewportHeight - safeMargin * 2 - hudHeight - BOTTOM_STATUS_HEIGHT
+  );
+  const playfield = {
+    x: safeMargin,
+    y: safeMargin + hudHeight,
+    width: playfieldWidth,
+    height: playfieldHeight,
   };
 
   const rows = 5;
-  const usableHeight = battleArea.height * 0.85;
-  const startY = battleArea.y + (battleArea.height - usableHeight) / 2;
-  const slotHeight = usableHeight / rows;
-  const maxScaleByHeight = (slotHeight * 0.9) / BASE_CARD_HEIGHT;
-  const maxScaleByWidth = (battleArea.width * 0.42) / BASE_CARD_WIDTH;
-  const rawScale = Math.min(maxScaleByHeight, maxScaleByWidth, 1.15);
-  const cardScale = clamp(0.9, 1.15, rawScale);
+  const gapFactorBase = clamp(playfieldWidth / 520, 0.2, 1.0);
+  const rowSpacingFactor = clamp(playfieldHeight / 900, 0.85, 1.05);
+  const widthNeeded = BASE_CARD_WIDTH * (2 + gapFactorBase);
+  const heightNeeded = BASE_CARD_HEIGHT * (1 + (rows - 1) * rowSpacingFactor);
+  const rawScale = Math.min(playfieldWidth / widthNeeded, playfieldHeight / heightNeeded);
+  const maxScale = 1.2;
+  const minSuggestedScale = 0.75;
+  let cardScale = Math.min(rawScale, maxScale);
+  if (cardScale < minSuggestedScale) {
+    cardScale = rawScale;
+  }
+  const columnGap = BASE_CARD_WIDTH * gapFactorBase * cardScale;
   const cardWidth = BASE_CARD_WIDTH * cardScale;
   const cardHeight = BASE_CARD_HEIGHT * cardScale;
+  const rowSpacing = BASE_CARD_HEIGHT * rowSpacingFactor * cardScale;
 
-  const formationCenterX = battleArea.x + battleArea.width / 2;
-  const columnSeparation = clamp(260, battleArea.width * 0.5, 500);
-  const allyX = formationCenterX - columnSeparation / 2;
-  const enemyX = formationCenterX + columnSeparation / 2;
+  const formationCenterX = playfield.x + playfield.width / 2;
+  const formationCenterY = playfield.y + playfield.height / 2;
+  const totalHeight = cardHeight + rowSpacing * (rows - 1);
+  const startY = formationCenterY - totalHeight / 2 + cardHeight / 2;
+  const allyX = formationCenterX - columnGap / 2;
+  const enemyX = formationCenterX + columnGap / 2;
 
   const allySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: allyX,
-    y: startY + slotHeight * (idx + 0.5),
+    y: startY + rowSpacing * idx,
   }));
   const enemySlots = Array.from({ length: rows }).map((_, idx) => ({
     x: enemyX,
-    y: startY + slotHeight * (idx + 0.5),
+    y: startY + rowSpacing * idx,
   }));
 
-  return { battleArea, allySlots, enemySlots, cardScale, cardWidth, cardHeight };
+  const battleArea = { ...playfield };
+
+  return { safeMargin, playfield, battleArea, allySlots, enemySlots, cardScale, cardWidth, cardHeight };
 }
 
 export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOptions = {}) {
@@ -515,6 +531,7 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         role,
         container,
         visual,
+        nameLabel: name,
         hpFill,
         hpText,
         hpWidth: baseHpWidth,
@@ -529,11 +546,12 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
 
     private layout(size: PhaserLib.Structs.Size) {
       const { width, height } = size;
-      this.layoutState = computeFormationLayout(width, height);
+      const layout = computeFormationLayout(width, height);
+      this.layoutState = layout;
       this.layoutBackground(width, height);
       this.layoutStage();
       this.layoutUnits(width, height);
-      this.layoutHud(width, height);
+      this.layoutHud(width, height, layout.safeMargin);
       if (this.overlay) {
         this.overlay.setPosition(width / 2, height / 2);
       }
@@ -541,7 +559,14 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.overlayCard.layout(width, height);
       }
       if (this.statusText) {
-        this.statusText.setPosition(18, height - 32);
+        const tinyStatus = width < 320;
+        const statusFontSize = tinyStatus ? "12px" : "14px";
+        this.statusText.setFontSize(statusFontSize);
+        const statusLineHeight = tinyStatus ? 18 : 22;
+        const bottomY = height - layout.safeMargin - statusLineHeight * 0.5;
+        const playfieldBottom = layout.playfield.y + layout.playfield.height;
+        const statusY = Math.min(bottomY, playfieldBottom + layout.safeMargin + statusLineHeight * 0.4);
+        this.statusText.setPosition(layout.safeMargin, statusY);
       }
       this.cameraRoot.setPosition(this.cameraState.x, this.cameraState.y);
       this.cameraRoot.setScale(this.cameraState.scale);
@@ -677,7 +702,34 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.debugRects.forEach((r) => r.destroy());
         this.debugRects = [];
       }
-      if (DEBUG_LAYOUT) {
+      const showDebug = this.shouldDebugLayout();
+      if (showDebug) {
+        const safeRect = this.add
+          .rectangle(
+            width / 2,
+            height / 2,
+            width - layout.safeMargin * 2,
+            height - layout.safeMargin * 2,
+            0xff0000,
+            0.05
+          )
+          .setOrigin(0.5);
+        safeRect.setStrokeStyle(1, 0xff0000, 0.35);
+        safeRect.setDepth(1);
+        this.debugRects.push(safeRect);
+        const playRect = this.add
+          .rectangle(
+            layout.playfield.x + layout.playfield.width / 2,
+            layout.playfield.y + layout.playfield.height / 2,
+            layout.playfield.width,
+            layout.playfield.height,
+            0xffff00,
+            0.08
+          )
+          .setOrigin(0.5);
+        playRect.setStrokeStyle(1, 0xffff00, 0.5);
+        playRect.setDepth(1);
+        this.debugRects.push(playRect);
         const bounds = this.add
           .rectangle(
             layout.battleArea.x + layout.battleArea.width / 2,
@@ -720,57 +772,128 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         });
       }
 
+      const isTinyWidth = width < 280;
+      const isCompactWidth = width < 360;
+      const nameFontSize = isTinyWidth ? "13px" : isCompactWidth ? "14px" : "16px";
+      const maxNamePx = Math.max(80, Math.min(140, layout.playfield.width * (isTinyWidth ? 0.42 : 0.48)));
+      const maxNameLocal = maxNamePx / Math.max(0.0001, layout.cardScale);
+      const nameX = -BASE_CARD_WIDTH * 0.34;
+      const nameY = -BASE_CARD_HEIGHT * 0.18;
+
       this.units.forEach((unit) => {
         const slotIdx = Math.max(0, Math.min(4, unit.spec.slotIndex));
         const pos = unit.spec.team === "ally" ? layout.allySlots[slotIdx] : layout.enemySlots[slotIdx];
         unit.container.setPosition(pos.x, pos.y);
         unit.container.setScale(layout.cardScale);
+        const name = unit.nameLabel;
+        name.setPosition(nameX, nameY);
+        name.setFontSize(nameFontSize);
+        name.setOrigin(0, 0.5);
+        name.setWordWrapWidth(maxNameLocal, true);
+        if ("setFixedSize" in name && typeof name.setFixedSize === "function") {
+          name.setFixedSize(maxNameLocal, 0);
+        }
         this.applyVisualTransform(unit, this.time.now, true, this.allyHp >= this.enemyHp ? "ally" : "enemy");
       });
       this.allyGroup.setPosition(0, 0);
       this.enemyGroup.setPosition(0, 0);
     }
 
-    private layoutHud(width: number, _height: number) {
-      if (this.hudBar) {
-        this.hudBar.setSize(width, TOP_BAR_HEIGHT);
-        this.hudBar.setPosition(0, 0);
-      }
+    private layoutHud(width: number, _height: number, safeMargin: number) {
+      const barWidth = Math.max(160, width - safeMargin * 2);
+      const barX = safeMargin;
+      const barY = safeMargin;
+      const isTiny = width < 280;
+      const isCompact = !isTiny && width < 360;
+      const buttonHeight = Math.max(28, isTiny ? 30 : isCompact ? 32 : 34);
+      const buttonFontSize = isTiny ? "12px" : isCompact ? "13px" : "14px";
+      let spacing = isTiny ? 4 : isCompact ? 8 : 10;
+      const minButtonWidth = isTiny ? 68 : isCompact ? 80 : 92;
+      const maxButtonWidth = isTiny ? 96 : isCompact ? 112 : 128;
 
-      const padding = 16;
-      const isSmall = width <= SMALL_WIDTH_BREAKPOINT;
-      const buttonHeight = 34;
-      const spacing = isSmall ? 8 : 12;
-      const minButtonWidth = isSmall ? 76 : 96;
-      const maxButtonWidth = isSmall ? 104 : 120;
+      if (this.hudBar) {
+        this.hudBar.setSize(barWidth, TOP_BAR_HEIGHT);
+        this.hudBar.setPosition(barX, barY);
+      }
 
       if (this.stageLabel) {
-        this.stageLabel.setFontSize(isSmall ? "18px" : "20px");
-        this.stageLabel.setPosition(padding, TOP_BAR_HEIGHT / 2);
+        const stageFont = isTiny ? "16px" : isCompact ? "18px" : "20px";
+        const stageMaxWidth = Math.max(120, barWidth * 0.45);
+        this.stageLabel.setFontSize(stageFont);
+        this.stageLabel.setWordWrapWidth(stageMaxWidth, true);
+        if ("setFixedSize" in this.stageLabel && typeof this.stageLabel.setFixedSize === "function") {
+          this.stageLabel.setFixedSize(stageMaxWidth, 0);
+        }
       }
 
-      const labelWidth = this.stageLabel?.width ?? 0;
-      const availableRowWidth = Math.max(160, width - padding * 2 - labelWidth);
-      let buttonWidth = Math.min(
-        maxButtonWidth,
-        Math.max(minButtonWidth, Math.floor((availableRowWidth - spacing * 2) / 3))
-      );
-      const minFitWidth = 60;
-      if (buttonWidth * 3 + spacing * 2 > availableRowWidth) {
-        const fitted = Math.floor((availableRowWidth - spacing * 2) / 3);
-        buttonWidth = Math.max(minFitWidth, Math.min(buttonWidth, fitted));
-      }
-      const rowWidth = Math.min(buttonWidth * 3 + spacing * 2, availableRowWidth);
-      const startX = Math.max(padding + labelWidth + spacing, width - padding - rowWidth);
-      const y = (TOP_BAR_HEIGHT - buttonHeight) / 2;
+      const buttons = [this.hudSpeed, this.hudAuto, this.hudBack].filter(Boolean) as {
+        container: PhaserLib.GameObjects.Container;
+        label: PhaserLib.GameObjects.Text;
+        bg: PhaserLib.GameObjects.Rectangle;
+      }[];
+      if (buttons.length === 0) return;
 
-      const buttons = [this.hudSpeed, this.hudAuto, this.hudBack];
-      buttons.forEach((btn, idx) => {
-        if (!btn) return;
+      const availableRowWidth = Math.max(120, barWidth - spacing * 2);
+      let buttonWidth = Math.min(maxButtonWidth, Math.max(minButtonWidth, Math.floor((availableRowWidth - spacing * (buttons.length - 1)) / buttons.length)));
+      if (buttonWidth * buttons.length + spacing * (buttons.length - 1) > availableRowWidth) {
+        spacing = Math.max(3, spacing - 2);
+        buttonWidth = Math.min(
+          maxButtonWidth,
+          Math.max(minButtonWidth, Math.floor((availableRowWidth - spacing * (buttons.length - 1)) / buttons.length))
+        );
+      }
+
+      const placeButton = (btn: (typeof buttons)[number], x: number, y: number) => {
         btn.bg.setSize(buttonWidth, buttonHeight);
+        btn.label.setFontSize(buttonFontSize);
         btn.label.setPosition(buttonWidth / 2, buttonHeight / 2);
-        btn.container.setPosition(startX + idx * (buttonWidth + spacing), y);
-      });
+        btn.container.setPosition(x, y);
+      };
+
+      if (isTiny) {
+        const row1Y = barY + buttonHeight * 0.55;
+        const row2Y = barY + buttonHeight * 1.4 + spacing;
+        if (this.stageLabel) {
+          const labelX = barX + spacing;
+          this.stageLabel.setPosition(labelX, row1Y);
+          this.stageLabel.setOrigin(0, 0.5);
+        }
+        const rowWidth = buttonWidth * buttons.length + spacing * (buttons.length - 1);
+        const startX = Math.min(barX + barWidth - rowWidth - spacing, barX + spacing + Math.max(0, barWidth - rowWidth - spacing * 2));
+        buttons.forEach((btn, idx) => {
+          placeButton(btn, startX + idx * (buttonWidth + spacing), row2Y);
+        });
+      } else {
+        const stageLabelWidth = Math.min(this.stageLabel?.width ?? 0, Math.max(120, barWidth * 0.5));
+        const rowY = barY + (TOP_BAR_HEIGHT - buttonHeight) / 2;
+        if (this.stageLabel) {
+          this.stageLabel.setOrigin(0, 0.5);
+          this.stageLabel.setPosition(barX + spacing, rowY + buttonHeight / 2);
+        }
+        const rowWidth = buttonWidth * buttons.length + spacing * (buttons.length - 1);
+        const startX = barX + barWidth - rowWidth - spacing;
+        const fitsWithLabel = startX > barX + stageLabelWidth + spacing * 2 || isCompact;
+        if (fitsWithLabel) {
+          buttons.forEach((btn, idx) => placeButton(btn, startX + idx * (buttonWidth + spacing), rowY));
+        } else {
+          const row1Count = Math.min(2, buttons.length);
+          const row2Count = buttons.length - row1Count;
+          const row1Width = row1Count > 0 ? buttonWidth * row1Count + spacing * Math.max(0, row1Count - 1) : 0;
+          const row2Width = row2Count > 0 ? buttonWidth * row2Count + spacing * Math.max(0, row2Count - 1) : 0;
+          const row1Start = barX + barWidth - row1Width - spacing;
+          const row2Start = barX + barWidth - row2Width - spacing;
+          const rowY1 = rowY - buttonHeight * 0.35;
+          const rowY2 = rowY1 + buttonHeight * 1.1;
+          buttons.forEach((btn, idx) => {
+            if (idx < row1Count) {
+              placeButton(btn, row1Start + idx * (buttonWidth + spacing), rowY1);
+            } else {
+              const col = idx - row1Count;
+              placeButton(btn, row2Start + col * (buttonWidth + spacing), rowY2);
+            }
+          });
+        }
+      }
     }
 
     private async processEvent(evt: CombatEvent) {
@@ -1160,6 +1283,16 @@ export function createBattleScene(Phaser: PhaserModule, options: BattleSceneOpti
         this.introTweens = [];
       });
       this.introTweens = tweens;
+    }
+
+    private shouldDebugLayout() {
+      if (DEBUG_LAYOUT) return true;
+      if (typeof window === "undefined") return false;
+      try {
+        return window.localStorage?.getItem("afkDebugLayout") === "1";
+      } catch {
+        return false;
+      }
     }
 
     private playHitStop(durationMs: number, targetId?: string) {

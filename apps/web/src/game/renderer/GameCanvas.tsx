@@ -18,21 +18,25 @@ type GameCanvasProps = {
 };
 
 export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor }: GameCanvasProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const gameRef = useRef<PhaserLib.Game | null>(null);
   const isBootedRef = useRef(false);
   const lastSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const lastGoodSizeRef = useRef<{ width: number; height: number } | null>(null);
   const pendingBootRafRef = useRef<number | null>(null);
   const pendingResizeRafRef = useRef<number | null>(null);
+  const pendingResizeTimeoutRef = useRef<number | null>(null);
   const bootRetryTimeoutRef = useRef<number | null>(null);
   const bootAttemptsRef = useRef(0);
-  const bootWarnedRef = useRef(false);
+  const lastBootWarnTimeRef = useRef(0);
+  const lastBootWarnSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const lastInvalidWarnTimeRef = useRef(0);
+  const lastInvalidWarnSizeRef = useRef<{ width: number; height: number } | null>(null);
   const fallbackToCanvasRef = useRef(false);
 
   useEffect(() => {
     const MIN_W = 2;
     const MIN_H = 2;
-    const MAX_BOOT_ATTEMPTS = 60;
     const BOOT_RETRY_DELAY_MS = 50;
     let resizeObserver: ResizeObserver | null = null;
     let resizeHandler: (() => void) | null = null;
@@ -46,6 +50,11 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
 
     isBootedRef.current = false;
     lastSizeRef.current = null;
+    lastGoodSizeRef.current = null;
+    lastBootWarnTimeRef.current = 0;
+    lastBootWarnSizeRef.current = null;
+    lastInvalidWarnTimeRef.current = 0;
+    lastInvalidWarnSizeRef.current = null;
     fallbackToCanvasRef.current = false;
 
     const getAudioContext = (): AudioContext | null => {
@@ -100,15 +109,43 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       destroyAudioListeners.push(() => window.removeEventListener("focus", handleFocus));
     };
 
-    const getSafeSize = (): { width: number; height: number } | null => {
-      const el = containerRef.current;
+    const isValidSize = (size: { width: number; height: number } | null | undefined) => {
+      if (!size) return false;
+      const { width, height } = size;
+      return Number.isFinite(width) && Number.isFinite(height) && width > 1 && height > 1;
+    };
+
+    const measureHost = (entry?: ResizeObserverEntry | null): { width: number; height: number } | null => {
+      const el = hostRef.current;
       if (!el || !el.isConnected) return null;
-      const rect = el.getBoundingClientRect();
+      const rect = entry?.contentRect ?? el.getBoundingClientRect?.();
       const width = Math.floor(rect?.width ?? 0);
       const height = Math.floor(rect?.height ?? 0);
       if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-      if (width < MIN_W || height < MIN_H) return null;
       return { width, height };
+    };
+
+    const warnInvalidSize = (size: { width: number; height: number } | null) => {
+      if (!size) return;
+      const now = Date.now();
+      const lastWarnTime = lastInvalidWarnTimeRef.current;
+      const lastWarnSize = lastInvalidWarnSizeRef.current;
+      const sizeChanged =
+        !lastWarnSize || lastWarnSize.width !== size.width || lastWarnSize.height !== size.height;
+      if (!sizeChanged && now - lastWarnTime < 1000) return;
+      console.warn(`GameCanvas resize ignored (w=${size.width}, h=${size.height})`);
+      lastInvalidWarnTimeRef.current = now;
+      lastInvalidWarnSizeRef.current = size;
+    };
+
+    const getSafeSize = (entry?: ResizeObserverEntry | null): { width: number; height: number } | null => {
+      const size = measureHost(entry);
+      if (!isValidSize(size)) {
+        warnInvalidSize(size);
+        return null;
+      }
+      lastGoodSizeRef.current = size;
+      return size;
     };
 
     const clearBootRetryTimeout = () => {
@@ -129,6 +166,13 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       if (pendingResizeRafRef.current) {
         cancelAnimationFrame(pendingResizeRafRef.current);
         pendingResizeRafRef.current = null;
+      }
+    };
+
+    const clearResizeTimeout = () => {
+      if (pendingResizeTimeoutRef.current !== null) {
+        clearTimeout(pendingResizeTimeoutRef.current);
+        pendingResizeTimeoutRef.current = null;
       }
     };
 
@@ -168,7 +212,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         if (!isWebGlFramebufferError(errorPayload)) return;
         event.preventDefault();
         fallbackToCanvasRef.current = true;
-        const fallbackSize = lastSizeRef.current ?? getSafeSize();
+        const fallbackSize = lastSizeRef.current ?? lastGoodSizeRef.current ?? getSafeSize();
         destroyGame();
         if (fallbackSize) {
           createGame(fallbackSize);
@@ -179,8 +223,8 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
     };
 
     const createGame = (size: { width: number; height: number }) => {
-      if (!containerRef.current || !Phaser || !SceneClass) return;
-      if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return;
+      if (!hostRef.current || !Phaser || !SceneClass) return;
+      if (!isValidSize(size)) return;
       if (size.width < MIN_W || size.height < MIN_H) return;
 
       const renderType = fallbackToCanvasRef.current ? Phaser.CANVAS : Phaser.WEBGL;
@@ -190,7 +234,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         type: renderType,
         width: size.width,
         height: size.height,
-        parent: containerRef.current,
+        parent: hostRef.current,
         backgroundColor: backgroundColor ?? "#030712",
         resolution,
         scale: {
@@ -207,6 +251,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         const newGame = new Phaser.Game(gameConfig);
         gameRef.current = newGame;
         lastSizeRef.current = size;
+        lastGoodSizeRef.current = size;
         isBootedRef.current = false;
         newGame.events?.once?.(Phaser.Core.Events.READY, () => {
           isBootedRef.current = true;
@@ -245,12 +290,14 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
     };
 
     const safeResize = (size: { width: number; height: number }) => {
+      if (!isValidSize(size)) return;
       if (!gameRef.current) return;
       const lastSize = lastSizeRef.current;
       if (lastSize && lastSize.width === size.width && lastSize.height === size.height) return;
       try {
         gameRef.current.scale.resize(size.width, size.height);
         lastSizeRef.current = size;
+        lastGoodSizeRef.current = size;
         resizeErrored = false;
       } catch (err) {
         if (isWebGlFramebufferError(err) && !fallbackToCanvasRef.current) {
@@ -275,7 +322,6 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
 
       if (resetAttempts) {
         bootAttemptsRef.current = 0;
-        bootWarnedRef.current = false;
         clearBootRetryTimeout();
         clearBootRaf();
       }
@@ -285,44 +331,75 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
         pendingBootRafRef.current = requestAnimationFrame(() => {
           pendingBootRafRef.current = null;
           if (isDestroyed || gameRef.current) return;
-          const size = getSafeSize();
-          if (!size) {
-            if (bootAttemptsRef.current < MAX_BOOT_ATTEMPTS) {
-              bootAttemptsRef.current += 1;
-              clearBootRetryTimeout();
-              bootRetryTimeoutRef.current = window.setTimeout(() => {
-                bootRetryTimeoutRef.current = null;
-                scheduleBoot();
-              }, BOOT_RETRY_DELAY_MS);
-            } else if (!bootWarnedRef.current) {
-              console.warn("Phaser boot delayed: container has no valid size yet");
-              bootWarnedRef.current = true;
-            }
+          const measuredSize = measureHost();
+          if (!measuredSize) {
+            bootAttemptsRef.current += 1;
+            clearBootRetryTimeout();
+            const retryDelay = Math.min(BOOT_RETRY_DELAY_MS * Math.max(1, bootAttemptsRef.current), 1000);
+            bootRetryTimeoutRef.current = window.setTimeout(() => {
+              bootRetryTimeoutRef.current = null;
+              scheduleBoot();
+            }, retryDelay);
             return;
           }
+
+          if (!isValidSize(measuredSize) || measuredSize.width < MIN_W || measuredSize.height < MIN_H) {
+            bootAttemptsRef.current += 1;
+            const now = Date.now();
+            const lastWarnTime = lastBootWarnTimeRef.current;
+            const lastWarnSize = lastBootWarnSizeRef.current;
+            const sizeChanged =
+              !lastWarnSize ||
+              lastWarnSize.width !== measuredSize.width ||
+              lastWarnSize.height !== measuredSize.height;
+            if (sizeChanged || now - lastWarnTime >= 1000) {
+              console.warn(
+                `Phaser boot delayed: container has no valid size yet (w=${measuredSize.width}, h=${measuredSize.height})`
+              );
+              lastBootWarnTimeRef.current = now;
+              lastBootWarnSizeRef.current = measuredSize;
+            }
+            clearBootRetryTimeout();
+            const retryDelay = Math.min(BOOT_RETRY_DELAY_MS * Math.max(1, bootAttemptsRef.current), 1000);
+            bootRetryTimeoutRef.current = window.setTimeout(() => {
+              bootRetryTimeoutRef.current = null;
+              scheduleBoot();
+            }, retryDelay);
+            return;
+          }
+
           bootAttemptsRef.current = 0;
-          bootWarnedRef.current = false;
-          createGame(size);
+          lastBootWarnSizeRef.current = null;
+          lastGoodSizeRef.current = measuredSize;
+          createGame(measuredSize);
         });
       });
     };
 
-    const scheduleResize = () => {
+    const scheduleResize = (entry?: ResizeObserverEntry) => {
       if (isDestroyed) return;
+      const size = getSafeSize(entry);
+      if (!size) return;
       if (!gameRef.current) {
         scheduleBoot(true);
-        return;
       }
-      if (pendingResizeRafRef.current) return;
-      pendingResizeRafRef.current = requestAnimationFrame(() => {
+      clearResizeTimeout();
+      clearResizeRaf();
+      pendingResizeTimeoutRef.current = window.setTimeout(() => {
+        pendingResizeTimeoutRef.current = null;
+        if (isDestroyed) return;
+        const targetSize = lastGoodSizeRef.current ?? size;
+        if (!isValidSize(targetSize)) return;
         pendingResizeRafRef.current = requestAnimationFrame(() => {
           pendingResizeRafRef.current = null;
           if (isDestroyed) return;
-          const size = getSafeSize();
-          if (!size) return;
-          safeResize(size);
+          if (!gameRef.current) {
+            scheduleBoot(true);
+            return;
+          }
+          safeResize(targetSize);
         });
-      });
+      }, 120);
     };
 
     const setup = async () => {
@@ -336,9 +413,12 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
 
     setup();
 
-    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
-      resizeObserver = new ResizeObserver(scheduleResize);
-      resizeObserver.observe(containerRef.current);
+    if (typeof ResizeObserver !== "undefined" && hostRef.current) {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[entries.length - 1];
+        scheduleResize(entry);
+      });
+      resizeObserver.observe(hostRef.current);
     } else if (typeof window !== "undefined") {
       resizeHandler = scheduleResize;
       window.addEventListener("resize", resizeHandler);
@@ -356,6 +436,7 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
       clearBootRetryTimeout();
       clearBootRaf();
       clearResizeRaf();
+      clearResizeTimeout();
       destroyAudioListeners.forEach((off) => off());
       destroyAudioListeners = [];
       isDestroyed = true;
@@ -366,27 +447,24 @@ export default function GameCanvas({ sceneFactory, sceneOptions, backgroundColor
   return (
     <div
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
-        minWidth: 0,
+        flex: 1,
         minHeight: 0,
-        position: "relative",
+        minWidth: 0,
         overflow: "hidden",
-        borderRadius: 12,
-        display: "flex",
-        flexDirection: "column",
       }}
     >
       <div
-        ref={containerRef}
+        ref={hostRef}
         style={{
-          width: "100%",
-          height: "100%",
+          position: "absolute",
+          inset: 0,
           minWidth: 0,
           minHeight: 0,
-          position: "relative",
           overflow: "hidden",
-          flex: 1,
+          display: "block",
         }}
       />
     </div>

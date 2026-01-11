@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,8 +31,12 @@ export default function CampaignPage() {
     );
   }
 
-  const stageStateMap = new Map(campaign.stages.map((stage) => [stage.id, stage.state]));
-  const completed = new Set(campaign.stages.filter((s) => s.state === "completed").map((s) => s.id));
+  const stageStateMap = new Map(
+    campaign.stages.map((stage) => [stage.id, stage.state])
+  );
+  const completed = new Set(
+    campaign.stages.filter((s) => s.state === "completed").map((s) => s.id)
+  );
   const unlocked = new Set<string>(completed);
   unlocked.add(campaign.currentStageId);
   const currentId = campaign.currentStageId;
@@ -57,18 +61,31 @@ export default function CampaignPage() {
           </div>
         }
         topHud={
-          <div className={`${styles.card} ${styles.heroBanner}`} style={{ margin: 0 }}>
+          <div
+            className={`${styles.card} ${styles.heroBanner}`}
+            style={{ margin: 0 }}
+          >
             <div>
               <p className={styles.kicker}>Capitulo {stages[0].chapter}</p>
               <h1 className={styles.title}>Mapa vivo de campana</h1>
               <p className={styles.muted}>
-                Progreso {completed.size}/{stages.length}. Cada victoria desbloquea el siguiente stage y mejora el boton idle.
+                Progreso {completed.size}/{stages.length}. Cada victoria
+                desbloquea el siguiente stage y mejora el boton idle.
               </p>
-              <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
-                <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
+              <div
+                className={styles.actions}
+                style={{ marginTop: 10, gap: 12 }}
+              >
+                <Link
+                  className={styles.buttonPrimary}
+                  href={`/afk/battle?stageId=${nextStage.id}`}
+                >
                   Luchar stage {nextStage.id}
                 </Link>
-                <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
+                <button
+                  className={styles.buttonGhost}
+                  onClick={() => setCurrentStage(nextStage.id)}
+                >
                   Fijar stage actual
                 </button>
               </div>
@@ -108,12 +125,20 @@ export default function CampaignPage() {
         <div className={styles.homeOverlay}>
           <div className={styles.card} style={{ maxWidth: 400 }}>
             <p className={styles.sectionTitle}>Stage actual</p>
-            <p className={styles.muted}>Recomendado {format(nextStage.recommendedPower)}</p>
+            <p className={styles.muted}>
+              Recomendado {format(nextStage.recommendedPower)}
+            </p>
             <div className={styles.actions} style={{ marginTop: 10, gap: 12 }}>
-              <Link className={styles.buttonPrimary} href={`/afk/battle?stageId=${nextStage.id}`}>
+              <Link
+                className={styles.buttonPrimary}
+                href={`/afk/battle?stageId=${nextStage.id}`}
+              >
                 Luchar
               </Link>
-              <button className={styles.buttonGhost} onClick={() => setCurrentStage(nextStage.id)}>
+              <button
+                className={styles.buttonGhost}
+                onClick={() => setCurrentStage(nextStage.id)}
+              >
                 Seleccionar
               </button>
             </div>
