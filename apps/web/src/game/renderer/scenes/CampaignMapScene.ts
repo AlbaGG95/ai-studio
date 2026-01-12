@@ -45,7 +45,7 @@ const COLORS = {
 
 const NODE_RADIUS = 28;
 const NODE_RING = NODE_RADIUS + 10;
-const MIN_ZOOM = 0.6;
+const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1.4;
 let sceneInstanceCounter = 0;
 
@@ -53,12 +53,58 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function computeNodePositions(stages: CampaignStageLayout[]): Array<CampaignStageLayout & { x: number; y: number }> {
-  const perRow = 4;
-  const spacingX = 200;
+type LayoutConfig = {
+  perRow: number;
+  spacingX: number;
+  spacingY: number;
+  baseX: number;
+  baseY: number;
+  key: string;
+};
+
+function getLayoutConfig(canvasWidth: number): LayoutConfig {
+  // Default (>= 320): 4 columns
+  let perRow = 4;
+  let spacingX = 200;
+  let baseX = 140;
+
+  // Very narrow (< 260): 2 columns
+  if (canvasWidth < 260) {
+    perRow = 2;
+    spacingX = 180;
+    baseX = 100;
+  }
+  // Narrow (< 320): 3 columns
+  else if (canvasWidth < 320) {
+    perRow = 3;
+    spacingX = 180;
+    baseX = 120;
+  }
+
   const spacingY = 140;
-  const baseX = 140;
   const baseY = 140;
+
+  // Key used to detect threshold crossings (2/3/4 columns)
+  const key = `${perRow}-${spacingX}-${spacingY}-${baseX}-${baseY}`;
+  return { perRow, spacingX, spacingY, baseX, baseY, key };
+}
+
+function computeNodePositions(
+  stages: CampaignStageLayout[],
+  layout: {
+    perRow?: number;
+    spacingX?: number;
+    spacingY?: number;
+    baseX?: number;
+    baseY?: number;
+  } = {}
+): Array<CampaignStageLayout & { x: number; y: number }> {
+  const perRow = layout.perRow ?? 4;
+  const spacingX = layout.spacingX ?? 200;
+  const spacingY = layout.spacingY ?? 140;
+  const baseX = layout.baseX ?? 140;
+  const baseY = layout.baseY ?? 140;
+
   return stages.map((stage, index) => {
     const col = index % perRow;
     const row = Math.floor(index / perRow);
@@ -74,21 +120,31 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
     private nodes = new Map<string, NodeView>();
     private nodeLayer!: PhaserLib.GameObjects.Container;
     private dragState: { active: boolean; lastX: number; lastY: number } = { active: false, lastX: 0, lastY: 0 };
+
     private bounds: Bounds | null = null;
     private safeMargin = 32;
+
     private backgrounds: PhaserLib.GameObjects.Rectangle[] = [];
+    private linkGraphics: PhaserLib.GameObjects.Graphics | null = null;
+
     private lastValidSize: { width: number; height: number } | null = null;
     private lastInvalidWarn = 0;
+
     private lastFittedSize: { width: number; height: number } | null = null;
     private lastFittedBounds: Bounds | null = null;
     private hasFittedOnce = false;
+
     private pendingInitialFit: PhaserLib.Time.TimerEvent | null = null;
+
     private debugFit = false;
     private debugMap = false;
+
     private runtimeBus: CampaignMapRuntimeBus | null = null;
     private runtimeUnsubscribe: (() => void) | null = null;
     private runtimeSnapshot: CampaignMapRuntime | null = null;
+
     private sceneInstanceId: number;
+    private layoutKey: string | null = null;
 
     constructor() {
       super("campaign-map");
@@ -101,7 +157,8 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
       const debugMap = window.localStorage?.getItem("afkDebugMap") === "1";
       const debugFit = window.localStorage?.getItem("afkDebugMapFit") === "1";
       this.debugMap = debugMap;
-      this.debugFit = debugMap || debugFit;
+      this.debugFit = debugFit;
+
       if (this.debugMap) {
         console.debug(`[CampaignMapScene#${this.sceneInstanceId}] init t=${Date.now()}`);
       }
@@ -110,10 +167,13 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
     create() {
       const cam = this.cameras.main;
       cam.setBackgroundColor(COLORS.bg1);
+
       if (this.debugMap) {
         console.debug(`[CampaignMapScene#${this.sceneInstanceId}] create t=${Date.now()}`);
       }
+
       this.nodeLayer = this.add.container(0, 0);
+
       this.runtimeBus = options.runtimeBus ?? null;
       this.runtimeSnapshot = this.runtimeBus?.getSnapshot() ?? null;
 
@@ -123,19 +183,33 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
       this.setupInput();
 
       this.scale.on("resize", this.handleResize, this);
+
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
         this.scale.off("resize", this.handleResize, this);
+
         this.input.off("pointerdown");
         this.input.off("pointerup");
         this.input.off("pointerupoutside");
         this.input.off("pointermove");
-        this.input.off("wheel");
+        // No wheel listener (intentionally disabled)
+
         this.pendingInitialFit?.remove(false);
         this.pendingInitialFit = null;
+
         if (this.runtimeUnsubscribe) {
           this.runtimeUnsubscribe();
           this.runtimeUnsubscribe = null;
         }
+
+        if (this.linkGraphics) {
+          this.linkGraphics.destroy();
+          this.linkGraphics = null;
+        }
+
+        // Destroy node containers (nodeLayer will also get destroyed with scene, but keep tidy)
+        this.nodes.forEach((node) => node.container.destroy());
+        this.nodes.clear();
+
         if (this.debugMap) {
           console.debug(`[CampaignMapScene#${this.sceneInstanceId}] shutdown t=${Date.now()}`);
         }
@@ -154,17 +228,31 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
       const bg1 = this.add.rectangle(0, 0, width, height, COLORS.bg1, 1).setOrigin(0, 0);
       const bg2 = this.add.rectangle(0, 0, width, height * 0.55, COLORS.bg2, 0.5).setOrigin(0, 0);
       const bg3 = this.add.rectangle(0, height * 0.5, width, height * 0.5, COLORS.bg3, 0.65).setOrigin(0, 0);
+
       this.nodeLayer.addAt(bg1, 0);
       this.nodeLayer.addAt(bg2, 1);
       this.nodeLayer.addAt(bg3, 2);
+
       this.backgrounds = [bg1, bg2, bg3];
     }
 
     private buildNodes() {
+      // Clear old nodes
       this.nodes.forEach((node) => node.container.destroy());
       this.nodes.clear();
 
-      const stagesWithPos = computeNodePositions(options.layoutStages ?? []);
+      // Clear old links to avoid accumulation
+      if (this.linkGraphics) {
+        this.linkGraphics.destroy();
+        this.linkGraphics = null;
+      }
+
+      const canvasWidth = this.scale?.width ?? 0;
+      const { key, ...layout } = getLayoutConfig(canvasWidth);
+      this.layoutKey = key;
+
+      const stagesWithPos = computeNodePositions(options.layoutStages ?? [], layout);
+
       const graphBounds = stagesWithPos.reduce<Bounds | null>((acc, stage) => {
         const minX = acc ? Math.min(acc.minX, stage.x - NODE_RING) : stage.x - NODE_RING;
         const maxX = acc ? Math.max(acc.maxX, stage.x + NODE_RING) : stage.x + NODE_RING;
@@ -172,21 +260,34 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
         const maxY = acc ? Math.max(acc.maxY, stage.y + NODE_RING) : stage.y + NODE_RING;
         return { minX, maxX, minY, maxY };
       }, null);
+
       this.bounds = graphBounds;
 
       const currentId = this.runtimeSnapshot?.currentStageId;
       const runtimeStates = this.runtimeSnapshot?.stageStates ?? {};
+
       stagesWithPos.forEach((stage, index) => {
         const runtimeState = runtimeStates[stage.id] ?? "locked";
         const state: NodeView["state"] = stage.id === currentId ? "current" : runtimeState;
+
         const container = this.add.container(stage.x, stage.y);
         container.setDepth(5 + index * 0.01);
+
         const ring = this.add.circle(0, 0, NODE_RING, COLORS.base, 0.08);
         ring.setStrokeStyle(2, COLORS.pathBright, state === "current" ? 0.6 : 0.25);
+
         const coreColor =
-          state === "current" ? COLORS.current : state === "completed" ? COLORS.completed : state === "ready" ? COLORS.ready : COLORS.locked;
+          state === "current"
+            ? COLORS.current
+            : state === "completed"
+            ? COLORS.completed
+            : state === "ready"
+            ? COLORS.ready
+            : COLORS.locked;
+
         const core = this.add.circle(0, 0, NODE_RADIUS, coreColor, 0.92);
         core.setStrokeStyle(3, COLORS.bg1, 0.6);
+
         const label = this.add.text(0, NODE_RADIUS + 18, `Stage ${stage.id}`, {
           fontFamily: "Chakra Petch, sans-serif",
           fontSize: "13px",
@@ -195,17 +296,22 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
         });
         label.setOrigin(0.5, 0);
         label.setWordWrapWidth(160, true);
+
         container.add([ring, core, label]);
         container.setSize(NODE_RING * 2, NODE_RING * 2);
         container.setInteractive(new Phaser.Geom.Circle(0, 0, NODE_RING), Phaser.Geom.Circle.Contains);
+
         container.on("pointerup", () => {
           options.onSelectStage?.(stage.id);
         });
+
         this.nodeLayer.add(container);
         this.nodes.set(stage.id, { id: stage.id, container, ring, core, label, state });
       });
 
       this.drawLinks(stagesWithPos);
+
+      // If we've already fitted once, refit (bounds/layout changed)
       if (this.hasFittedOnce) {
         this.fitCamera(undefined, undefined, "boundsChanged");
       }
@@ -214,15 +320,19 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
     private drawLinks(stages: Array<CampaignStageLayout & { x: number; y: number }>) {
       const g = this.add.graphics();
       g.lineStyle(2, 0x22304a, 0.4);
+
       for (let i = 0; i < stages.length - 1; i += 1) {
         const from = stages[i];
         const to = stages[i + 1];
         g.moveTo(from.x, from.y);
         g.lineTo(to.x, to.y);
       }
+
       g.strokePath();
       g.setDepth(1);
       this.nodeLayer.addAt(g, 3);
+
+      this.linkGraphics = g;
     }
 
     private isValidSize(size: { width: number; height: number } | null | undefined) {
@@ -264,10 +374,12 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
       if (!runtime) return;
       const currentId = runtime.currentStageId;
       const stageStates = runtime.stageStates ?? {};
+
       this.nodes.forEach((node) => {
         const baseState = stageStates[node.id] ?? "locked";
         const nextState: NodeView["state"] = node.id === currentId ? "current" : baseState;
         if (node.state === nextState) return;
+
         const coreColor =
           nextState === "current"
             ? COLORS.current
@@ -276,14 +388,14 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
             : nextState === "ready"
             ? COLORS.ready
             : COLORS.locked;
+
         node.ring.setStrokeStyle(2, COLORS.pathBright, nextState === "current" ? 0.6 : 0.25);
         node.core.setFillStyle(coreColor, 0.92);
         node.state = nextState;
       });
+
       if (this.debugMap) {
-        console.debug(
-          `[CampaignMapScene#${this.sceneInstanceId}] runtime apply t=${Date.now()} current=${currentId ?? "-"}`
-        );
+        console.debug(`[CampaignMapScene#${this.sceneInstanceId}] runtime apply t=${Date.now()} current=${currentId ?? "-"}`);
       }
     }
 
@@ -302,64 +414,101 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
 
     private attemptInitialFit() {
       if (this.hasFittedOnce) return;
+
       const size = this.getCurrentSize();
       if (!this.isValidSize(size)) {
         this.scheduleInitialFit(50);
         return;
       }
+
       this.fitCamera(size.width, size.height, "create");
+
       if (!this.hasFittedOnce) {
         this.scheduleInitialFit(50);
       }
     }
 
-    private fitCamera(widthOverride?: number, heightOverride?: number, reason: "create" | "resize" | "boundsChanged" | string = "manual") {
+    private fitCamera(
+      widthOverride?: number,
+      heightOverride?: number,
+      reason: "create" | "resize" | "boundsChanged" | string = "manual"
+    ) {
       const cam = this.cameras.main;
       const width = widthOverride ?? cam.width;
       const height = heightOverride ?? cam.height;
       const size = { width, height };
-      if (!this.isValidSize(size)) {
-        return;
-      }
+
+      if (!this.isValidSize(size)) return;
+
       const boundsChanged = !this.areBoundsEqual(this.lastFittedBounds, this.bounds);
       const sizeChanged = !this.lastFittedSize || this.lastFittedSize.width !== width || this.lastFittedSize.height !== height;
-      if (this.hasFittedOnce && !sizeChanged && !boundsChanged) {
-        return;
-      }
+
+      // Idempotent: if nothing changed, do nothing
+      if (this.hasFittedOnce && !sizeChanged && !boundsChanged) return;
+
       if (!this.bounds) {
         cam.centerOn(0, 0);
         this.recordFit(size);
         this.logFit(reason, sizeChanged, boundsChanged, size);
         return;
       }
-      this.safeMargin = clamp(Math.round(Math.min(width, height) * 0.08), 16, 64);
-      const contentWidth = this.bounds.maxX - this.bounds.minX + this.safeMargin * 2;
-      const contentHeight = this.bounds.maxY - this.bounds.minY + this.safeMargin * 2;
-      const zoomX = width / contentWidth;
-      const zoomY = height / contentHeight;
+
+      // Slightly tighter margin so 230×560 feels less “lejano”
+      this.safeMargin = clamp(Math.round(Math.min(width, height) * 0.06), 8, 56);
+
+      const contentW = this.bounds.maxX - this.bounds.minX + this.safeMargin * 2;
+      const contentH = this.bounds.maxY - this.bounds.minY + this.safeMargin * 2;
+
+      const zoomX = width / contentW;
+      const zoomY = height / contentH;
       const zoom = clamp(Math.min(zoomX, zoomY), MIN_ZOOM, MAX_ZOOM);
+
       cam.setZoom(zoom);
+
       const centerX = (this.bounds.minX + this.bounds.maxX) / 2;
       const centerY = (this.bounds.minY + this.bounds.maxY) / 2;
+
+      // IMPORTANT: bounds must be at least viewport size in world coords
+      const viewportWorldW = width / zoom;
+      const viewportWorldH = height / zoom;
+
+      const boundsW = Math.max(contentW, viewportWorldW);
+      const boundsH = Math.max(contentH, viewportWorldH);
+      const boundsX = centerX - boundsW / 2;
+      const boundsY = centerY - boundsH / 2;
+
+      cam.setBounds(boundsX, boundsY, boundsW, boundsH);
       cam.centerOn(centerX, centerY);
-      const worldW = Math.max(width / zoom, contentWidth);
-      const worldH = Math.max(height / zoom, contentHeight);
-      const worldX = centerX - worldW / 2;
-      const worldY = centerY - worldH / 2;
-      cam.setBounds(worldX, worldY, worldW, worldH);
+
+      if (this.debugFit) {
+        console.info(
+          `[CampaignMapScene#${this.sceneInstanceId}] fitCamera metrics ` +
+            `reason=${reason} w=${width} h=${height} ` +
+            `contentW=${Math.round(contentW)} contentH=${Math.round(contentH)} ` +
+            `zoomX=${zoomX.toFixed(3)} zoomY=${zoomY.toFixed(3)} zoom=${zoom.toFixed(3)} ` +
+            `viewportW=${Math.round(viewportWorldW)} viewportH=${Math.round(viewportWorldH)} ` +
+            `boundsX=${Math.round(boundsX)} boundsY=${Math.round(boundsY)} ` +
+            `boundsW=${Math.round(boundsW)} boundsH=${Math.round(boundsH)}`
+        );
+      }
+
+      // Keep backgrounds covering the content area nicely
       if (this.backgrounds.length) {
         const bgX = this.bounds.minX - this.safeMargin * 2;
         const bgY = this.bounds.minY - this.safeMargin * 2;
         const bgW = this.bounds.maxX - this.bounds.minX + this.safeMargin * 4;
         const bgH = this.bounds.maxY - this.bounds.minY + this.safeMargin * 4;
         const [bg1, bg2, bg3] = this.backgrounds;
+
         bg1.setPosition(bgX, bgY);
         bg2.setPosition(bgX, bgY);
         bg3.setPosition(bgX, bgY + bgH * 0.5);
+
         bg1.setSize(bgW, bgH);
         bg2.setSize(bgW, bgH * 0.55);
         bg3.setSize(bgW, bgH * 0.5);
       }
+
       this.recordFit(size);
       this.logFit(reason, sizeChanged, boundsChanged, size);
     }
@@ -367,6 +516,7 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
     private handleResize = (size: PhaserLib.Structs.Size) => {
       const { width, height } = size;
       const nextSize = { width, height };
+
       if (!this.isValidSize(nextSize)) {
         const now = Date.now();
         if ((this.debugMap || this.debugFit) && now - this.lastInvalidWarn >= 1000) {
@@ -375,10 +525,15 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
         }
         return;
       }
+
       const sizeChanged =
         !this.lastValidSize || this.lastValidSize.width !== nextSize.width || this.lastValidSize.height !== nextSize.height;
+
       if (!sizeChanged) return;
+
       this.lastValidSize = nextSize;
+
+      // Update screen-sized backgrounds immediately
       if (this.backgrounds.length === 3) {
         const [bg1, bg2, bg3] = this.backgrounds;
         bg1.setSize(width, height);
@@ -386,6 +541,21 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
         bg3.setPosition(0, height * 0.5);
         bg3.setSize(width, height * 0.5);
       }
+
+      // If we crossed 260 / 320 thresholds, rebuild layout (no reload needed)
+      const { key: nextLayoutKey } = getLayoutConfig(nextSize.width);
+      const layoutChanged = nextLayoutKey !== this.layoutKey;
+
+      if (layoutChanged) {
+        this.buildNodes();
+        // buildNodes() will refit if hasFittedOnce; if not, attemptInitialFit will handle
+        if (!this.hasFittedOnce) {
+          this.fitCamera(width, height, "resize");
+        }
+        return;
+      }
+
+      // Normal resize: just refit
       this.fitCamera(width, height, "resize");
     };
 
@@ -393,32 +563,27 @@ export function createCampaignMapScene(Phaser: PhaserModule, options: CampaignMa
       this.input.on("pointerdown", (pointer: PhaserLib.Input.Pointer) => {
         this.dragState = { active: true, lastX: pointer.position.x, lastY: pointer.position.y };
       });
+
       const stopDrag = () => {
         this.dragState.active = false;
       };
+
       this.input.on("pointerup", stopDrag);
       this.input.on("pointerupoutside", stopDrag);
 
       this.input.on("pointermove", (pointer: PhaserLib.Input.Pointer) => {
         if (!this.dragState.active) return;
+
         const cam = this.cameras.main;
         const dx = (pointer.position.x - this.dragState.lastX) / cam.zoom;
         const dy = (pointer.position.y - this.dragState.lastY) / cam.zoom;
+
         cam.scrollX -= dx;
         cam.scrollY -= dy;
+
         this.dragState.lastX = pointer.position.x;
         this.dragState.lastY = pointer.position.y;
       });
-
-      this.input.on(
-        "wheel",
-        (_pointer: PhaserLib.Input.Pointer, _gameObjects: PhaserLib.GameObjects.GameObject[], _dx: number, dy: number) => {
-          const cam = this.cameras.main;
-          const factor = dy > 0 ? 0.95 : 1.05;
-          const nextZoom = clamp(cam.zoom * factor, MIN_ZOOM, MAX_ZOOM);
-          cam.setZoom(nextZoom);
-        }
-      );
     }
   };
 }
