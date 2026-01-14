@@ -161,20 +161,21 @@ export function CampaignMap({
     if (!focusPos) return null;
 
     const scale = 1.35;
+    const rawX = focusPos.x;
+    const rawY = focusPos.y;
+    const marginX = 180;
+    const marginY = 140;
+    const minFocusX = marginX;
+    const maxFocusX = MAP_WIDTH - marginX;
+    const minFocusY = marginY;
+    const maxFocusY = MAP_HEIGHT - marginY;
+    const clampedFocusX = Math.min(maxFocusX, Math.max(minFocusX, rawX));
+    const clampedFocusY = Math.min(maxFocusY, Math.max(minFocusY, rawY));
     const targetX = viewportSize.width * 0.5;
     const targetY = viewportSize.height * 0.35;
-    const translateX = targetX - focusPos.x * scale;
-    const translateY = targetY - focusPos.y * scale;
-    const scaledW = MAP_WIDTH * scale;
-    const scaledH = MAP_HEIGHT * scale;
-    const slack = 24;
-    const minX = viewportSize.width - scaledW - slack;
-    const maxX = 0 + slack;
-    const minY = viewportSize.height - scaledH - slack;
-    const maxY = 0 + slack;
-    const clampedX = Math.min(maxX, Math.max(minX, translateX));
-    const clampedY = Math.min(maxY, Math.max(minY, translateY));
-    return { scale, translateX: clampedX, translateY: clampedY };
+    const translateX = targetX - clampedFocusX * scale;
+    const translateY = targetY - clampedFocusY * scale;
+    return { scale, translateX, translateY };
   }, [isBackground, isMobile, viewportSize, focusStageId, positions]);
 
   const mapInnerStyle = isBackground
