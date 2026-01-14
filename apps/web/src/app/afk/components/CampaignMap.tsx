@@ -165,7 +165,16 @@ export function CampaignMap({
     const targetY = viewportSize.height * 0.35;
     const translateX = targetX - focusPos.x * scale;
     const translateY = targetY - focusPos.y * scale;
-    return { scale, translateX, translateY };
+    const scaledW = MAP_WIDTH * scale;
+    const scaledH = MAP_HEIGHT * scale;
+    const slack = 24;
+    const minX = viewportSize.width - scaledW - slack;
+    const maxX = 0 + slack;
+    const minY = viewportSize.height - scaledH - slack;
+    const maxY = 0 + slack;
+    const clampedX = Math.min(maxX, Math.max(minX, translateX));
+    const clampedY = Math.min(maxY, Math.max(minY, translateY));
+    return { scale, translateX: clampedX, translateY: clampedY };
   }, [isBackground, isMobile, viewportSize, focusStageId, positions]);
 
   const mapInnerStyle = isBackground
