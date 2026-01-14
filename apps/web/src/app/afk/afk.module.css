@@ -149,6 +149,8 @@
   border: none;
   border-radius: 0;
   background: #0b1222;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .homeBg .mapInner {

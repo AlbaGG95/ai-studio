@@ -162,7 +162,7 @@ export function CampaignMap({
 
     const scale = 1.35;
     const targetX = viewportSize.width * 0.5;
-    const targetY = viewportSize.height * 0.4;
+    const targetY = viewportSize.height * 0.35;
     const translateX = targetX - focusPos.x * scale;
     const translateY = targetY - focusPos.y * scale;
     return { scale, translateX, translateY };
