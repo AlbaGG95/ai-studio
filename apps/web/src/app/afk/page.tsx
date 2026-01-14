@@ -70,7 +70,9 @@ export default function CampaignPage() {
     return (
       <AfkViewport>
         <GameScreenShell className={`${styles.homeShell} ${styles.page}`}>
-          <div className={styles.homeBg} ref={mapContainerRef} />
+          <div className={styles.homeBg}>
+            <div className={styles.homeMapViewport} ref={mapContainerRef} />
+          </div>
         </GameScreenShell>
       </AfkViewport>
     );
@@ -94,16 +96,20 @@ export default function CampaignPage() {
       <GameScreenShell
         className={`${styles.homeShell} ${styles.page}`}
         background={
-          <div className={styles.homeBg} ref={mapContainerRef}>
-            <CampaignMap
-              stages={stages}
-              currentId={currentId}
-              unlocked={unlocked}
-              completed={completed}
-              onSelect={() => {}}
-              onBattle={() => {}}
-              variant="background"
-            />
+          <div className={styles.homeBg}>
+            <div className={styles.homeMapViewport} ref={mapContainerRef}>
+              <div className={styles.homeMapLayer}>
+                <CampaignMap
+                  stages={stages}
+                  currentId={currentId}
+                  unlocked={unlocked}
+                  completed={completed}
+                  onSelect={() => {}}
+                  onBattle={() => {}}
+                  variant="background"
+                />
+              </div>
+            </div>
           </div>
         }
         topHud={

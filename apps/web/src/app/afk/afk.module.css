@@ -123,6 +123,22 @@
   height: 100%;
 }
 
+.homeMapViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.homeMapLayer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .homeBg .mapViewport {
   height: 100%;
   min-height: 0;
