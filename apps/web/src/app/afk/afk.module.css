@@ -915,6 +915,23 @@
   }
 
   .bottomNav {
-    border-radius: 0;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .navButton {
+    padding: 8px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .navHint {
+    display: none;
+  }
+
+  .navLabel {
+    font-size: 12px;
   }
 }
