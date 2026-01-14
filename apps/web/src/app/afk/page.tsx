@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./afk.module.css";
@@ -18,14 +19,58 @@ function format(num: number | undefined) {
 export default function CampaignPage() {
   const { state, stages, loading, setCurrentStage } = useAfk();
   const router = useRouter();
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const topHudRef = useRef<HTMLDivElement | null>(null);
+  const bottomNavRef = useRef<HTMLElement | null>(null);
 
   const campaign = buildCampaignViewModel(state, stages);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.localStorage?.getItem("afkDebugLayout") !== "1") return;
+
+    const logLayout = () => {
+      const mapRect = mapContainerRef.current?.getBoundingClientRect();
+      const topRect = topHudRef.current?.getBoundingClientRect();
+      const bottomRect = bottomNavRef.current?.getBoundingClientRect();
+      const topPosition = topHudRef.current
+        ? window.getComputedStyle(topHudRef.current).position
+        : "n/a";
+      const bottomPosition = bottomNavRef.current
+        ? window.getComputedStyle(bottomNavRef.current).position
+        : "n/a";
+
+      console.info("[afk-layout]", {
+        map: {
+          width: mapRect?.width ?? 0,
+          height: mapRect?.height ?? 0,
+        },
+        topHud: {
+          visible: !!topRect && topRect.height > 0,
+          height: topRect?.height ?? 0,
+          position: topPosition,
+        },
+        bottomNav: {
+          visible: !!bottomRect && bottomRect.height > 0,
+          height: bottomRect?.height ?? 0,
+          position: bottomPosition,
+        },
+      });
+    };
+
+    const raf = window.requestAnimationFrame(logLayout);
+    window.addEventListener("resize", logLayout);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", logLayout);
+    };
+  }, []);
 
   if (loading || !state || !campaign) {
     return (
       <AfkViewport>
         <GameScreenShell className={`${styles.homeShell} ${styles.page}`}>
-          <div className={styles.homeBg} />
+          <div className={styles.homeBg} ref={mapContainerRef} />
         </GameScreenShell>
       </AfkViewport>
     );
@@ -49,7 +94,7 @@ export default function CampaignPage() {
       <GameScreenShell
         className={`${styles.homeShell} ${styles.page}`}
         background={
-          <div className={styles.homeBg}>
+          <div className={styles.homeBg} ref={mapContainerRef}>
             <CampaignMap
               stages={stages}
               currentId={currentId}
@@ -57,11 +102,13 @@ export default function CampaignPage() {
               completed={completed}
               onSelect={() => {}}
               onBattle={() => {}}
+              variant="background"
             />
           </div>
         }
         topHud={
           <div
+            ref={topHudRef}
             className={`${styles.card} ${styles.heroBanner}`}
             style={{ margin: 0 }}
           >
@@ -98,7 +145,7 @@ export default function CampaignPage() {
           </div>
         }
         bottomNav={
-          <nav className={styles.bottomNav}>
+          <nav className={styles.bottomNav} ref={bottomNavRef}>
             <Link href="/afk/map" className={styles.navButton}>
               <span className={styles.navLabel}>Campana</span>
               <span className={styles.navHint}>Mapa</span>
