@@ -126,26 +126,22 @@ export function CampaignMap({
 
   useEffect(() => {
     if (!isBackground || isMobile) return;
-    const viewport = viewportRef.current;
-    if (!viewport) return;
+    if (!viewportSize.width || !viewportSize.height) return;
 
-    const updateTransform = () => {
-      const rect = viewport.getBoundingClientRect();
-      const viewportW = rect.width;
-      const viewportH = rect.height;
-      if (!viewportW || !viewportH) return;
+    const scale = Math.max(viewportSize.width / MAP_WIDTH, viewportSize.height / MAP_HEIGHT);
+    const scaledW = MAP_WIDTH * scale;
+    const scaledH = MAP_HEIGHT * scale;
+    const offsetX = (viewportSize.width - scaledW) / 2;
+    const offsetY = (viewportSize.height - scaledH) / 2;
 
-      const scale = Math.max(viewportW / MAP_WIDTH, viewportH / MAP_HEIGHT);
-      const scaledW = MAP_WIDTH * scale;
-      const scaledH = MAP_HEIGHT * scale;
-      const offsetX = (viewportW - scaledW) / 2;
-      const offsetY = (viewportH - scaledH) / 2;
-
-      setBackgroundTransform({ scale, offsetX, offsetY });
-    };
-
-    updateTransform();
-  }, [isBackground, isMobile]);
+    setBackgroundTransform((prev) => {
+      const sameScale = Math.abs(prev.scale - scale) < 0.001;
+      const sameX = Math.abs(prev.offsetX - offsetX) < 0.5;
+      const sameY = Math.abs(prev.offsetY - offsetY) < 0.5;
+      if (sameScale && sameX && sameY) return prev;
+      return { scale, offsetX, offsetY };
+    });
+  }, [isBackground, isMobile, viewportSize]);
 
   const focusStageId = useMemo(() => {
     if (!isBackground) return null;
