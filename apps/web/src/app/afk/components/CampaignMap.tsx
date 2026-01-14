@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AfkStage } from "@ai-studio/core";
 import styles from "../afk.module.css";
 
@@ -11,6 +11,7 @@ type Props = {
   completed: Set<string>;
   onSelect: (stageId: string) => void;
   onBattle: (stageId: string) => void;
+  variant?: "default" | "background";
 };
 
 type Point = { x: number; y: number };
@@ -19,9 +20,25 @@ const MAP_WIDTH = 1100;
 const MAP_HEIGHT = 580;
 const NODE_HALF = 39;
 
-export function CampaignMap({ stages, currentId, unlocked, completed, onSelect, onBattle }: Props) {
+export function CampaignMap({
+  stages,
+  currentId,
+  unlocked,
+  completed,
+  onSelect,
+  onBattle,
+  variant = "default",
+}: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+  const [backgroundTransform, setBackgroundTransform] = useState({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  const isBackground = variant === "background";
 
   const positions = useMemo(() => {
     const coords: Record<string, Point> = {};
@@ -69,16 +86,113 @@ export function CampaignMap({ stages, currentId, unlocked, completed, onSelect, 
     }
   };
 
+  useEffect(() => {
+    if (!isBackground) return;
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(max-width: 520px)");
+    const update = () => setIsMobile(query.matches);
+    update();
+    if (query.addEventListener) {
+      query.addEventListener("change", update);
+      return () => query.removeEventListener("change", update);
+    }
+    query.addListener(update);
+    return () => query.removeListener(update);
+  }, [isBackground]);
+
+  useEffect(() => {
+    if (!isBackground) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const updateSize = () => {
+      const rect = viewport.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      if (!width || !height) return;
+      setViewportSize((prev) => {
+        if (prev.width === width && prev.height === height) return prev;
+        return { width, height };
+      });
+    };
+    updateSize();
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+    resizeObserver.observe(viewport);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [isBackground]);
+
+  useEffect(() => {
+    if (!isBackground || isMobile) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const updateTransform = () => {
+      const rect = viewport.getBoundingClientRect();
+      const viewportW = rect.width;
+      const viewportH = rect.height;
+      if (!viewportW || !viewportH) return;
+
+      const scale = Math.max(viewportW / MAP_WIDTH, viewportH / MAP_HEIGHT);
+      const scaledW = MAP_WIDTH * scale;
+      const scaledH = MAP_HEIGHT * scale;
+      const offsetX = (viewportW - scaledW) / 2;
+      const offsetY = (viewportH - scaledH) / 2;
+
+      setBackgroundTransform({ scale, offsetX, offsetY });
+    };
+
+    updateTransform();
+  }, [isBackground, isMobile]);
+
+  const focusStageId = useMemo(() => {
+    if (!isBackground) return null;
+    if (positions[currentId]) return currentId;
+    const firstUnlocked = stages.find((stage) => unlocked.has(stage.id));
+    if (firstUnlocked) return firstUnlocked.id;
+    const lastCompleted = [...stages].reverse().find((stage) => completed.has(stage.id));
+    if (lastCompleted) return lastCompleted.id;
+    return stages[0]?.id ?? null;
+  }, [isBackground, positions, currentId, stages, unlocked, completed]);
+
+  const mobileTransform = useMemo(() => {
+    if (!isBackground || !isMobile) return null;
+    if (!viewportSize.width || !viewportSize.height) return null;
+    if (!focusStageId) return null;
+    const focusPos = positions[focusStageId];
+    if (!focusPos) return null;
+
+    const scale = 1.35;
+    const targetX = viewportSize.width * 0.5;
+    const targetY = viewportSize.height * 0.4;
+    const translateX = targetX - focusPos.x * scale;
+    const translateY = targetY - focusPos.y * scale;
+    return { scale, translateX, translateY };
+  }, [isBackground, isMobile, viewportSize, focusStageId, positions]);
+
+  const mapInnerStyle = isBackground
+    ? {
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        transform: mobileTransform
+          ? `translate3d(${mobileTransform.translateX}px, ${mobileTransform.translateY}px, 0) scale(${mobileTransform.scale})`
+          : `translate3d(${backgroundTransform.offsetX}px, ${backgroundTransform.offsetY}px, 0) scale(${backgroundTransform.scale})`,
+        transformOrigin: "top left",
+      }
+    : undefined;
+
   return (
     <div
       ref={viewportRef}
       className={styles.mapViewport}
-      onPointerDown={startDrag}
-      onPointerMove={moveDrag}
-      onPointerUp={endDrag}
-      onPointerLeave={endDrag}
+      onPointerDown={isBackground ? undefined : startDrag}
+      onPointerMove={isBackground ? undefined : moveDrag}
+      onPointerUp={isBackground ? undefined : endDrag}
+      onPointerLeave={isBackground ? undefined : endDrag}
     >
-      <div className={styles.mapInner}>
+      <div className={styles.mapInner} data-variant={variant} style={mapInnerStyle}>
         <svg className={styles.mapBg} viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} role="img" aria-label="Mapa de campa\u00f1a">
           <defs>
             <linearGradient id="map-sky" x1="0%" y1="0%" x2="0%" y2="100%">

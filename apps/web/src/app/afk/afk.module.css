@@ -416,6 +416,11 @@
   transform: translateZ(0);
 }
 
+.mapInner[data-variant="background"] {
+  transition: transform 200ms ease;
+  will-change: transform;
+}
+
 .mapBg {
   position: absolute;
   inset: 0;
