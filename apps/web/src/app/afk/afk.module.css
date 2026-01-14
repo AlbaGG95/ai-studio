@@ -830,6 +830,38 @@
     max-width: none;
   }
 
+  .heroBanner {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .title {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  .muted {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .buttonPrimary,
+  .buttonGhost {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .biomeBadge {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
   .hubLink {
     justify-self: start;
     width: fit-content;
@@ -844,6 +876,38 @@
 
   .pageInner {
     max-width: none;
+  }
+
+  .heroBanner {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .title {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  .muted {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .buttonPrimary,
+  .buttonGhost {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .biomeBadge {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
   }
 
   .content {
