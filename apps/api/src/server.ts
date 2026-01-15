@@ -280,6 +280,7 @@ app.post("/validate", async (request, reply) => {
       featureManifests: Array.isArray(body.featureManifests)
         ? body.featureManifests
         : undefined,
+      files: Array.isArray(body.files) ? body.files : undefined,
       buildId: typeof body.buildId === "string" ? body.buildId : undefined,
     });
     return reply.code(200).send({ ok: report.ok, report });

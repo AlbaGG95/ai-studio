@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@ai-studio/core": ["../../packages/core"]
+      "@ai-studio/core": ["../../packages/core/index.ts"],
+      "@ai-studio/core/spec": ["../../packages/core/spec/index.ts"]
     }
   },
   "include": ["src"],

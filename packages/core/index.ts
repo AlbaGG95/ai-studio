@@ -99,3 +99,4 @@ export type {
   RewardBundle as AfkRewardBundle,
 } from "./afk/campaign/types.js";
 export * from "./runtime/index.js";
+export * from "./src/manifest/index.js";

@@ -11,6 +11,7 @@
     "./index.ts",
     "./spec/**/*.ts",
     "./src/spec/**/*.ts",
+    "./src/manifest/**/*.ts",
     "./engine/**/*.ts",
     "./afk/**/*.ts",
     "./runtime/**/*.ts",

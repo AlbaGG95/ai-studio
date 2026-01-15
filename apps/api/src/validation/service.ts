@@ -3,16 +3,26 @@ import { createHash, randomUUID } from "crypto";
 import { join, resolve } from "path";
 import { REPO_ROOT } from "../paths.js";
 import {
+  buildManifestGraph,
   validateGameSpec,
   validateFeatureManifest,
   type FeatureManifest,
   type GameSpec,
 } from "@ai-studio/core";
+import { scanFilesForForbiddenApis } from "./astScan.js";
+import { validateWriteOperations } from "./integrator.js";
 
 export interface ValidationInput {
   spec: unknown;
   featureManifests?: unknown[];
+  files?: ValidationFile[];
   buildId?: string;
+}
+
+export interface ValidationFile {
+  moduleId?: string;
+  path: string;
+  content: string;
 }
 
 export type ValidationStepStatus = "ok" | "blocked";
@@ -32,6 +42,9 @@ export interface ValidationReport {
     specHashPath?: string;
     featureManifestPaths?: string[];
     featureManifestHashPaths?: string[];
+    dependencyGraphPath?: string;
+    integrationReportPath?: string;
+    astScanReportPath?: string;
   };
 }
 
@@ -342,6 +355,135 @@ export async function runValidation(
     }
 
     steps.push({ id: "feature-manifest.integrity", status: "ok" });
+  }
+
+  if (manifestModels.length > 0) {
+    const graph = buildManifestGraph(manifestModels, {
+      allowlistPrefixes: ["core.", "system."],
+    });
+    const graphPath = join(reportsDir, "dependency-graph.json");
+    await writeJson(graphPath, graph);
+    artifacts.dependencyGraphPath = graphPath;
+
+    if (graph.missing.length > 0 || graph.cycles.length > 0) {
+      const errors: string[] = [];
+      if (graph.missing.length > 0) {
+        errors.push(
+          `Dependencias no satisfechas: ${graph.missing.length}`
+        );
+      }
+      if (graph.cycles.length > 0) {
+        errors.push(`Ciclos detectados: ${graph.cycles.length}`);
+      }
+      steps.push({ id: "feature-manifest.graph", status: "blocked", errors });
+      const report: ValidationReport = {
+        ok: false,
+        buildId,
+        steps,
+        artifacts: {
+          ...artifacts,
+          featureManifestPaths: manifestPaths.length ? manifestPaths : undefined,
+          featureManifestHashPaths: manifestHashPaths.length
+            ? manifestHashPaths
+            : undefined,
+        },
+      };
+      await writeJson(join(reportsDir, "validation-report.json"), report);
+      return report;
+    }
+
+    steps.push({ id: "feature-manifest.graph", status: "ok" });
+  }
+
+  const files = input.files || [];
+  if (files.length > 0 && manifestModels.length > 0) {
+    const missingModuleErrors = files
+      .filter((file) => !file.moduleId)
+      .map((file) => `Write sin moduleId: ${file.path}`);
+    const writeErrors = [
+      ...missingModuleErrors,
+      ...validateWriteOperations(
+        manifestModels,
+        files
+          .filter((file) => typeof file.moduleId === "string")
+          .map((file) => ({
+            moduleId: file.moduleId as string,
+            path: file.path,
+          }))
+      ),
+    ];
+    const integrationReportPath = join(
+      reportsDir,
+      "integration-report.json"
+    );
+    await writeJson(integrationReportPath, {
+      ok: writeErrors.length === 0,
+      errors: writeErrors,
+    });
+    artifacts.integrationReportPath = integrationReportPath;
+
+    if (writeErrors.length > 0) {
+      steps.push({
+        id: "feature-manifest.integration",
+        status: "blocked",
+        errors: writeErrors,
+      });
+      const report: ValidationReport = {
+        ok: false,
+        buildId,
+        steps,
+        artifacts: {
+          ...artifacts,
+          featureManifestPaths: manifestPaths.length ? manifestPaths : undefined,
+          featureManifestHashPaths: manifestHashPaths.length
+            ? manifestHashPaths
+            : undefined,
+        },
+      };
+      await writeJson(join(reportsDir, "validation-report.json"), report);
+      return report;
+    }
+
+    steps.push({ id: "feature-manifest.integration", status: "ok" });
+  }
+
+  if (files.length > 0) {
+    const astViolations = scanFilesForForbiddenApis(
+      files.map((file) => ({ path: file.path, content: file.content }))
+    );
+    const astScanPath = join(reportsDir, "ast-scan.json");
+    await writeJson(astScanPath, {
+      ok: astViolations.length === 0,
+      violations: astViolations,
+    });
+    artifacts.astScanReportPath = astScanPath;
+
+    if (astViolations.length > 0) {
+      steps.push({
+        id: "security.ast-scan",
+        status: "blocked",
+        errors: astViolations.map(
+          (violation) =>
+            `${violation.file}:${violation.line}:${violation.column} ${violation.message}`
+        ),
+      });
+      const report: ValidationReport = {
+        ok: false,
+        buildId,
+        steps,
+        artifacts: {
+          ...artifacts,
+          featureManifestPaths: manifestPaths.length ? manifestPaths : undefined,
+          featureManifestHashPaths: manifestHashPaths.length
+            ? manifestHashPaths
+            : undefined,
+        },
+      };
+      await writeJson(join(reportsDir, "validation-report.json"), report);
+      return report;
+    }
+
+    steps.push({ id: "security.ast-scan", status: "ok" });
   }
 
   const report: ValidationReport = {
