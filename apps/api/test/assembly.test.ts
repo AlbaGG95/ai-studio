@@ -170,3 +170,59 @@ test("assembly smoke fails when module entrypoint cannot load", async () => {
   await cleanup(report.buildId);
   await rm(moduleBase, { recursive: true, force: true });
 });
+
+test("assembly smoke busts cache when module files change", async () => {
+  const spec = await readJson(okSpecPath);
+  const moduleBase = path.resolve(REPO_ROOT, "workspaces", "test-modules-cache");
+  await rm(moduleBase, { recursive: true, force: true });
+  await mkdir(moduleBase, { recursive: true });
+
+  const okContent =
+    "export const module = { id: \"idle-loop\", init: () => {}, start: () => {}, tick: () => {}, stop: () => {}, dispose: () => {} }; export default module;";
+  await writeModule(moduleBase, "idle-loop", "modules/idle-loop/index.ts", [
+    { path: "modules/idle-loop/index.ts", content: okContent },
+  ]);
+  await writeModule(moduleBase, "progression", "modules/progression/index.ts", [
+    { path: "modules/progression/index.ts", content: okContent },
+  ]);
+
+  const entryContent = [
+    'import { marker } from "./marker.ts";',
+    "export const module = {",
+    "  id: `combat-${marker}`,",
+    "  init: () => {},",
+    "  start: () => {},",
+    "  tick: () => {},",
+    "  stop: () => {},",
+    "  dispose: () => {},",
+    "};",
+    "export default module;",
+  ].join("\n");
+
+  await writeModule(moduleBase, "combat", "modules/combat/index.ts", [
+    { path: "modules/combat/index.ts", content: entryContent },
+    { path: "modules/combat/marker.ts", content: "export const marker = \"one\";" },
+  ]);
+
+  const first = await assembleFromSpec(spec, { moduleBaseDir: moduleBase });
+  assert.equal(first.report.status, "PASS");
+  const smokeFirst = await readJson(
+    path.join(first.reportsDir, "runtime-smoke.json")
+  );
+  assert.ok(smokeFirst.loadedModules.includes("combat-one"));
+
+  await writeModule(moduleBase, "combat", "modules/combat/index.ts", [
+    { path: "modules/combat/index.ts", content: entryContent },
+    { path: "modules/combat/marker.ts", content: "export const marker = \"two\";" },
+  ]);
+
+  const second = await assembleFromSpec(spec, { moduleBaseDir: moduleBase });
+  assert.equal(second.report.status, "PASS");
+  const smokeSecond = await readJson(
+    path.join(second.reportsDir, "runtime-smoke.json")
+  );
+  assert.ok(smokeSecond.loadedModules.includes("combat-two"));
+
+  await cleanup(second.report.buildId);
+  await rm(moduleBase, { recursive: true, force: true });
+});

@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import path from "path";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { pathToFileURL } from "url";
@@ -36,6 +37,10 @@ function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\/+/, "");
 }
 
+function hashString(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function resolvePathWithinRoot(
   rootDir: string,
   relativePath: string,
@@ -60,7 +65,19 @@ async function buildRuntimeCache(
     throw new Error(`Entry no declarado en manifest: ${manifest.module.id}`);
   }
 
-  const cacheKey = entryFile.sha256 || "0";
+  const cacheKeyParts: string[] = [];
+  for (const file of manifest.files) {
+    cacheKeyParts.push(
+      `file:${normalizePath(file.path)}:${file.sha256 || "0"}`
+    );
+  }
+  for (const asset of manifest.assets || []) {
+    cacheKeyParts.push(
+      `asset:${normalizePath(asset.path)}:${asset.sha256 || "0"}`
+    );
+  }
+  cacheKeyParts.sort();
+  const cacheKey = hashString(cacheKeyParts.join("|"));
   const cacheRoot = path.join(
     assemblyDir,
     ".runtime-cache",
@@ -153,11 +170,13 @@ export async function runAssemblySmokeTest<Spec>(
   const loadedModules: string[] = [];
   let ok = true;
   let error: string | null = null;
+  let startedAt = runtime.context.clock.now();
+  let finishedAt = startedAt;
 
   try {
     for (const manifest of input.manifests) {
       const cache = await buildRuntimeCache(input.assemblyDir, manifest);
-      const entryUrl = pathToFileURL(cache.entryPath).href;
+      const entryUrl = `${pathToFileURL(cache.entryPath).href}?v=${cache.cacheKey}`;
       const exported = (await import(entryUrl)) as Record<string, unknown>;
       const module = resolveRuntimeModule(exported, manifest.module.id);
       module.id = module.id || manifest.module.id;
@@ -166,6 +185,7 @@ export async function runAssemblySmokeTest<Spec>(
       loadedModules.push(module.id);
     }
 
+    startedAt = runtime.context.clock.now();
     runtime.init();
     runtime.start();
     for (let i = 0; i < ticks; i += 1) {
@@ -173,6 +193,7 @@ export async function runAssemblySmokeTest<Spec>(
     }
     runtime.stop();
     runtime.dispose();
+    finishedAt = runtime.context.clock.now();
   } catch (err) {
     ok = false;
     error = err instanceof Error ? err.message : "Unknown runtime error";
@@ -185,7 +206,7 @@ export async function runAssemblySmokeTest<Spec>(
     logs,
     stateSnapshot: runtime.context.state.snapshot(),
     loadedModules,
-    startedAt: 0,
-    finishedAt: runtime.context.clock.now(),
+    startedAt,
+    finishedAt,
   };
 }
