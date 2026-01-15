@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "name": "Assembly Example",
+    "version": "1.0.0",
+    "language": "en",
+    "description": "Assembly OK example"
+  },
+  "engine": {
+    "templateId": "idle-rpg-base"
+  },
+  "systems": {
+    "idleLoop": { "tickMs": 1000, "baseIncome": 5 },
+    "combat": { "auto": true, "damageFormula": "linear" },
+    "progression": { "levels": 20, "scaling": "linear" },
+    "inventory": { "enabled": false, "maxSlots": 20 }
+  },
+  "content": {
+    "heroes": [{ "id": "hero1", "name": "Hero", "hp": 100, "atk": 10, "def": 5 }],
+    "enemies": [{ "id": "enemy1", "name": "Slime", "hp": 20, "atk": 3, "goldReward": 5 }],
+    "stages": [{ "id": "stage1", "name": "Stage 1", "level": 1, "enemies": ["enemy1"] }],
+    "items": []
+  },
+  "ui": {
+    "screens": [
+      { "id": "home", "name": "Home" },
+      { "id": "battle", "name": "Battle" }
+    ]
+  },
+  "balance": {
+    "goldPerSecond": 5,
+    "enemyHPScaling": 1.2
+  }
+}

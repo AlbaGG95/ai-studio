@@ -100,3 +100,4 @@ export type {
 } from "./afk/campaign/types.js";
 export * from "./runtime/index.js";
 export * from "./src/manifest/index.js";
+export * from "./src/registry/moduleRegistry.js";

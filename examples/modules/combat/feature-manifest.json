@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "module": {
+    "id": "combat",
+    "name": "Combat",
+    "kind": "system",
+    "entry": "modules/combat/index.ts",
+    "templateId": "idle-rpg-base"
+  },
+  "provides": {
+    "events": ["combat.ready"],
+    "state": ["state.combat"],
+    "commands": []
+  },
+  "consumes": {
+    "events": ["idle.tick"],
+    "state": ["state.idle"],
+    "commands": []
+  },
+  "files": [
+    {
+      "path": "modules/combat/index.ts",
+      "role": "logic",
+      "sha256": "a1728e014553328490fb90ce5a22e18bd18cd0df70711c35b966250f402f4101"
+    }
+  ]
+}

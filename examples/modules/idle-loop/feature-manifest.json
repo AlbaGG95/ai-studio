@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "module": {
+    "id": "idle-loop",
+    "name": "Idle Loop",
+    "kind": "system",
+    "entry": "modules/idle-loop/index.ts",
+    "templateId": "idle-rpg-base"
+  },
+  "provides": {
+    "events": ["idle.tick"],
+    "state": ["state.idle"],
+    "commands": []
+  },
+  "consumes": {
+    "events": [],
+    "state": [],
+    "commands": []
+  },
+  "files": [
+    {
+      "path": "modules/idle-loop/index.ts",
+      "role": "logic",
+      "sha256": "af8390a662fc8876f3f8865eb18ed9f410c1030a379b7cf31e17c4adae957a8e"
+    }
+  ]
+}

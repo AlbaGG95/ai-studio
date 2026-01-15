@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "module": {
+    "id": "progression",
+    "name": "Progression",
+    "kind": "system",
+    "entry": "modules/progression/index.ts",
+    "templateId": "idle-rpg-base"
+  },
+  "provides": {
+    "events": ["progression.step"],
+    "state": ["state.progression"],
+    "commands": []
+  },
+  "consumes": {
+    "events": ["combat.ready"],
+    "state": ["state.combat"],
+    "commands": []
+  },
+  "files": [
+    {
+      "path": "modules/progression/index.ts",
+      "role": "logic",
+      "sha256": "5829275785aeedaac990e6d4ab411e593a4068168f2e8c86f93d8caa5eabd149"
+    }
+  ]
+}
