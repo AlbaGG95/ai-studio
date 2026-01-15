@@ -12,7 +12,7 @@
   "scripts": {
     "clean": "node --input-type=module -e \"import { rmSync } from 'fs'; rmSync('dist', { recursive: true, force: true });\"",
     "build:ts": "tsc -p tsconfig.build.json",
-    "build:assets": "node --input-type=module -e \"import { mkdirSync, copyFileSync } from 'fs'; mkdirSync('dist/spec', { recursive: true }); copyFileSync('spec/gamespec.schema.json', 'dist/spec/gamespec.schema.json'); copyFileSync('spec/feature-manifest.schema.json', 'dist/spec/feature-manifest.schema.json');\"",
+    "build:assets": "node --input-type=module -e \"import { mkdirSync, copyFileSync } from 'fs'; mkdirSync('dist/spec', { recursive: true }); copyFileSync('spec/gamespec.schema.json', 'dist/spec/gamespec.schema.json'); copyFileSync('spec/feature-manifest.schema.json', 'dist/spec/feature-manifest.schema.json'); copyFileSync('spec/template-registry.json', 'dist/spec/template-registry.json');\"",
     "build": "pnpm run clean && pnpm run build:ts && pnpm run build:assets",
     "test": "tsx --test test/**/*.ts"
   },

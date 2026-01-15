@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "templates": {
+    "idle-rpg-base": {
+      "baseModules": ["idle-loop", "combat", "progression"],
+      "conditionalModules": [
+        {
+          "when": { "path": "systems.inventory.enabled", "equals": true },
+          "add": ["inventory"]
+        }
+      ]
+    }
+  }
+}

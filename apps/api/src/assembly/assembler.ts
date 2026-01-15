@@ -125,6 +125,20 @@ export async function assembleFromSpec(
   );
 
   const selection = resolveModulesForSpec(spec);
+  await writeFile(
+    path.join(reportsDir, "module-selection.json"),
+    JSON.stringify(
+      {
+        templateId: selection.templateId,
+        baseModules: selection.baseModules,
+        conditionsApplied: selection.conditionsApplied,
+        finalModules: selection.modules,
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
   const moduleBase =
     options.moduleBaseDir || path.resolve(REPO_ROOT, "examples", "modules");
   const missingModules: string[] = [];
