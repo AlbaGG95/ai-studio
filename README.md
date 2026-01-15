@@ -2,6 +2,10 @@
 
 A local-first AI studio for creating and previewing AI-generated games. Build, iterate, and test games entirely on your machine.
 
+## Canonical Docs
+- `docs/ai-studio-platform.md` (arquitectura y pipelines)
+- `docs/contracts.md` (contratos ejecutables y validacion)
+
 ## Features
 
 - ✅ Create game projects from templates
@@ -424,8 +428,10 @@ To try it:
 
 ## Additional Documentation
 
-- [API.md](API.md) - Complete API reference
-- [.env.example](.env.example) - Environment variables template
+- `docs/ai-studio-platform.md` - Plataforma canonica
+- `docs/contracts.md` - Contratos ejecutables
+- `docs/archive/` - Documentacion historica (no canonica)
+- `.env.example` - Environment variables template
 
 ## Windows Specifics
 

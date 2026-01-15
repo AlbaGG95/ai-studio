@@ -1,9 +1,5 @@
 import gameSpecSchema from "./gamespec.schema.json" with { type: "json" };
+import featureManifestSchema from "./feature-manifest.schema.json" with { type: "json" };
 
-export * from "./gamespec.types.js";
-export {
-  validateGameSpec,
-  parseAndValidateGameSpec,
-  validateGameSpecStrict,
-} from "./validator.js";
-export { gameSpecSchema };
+export * from "../src/spec/index.js";
+export { gameSpecSchema, featureManifestSchema };

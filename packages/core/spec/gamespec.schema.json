@@ -3,10 +3,12 @@
   "title": "AI Studio Game Specification v1",
   "description": "Schema for Idle RPG game generation",
   "type": "object",
+  "additionalProperties": false,
   "required": ["meta", "engine", "systems", "content", "ui", "balance"],
   "properties": {
     "meta": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["name", "version", "language"],
       "properties": {
         "name": {
@@ -29,11 +31,17 @@
           "type": "string",
           "maxLength": 500,
           "description": "Game description"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Deterministic RNG seed"
         }
       }
     },
     "engine": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["templateId"],
       "properties": {
         "templateId": {
@@ -45,10 +53,12 @@
     },
     "systems": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["idleLoop", "combat", "progression", "inventory"],
       "properties": {
         "idleLoop": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["tickMs", "baseIncome"],
           "properties": {
             "tickMs": {
@@ -67,6 +77,7 @@
         },
         "combat": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["auto", "damageFormula"],
           "properties": {
             "auto": {
@@ -82,6 +93,7 @@
         },
         "progression": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["levels", "scaling"],
           "properties": {
             "levels": {
@@ -99,6 +111,7 @@
         },
         "inventory": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["enabled"],
           "properties": {
             "enabled": {
@@ -117,6 +130,7 @@
     },
     "content": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["heroes", "enemies", "stages", "items"],
       "properties": {
         "heroes": {
@@ -124,6 +138,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "name", "hp", "atk", "def"],
             "properties": {
               "id": {
@@ -159,6 +174,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "name", "hp", "atk", "goldReward"],
             "properties": {
               "id": {
@@ -190,6 +206,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "name", "level", "enemies"],
             "properties": {
               "id": {
@@ -220,6 +237,7 @@
           "minItems": 0,
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "name", "rarity"],
             "properties": {
               "id": {
@@ -237,6 +255,7 @@
               },
               "stats": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "atk": {
                     "type": "integer",
@@ -259,6 +278,7 @@
     },
     "ui": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["screens"],
       "properties": {
         "screens": {
@@ -266,6 +286,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "name"],
             "properties": {
               "id": {
@@ -287,6 +308,7 @@
     },
     "balance": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["goldPerSecond", "enemyHPScaling"],
       "properties": {
         "goldPerSecond": {

@@ -20,6 +20,7 @@ import {
 } from "./types.js";
 import { REPO_ROOT } from "./paths.js";
 import { loadEngine, generateEngine, persistEngine, saveEngineState } from "./idleEngine.js";
+import { runValidation } from "./validation/service.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -260,6 +261,28 @@ app.post<{ Body: GenerateWorldParams }>("/api/generate/world", async (request, r
   try {
     const world = generateWorld(request.body || {});
     return reply.code(200).send({ ok: true, world });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error interno";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.post("/validate", async (request, reply) => {
+  const body = request.body as any;
+  if (!body?.spec) {
+    return reply.code(400).send({ ok: false, error: "spec requerido" });
+  }
+
+  try {
+    const report = await runValidation({
+      spec: body.spec,
+      featureManifests: Array.isArray(body.featureManifests)
+        ? body.featureManifests
+        : undefined,
+      buildId: typeof body.buildId === "string" ? body.buildId : undefined,
+    });
+    return reply.code(200).send({ ok: report.ok, report });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error interno";
     request.log.error(err);

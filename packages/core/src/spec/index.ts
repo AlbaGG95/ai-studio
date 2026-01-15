@@ -1,3 +1,5 @@
+export * from "./gamespec.types.js";
+export * from "./feature-manifest.types.js";
 export {
   validateGameSpec,
   parseAndValidateGameSpec,
@@ -5,4 +7,4 @@ export {
   validateFeatureManifest,
   parseAndValidateFeatureManifest,
   validateFeatureManifestStrict,
-} from "../src/spec/validator.js";
+} from "./validator.js";
