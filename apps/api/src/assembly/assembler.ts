@@ -93,6 +93,9 @@ async function resolveSpec(input: unknown): Promise<GameSpec> {
 
 export interface AssemblyOptions {
   moduleBaseDir?: string;
+  buildId?: string;
+  workspaceDir?: string;
+  cleanWorkspace?: boolean;
 }
 
 export async function assembleFromSpec(
@@ -102,12 +105,17 @@ export async function assembleFromSpec(
   const spec = await resolveSpec(input);
   const normalizedSpec = stableNormalize(spec);
   const specHash = hashString(JSON.stringify(normalizedSpec));
-  const buildId = `assembly-${specHash.slice(0, 12)}`;
-  const workspaceDir = path.resolve(REPO_ROOT, "workspaces", buildId);
+  const buildId = options.buildId || `assembly-${specHash.slice(0, 12)}`;
+  const workspaceDir =
+    options.workspaceDir || path.resolve(REPO_ROOT, "workspaces", buildId);
   const reportsDir = path.join(workspaceDir, "reports");
   const assemblyDir = path.join(workspaceDir, "assembly");
 
-  await rm(workspaceDir, { recursive: true, force: true });
+  if (options.cleanWorkspace === false) {
+    await rm(assemblyDir, { recursive: true, force: true });
+  } else {
+    await rm(workspaceDir, { recursive: true, force: true });
+  }
   await mkdir(reportsDir, { recursive: true });
 
   await writeFile(

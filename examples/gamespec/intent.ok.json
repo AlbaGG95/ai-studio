@@ -1,0 +1,14 @@
+{
+  "name": "Idle Example",
+  "version": "0.1.0",
+  "language": "es",
+  "promptText": "Idle RPG minimal prompt",
+  "inventoryEnabled": false,
+  "damageFormula": "scaling",
+  "progressionScaling": "quadratic",
+  "levels": 30,
+  "tickMs": 1000,
+  "baseIncome": 2.5,
+  "goldPerSecond": 5,
+  "enemyHPScaling": 1.2
+}

@@ -14,6 +14,8 @@
     "validate": "pnpm --filter api exec tsx src/validation/cli.ts",
     "smoke": "pnpm --filter @ai-studio/core exec tsx runtime/smokeRunner.ts",
     "gen:module": "pnpm --filter api exec tsx src/generation/cli.ts",
+    "gen:gamespec": "pnpm --filter api exec tsx src/gamespec/cli.ts",
+    "gen:game": "pnpm --filter api exec tsx src/gamespec/gameCli.ts",
     "assemble": "pnpm --filter api exec tsx src/assembly/cli.ts",
     "test:generate-module": "pnpm --filter api exec tsx --test test/**/*.ts",
     "test:assemble": "pnpm test:generate-module",

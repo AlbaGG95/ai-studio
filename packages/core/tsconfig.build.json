@@ -10,6 +10,7 @@
   "include": [
     "./index.ts",
     "./spec/**/*.ts",
+    "./src/index.ts",
     "./src/spec/**/*.ts",
     "./src/manifest/**/*.ts",
     "./src/registry/**/*.ts",
