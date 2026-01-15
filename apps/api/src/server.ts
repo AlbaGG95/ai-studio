@@ -21,6 +21,7 @@ import {
 import { REPO_ROOT } from "./paths.js";
 import { loadEngine, generateEngine, persistEngine, saveEngineState } from "./idleEngine.js";
 import { runValidation } from "./validation/service.js";
+import { generateModule } from "./generation/generator.js";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -261,6 +262,23 @@ app.post<{ Body: GenerateWorldParams }>("/api/generate/world", async (request, r
   try {
     const world = generateWorld(request.body || {});
     return reply.code(200).send({ ok: true, world });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error interno";
+    request.log.error(err);
+    return reply.code(500).send({ ok: false, error: message });
+  }
+});
+
+app.post("/api/generate/module", async (request, reply) => {
+  const body = request.body as any;
+  const input = body?.input || body;
+  if (!input?.module?.id || !input?.module?.kind) {
+    return reply.code(400).send({ ok: false, error: "module.id y module.kind requeridos" });
+  }
+
+  try {
+    const result = await generateModule(input);
+    return reply.code(200).send({ ok: result.validationOk, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error interno";
     request.log.error(err);

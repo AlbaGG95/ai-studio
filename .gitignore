@@ -15,6 +15,7 @@ out/
 
 # Generated projects
 workspaces/
+staging/
 
 # IDE
 .vscode/
