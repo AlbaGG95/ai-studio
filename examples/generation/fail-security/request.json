@@ -1,0 +1,26 @@
+{
+  "input": {
+    "module": {
+      "id": "example-module-bad-security",
+      "name": "Example Module Bad Security",
+      "kind": "system"
+    },
+    "provides": {
+      "events": ["example.ready"],
+      "state": ["state.example"],
+      "commands": []
+    },
+    "consumes": {
+      "events": [],
+      "state": [],
+      "commands": []
+    },
+    "files": [
+      {
+        "path": "modules/example-module-bad-security/index.ts",
+        "role": "logic",
+        "content": "export const boot = () => { eval(\"1\"); };"
+      }
+    ]
+  }
+}

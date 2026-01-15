@@ -218,7 +218,7 @@ export async function runValidation(
 
   await writeFile(
     join(logsDir, "validation.log"),
-    `validation start ${new Date().toISOString()}\n`,
+    "validation start\n",
     "utf-8"
   );
 

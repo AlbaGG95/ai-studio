@@ -13,6 +13,8 @@
     "typecheck:tests": "pnpm --filter @ai-studio/core exec tsc -p tsconfig.tests.json --noEmit",
     "validate": "pnpm --filter api exec tsx src/validation/cli.ts",
     "smoke": "pnpm --filter @ai-studio/core exec tsx runtime/smokeRunner.ts",
+    "gen:module": "pnpm --filter api exec tsx src/generation/cli.ts",
+    "test:generate-module": "pnpm --filter api exec tsx --test test/**/*.ts",
     "test:smoke": "node scripts/test-generate.mjs",
     "test:health": "node scripts/health-check.mjs",
     "gen:template": "node scripts/gen-template.mjs",

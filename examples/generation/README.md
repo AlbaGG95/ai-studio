@@ -14,3 +14,7 @@ Outputs (in `workspaces/<buildId>/reports/`):
 - `security-report.json`
 - `integration-report.json`
 - `dependency-graph.json`
+
+Fail cases:
+- `fail-security/request.json`: should block on `security-report.json`.
+- `fail-path/request.json`: should block on `integration-report.json`.
