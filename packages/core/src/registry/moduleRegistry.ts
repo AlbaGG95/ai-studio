@@ -51,6 +51,8 @@ export interface AppliedCondition {
 export interface ConditionEvaluation {
   condition: ConditionNode;
   result: boolean;
+  applied: boolean;
+  error?: string;
 }
 
 function readPathValue(value: unknown, pathValue: string): unknown {
@@ -92,14 +94,17 @@ function isLeaf(condition: ConditionNode): condition is ConditionLeaf {
   );
 }
 
-function evaluateLeafCondition(condition: ConditionLeaf, spec: GameSpec): boolean {
+function evaluateLeafCondition(
+  condition: ConditionLeaf,
+  spec: GameSpec
+): { result: boolean; error?: string } {
   const value = readPathValue(spec, condition.path);
   if ("exists" in condition) {
     const exists = value !== undefined;
-    return condition.exists ? exists : !exists;
+    return { result: condition.exists ? exists : !exists };
   }
 
-  if (value === undefined) return false;
+  if (value === undefined) return { result: false };
 
   const checks: boolean[] = [];
   if ("equals" in condition) {
@@ -110,27 +115,58 @@ function evaluateLeafCondition(condition: ConditionLeaf, spec: GameSpec): boolea
     checks.push(allowed.includes(value));
   }
   if ("gte" in condition) {
-    checks.push(typeof value === "number" && typeof condition.gte === "number" && value >= condition.gte);
+    checks.push(
+      typeof value === "number" &&
+        typeof condition.gte === "number" &&
+        value >= condition.gte
+    );
   }
   if ("lte" in condition) {
-    checks.push(typeof value === "number" && typeof condition.lte === "number" && value <= condition.lte);
+    checks.push(
+      typeof value === "number" &&
+        typeof condition.lte === "number" &&
+        value <= condition.lte
+    );
   }
 
   if (checks.length === 0) {
-    return false;
+    return { result: false, error: "Condicion sin operador valido" };
   }
-  return checks.every(Boolean);
+  return { result: checks.every(Boolean) };
 }
 
-function evaluateConditionNode(condition: ConditionNode, spec: GameSpec): boolean {
+function evaluateConditionNode(
+  condition: ConditionNode,
+  spec: GameSpec
+): { result: boolean; error?: string } {
   if (isGroup(condition)) {
     if ("and" in condition) {
-      if (!Array.isArray(condition.and)) return false;
-      return condition.and.every((entry) => isLeaf(entry) && evaluateLeafCondition(entry, spec));
+      if (!Array.isArray(condition.and)) {
+        return { result: false, error: "Condicion and invalida" };
+      }
+      const results = condition.and.map((entry) =>
+        isLeaf(entry) ? evaluateLeafCondition(entry, spec) : { result: false }
+      );
+      const hasInvalid = condition.and.some((entry) => !isLeaf(entry));
+      const error = hasInvalid ? "Condicion and invalida" : undefined;
+      return {
+        result: results.every((value) => value.result),
+        error,
+      };
     }
     if ("or" in condition) {
-      if (!Array.isArray(condition.or)) return false;
-      return condition.or.some((entry) => isLeaf(entry) && evaluateLeafCondition(entry, spec));
+      if (!Array.isArray(condition.or)) {
+        return { result: false, error: "Condicion or invalida" };
+      }
+      const results = condition.or.map((entry) =>
+        isLeaf(entry) ? evaluateLeafCondition(entry, spec) : { result: false }
+      );
+      const hasInvalid = condition.or.some((entry) => !isLeaf(entry));
+      const error = hasInvalid ? "Condicion or invalida" : undefined;
+      return {
+        result: results.some((value) => value.result),
+        error,
+      };
     }
   }
 
@@ -138,7 +174,7 @@ function evaluateConditionNode(condition: ConditionNode, spec: GameSpec): boolea
     return evaluateLeafCondition(condition, spec);
   }
 
-  return false;
+  return { result: false, error: "Condicion invalida" };
 }
 
 export function resolveModulesForSpecWithRegistry(
@@ -157,12 +193,15 @@ export function resolveModulesForSpecWithRegistry(
   const conditionsEvaluated: ConditionEvaluation[] = [];
 
   for (const condition of template.conditionalModules || []) {
-    const result = evaluateConditionNode(condition.when, spec);
+    const evaluation = evaluateConditionNode(condition.when, spec);
+    const applied = evaluation.result;
     conditionsEvaluated.push({
       condition: condition.when,
-      result,
+      result: evaluation.result,
+      applied,
+      error: evaluation.error,
     });
-    if (result) {
+    if (applied) {
       conditionsApplied.push({
         condition: condition.when,
         add: condition.add,

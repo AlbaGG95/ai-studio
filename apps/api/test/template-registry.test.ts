@@ -105,6 +105,12 @@ test("condition operators: exists, in, gte, lte, and, or", async () => {
   assert.ok(!selection.modules.includes("lte-false"));
   assert.ok(selection.modules.includes("and-true"));
   assert.ok(selection.modules.includes("or-true"));
+  assert.equal(
+    selection.conditionsEvaluated.length,
+    registry.templates["idle-rpg-base"].conditionalModules.length
+  );
+  assert.ok(selection.conditionsEvaluated.some((entry) => entry.result));
+  assert.ok(selection.conditionsEvaluated.some((entry) => !entry.result));
 });
 
 test("registry version 1.0 remains compatible", async () => {
