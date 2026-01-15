@@ -354,6 +354,9 @@ pnpm build
 # Lint code
 pnpm lint
 ```
+
+Typechecking convention: `pnpm typecheck` keeps core green.
+Legacy tests live behind `pnpm typecheck:tests` until they are sanitized.
 > Dev server: `pnpm --filter web dev` now auto-picks a free port starting at `3000`. Set `PORT=4000` (or similar) to force a port if you want to align with other services.
 
 ## File Structure Details
