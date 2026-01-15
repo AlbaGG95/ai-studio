@@ -1,0 +1,99 @@
+{
+  "spec": {
+    "meta": {
+      "name": "Spec Example",
+      "version": "1.0.0",
+      "language": "en",
+      "description": "Feature manifest example"
+    },
+    "engine": {
+      "templateId": "idle-rpg-base"
+    },
+    "systems": {
+      "idleLoop": { "tickMs": 1000, "baseIncome": 5 },
+      "combat": { "auto": true, "damageFormula": "linear" },
+      "progression": { "levels": 20, "scaling": "linear" },
+      "inventory": { "enabled": true, "maxSlots": 20 }
+    },
+    "content": {
+      "heroes": [{ "id": "hero1", "name": "Hero", "hp": 100, "atk": 10, "def": 5 }],
+      "enemies": [{ "id": "enemy1", "name": "Slime", "hp": 20, "atk": 3, "goldReward": 5 }],
+      "stages": [{ "id": "stage1", "name": "Stage 1", "level": 1, "enemies": ["enemy1"] }],
+      "items": []
+    },
+    "ui": {
+      "screens": [
+        { "id": "home", "name": "Home" },
+        { "id": "battle", "name": "Battle" }
+      ]
+    },
+    "balance": {
+      "goldPerSecond": 5,
+      "enemyHPScaling": 1.2
+    }
+  },
+  "featureManifests": [
+    {
+      "version": "1.0",
+      "module": {
+        "id": "combat-core",
+        "name": "Combat Core",
+        "kind": "system",
+        "entry": "modules/combat-core/index.ts",
+        "templateId": "idle-rpg-base"
+      },
+      "provides": {
+        "events": ["combat.start"],
+        "state": ["state.combat"],
+        "commands": []
+      },
+      "consumes": { "events": [], "state": [], "commands": [] },
+      "files": [
+        {
+          "path": "modules/combat-core/index.ts",
+          "role": "logic",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "version": "1.0",
+      "module": {
+        "id": "combat-ui",
+        "name": "Combat UI",
+        "kind": "ui",
+        "entry": "modules/combat-ui/index.ts",
+        "templateId": "idle-rpg-base"
+      },
+      "provides": {
+        "events": [],
+        "state": [],
+        "commands": ["cmd.attack"]
+      },
+      "consumes": {
+        "events": ["combat.start"],
+        "state": ["state.combat"],
+        "commands": []
+      },
+      "files": [
+        {
+          "path": "modules/combat-ui/index.ts",
+          "role": "ui",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "moduleId": "combat-core",
+      "path": "modules/combat-core/index.ts",
+      "content": "export const boot = () => { eval(\"1\"); };"
+    },
+    {
+      "moduleId": "combat-ui",
+      "path": "modules/combat-ui/index.ts",
+      "content": "export const ui = () => \"ok\";"
+    }
+  ]
+}

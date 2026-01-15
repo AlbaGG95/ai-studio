@@ -183,23 +183,27 @@ El flujo es secuencial y bloqueante. Cualquier fallo detiene el pipeline.
    - Bloquea si hay ids duplicados, referencias rotas o ciclos.
    - Artefactos: `dependency-graph.json`.
 
-5. Analisis estatico
+5. Integracion de archivos
+   - Bloquea si hay writes fuera de paths declarados.
+   - Artefactos: `integration-report.json`.
+
+6. Analisis estatico
    - Bloquea si falla lint o typecheck.
    - Artefactos: `lint-report.json`, `typecheck-report.json`.
 
-6. Reglas de seguridad
+7. Reglas de seguridad
    - Bloquea si hay APIs prohibidas o imports no permitidos.
-   - Artefactos: `security-report.json`.
+   - Artefactos: `security-report.json` (incluye resultados de AST scan).
 
-7. Smoke tests de runtime
+8. Smoke tests de runtime
    - Bloquea si `init/start/tick` fallan o producen errores.
    - Artefactos: `runtime-smoke.json`.
 
-8. Presupuestos de rendimiento
+9. Presupuestos de rendimiento
    - Bloquea si assets o tiempo por tick exceden limites.
    - Artefactos: `budget-report.json`.
 
-9. Build preflight
+10. Build preflight
    - Bloquea si faltan toolchains o configs.
    - Artefactos: `build-preflight.json`.
 

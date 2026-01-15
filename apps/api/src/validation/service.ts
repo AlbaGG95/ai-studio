@@ -44,7 +44,7 @@ export interface ValidationReport {
     featureManifestHashPaths?: string[];
     dependencyGraphPath?: string;
     integrationReportPath?: string;
-    astScanReportPath?: string;
+    securityReportPath?: string;
   };
 }
 
@@ -451,12 +451,15 @@ export async function runValidation(
     const astViolations = scanFilesForForbiddenApis(
       files.map((file) => ({ path: file.path, content: file.content }))
     );
-    const astScanPath = join(reportsDir, "ast-scan.json");
-    await writeJson(astScanPath, {
+    const securityReportPath = join(reportsDir, "security-report.json");
+    await writeJson(securityReportPath, {
       ok: astViolations.length === 0,
-      violations: astViolations,
+      astScan: {
+        ok: astViolations.length === 0,
+        violations: astViolations,
+      },
     });
-    artifacts.astScanReportPath = astScanPath;
+    artifacts.securityReportPath = securityReportPath;
 
     if (astViolations.length > 0) {
       steps.push({
