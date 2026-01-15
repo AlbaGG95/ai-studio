@@ -132,6 +132,7 @@ export async function assembleFromSpec(
         templateId: selection.templateId,
         baseModules: selection.baseModules,
         conditionsApplied: selection.conditionsApplied,
+        conditionsEvaluated: selection.conditionsEvaluated,
         finalModules: selection.modules,
       },
       null,
