@@ -1,6 +1,5 @@
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
-import { randomUUID } from "crypto";
 import { join, resolve } from "path";
 import { pathToFileURL } from "url";
 import { Runtime } from "./runtime.js";
@@ -68,15 +67,15 @@ export async function runSmokeTest(ticks = 5) {
   const module = createDummyModule();
   runtime.register(module);
 
-  const startedAt = Date.now();
   let ok = true;
   let error: string | null = null;
+  const dtMs = 16;
 
   try {
     runtime.init();
     runtime.start();
     for (let i = 0; i < ticks; i += 1) {
-      runtime.tick(16);
+      runtime.tick(dtMs);
     }
     runtime.stop();
     runtime.dispose();
@@ -93,14 +92,14 @@ export async function runSmokeTest(ticks = 5) {
     error,
     stateSnapshot,
     logs,
-    startedAt,
-    finishedAt: Date.now(),
+    startedAt: 0,
+    finishedAt: runtime.context.clock.now(),
   };
 }
 
 async function main() {
   const report = await runSmokeTest(5);
-  const buildId = randomUUID();
+  const buildId = process.env.SMOKE_BUILD_ID || "smoke-runtime";
   const repoRoot = findRepoRoot(process.cwd());
   const reportsDir = join(repoRoot, "workspaces", buildId, "reports");
   await mkdir(reportsDir, { recursive: true });

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "./src/spec/**/*.ts",
+    "./runtime/**/*.ts",
+    "./spec/**/*.ts"
+  ],
+  "exclude": ["**/*.test.ts", "node_modules", "dist"]
+}
