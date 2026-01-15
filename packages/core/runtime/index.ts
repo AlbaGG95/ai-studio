@@ -4,6 +4,7 @@ export { RuntimeStateStore } from "./stateStore.js";
 export { DeterministicRng } from "./rng.js";
 export { RuntimeClock } from "./clock.js";
 export { runSmokeTest } from "./smokeRunner.js";
+export { runAssemblySmokeTest } from "./assemblySmoke.js";
 export type {
   Logger,
   RuntimeContext,

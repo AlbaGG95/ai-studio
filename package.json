@@ -16,6 +16,7 @@
     "gen:module": "pnpm --filter api exec tsx src/generation/cli.ts",
     "assemble": "pnpm --filter api exec tsx src/assembly/cli.ts",
     "test:generate-module": "pnpm --filter api exec tsx --test test/**/*.ts",
+    "test:assemble": "pnpm test:generate-module",
     "test:smoke": "node scripts/test-generate.mjs",
     "test:health": "node scripts/health-check.mjs",
     "gen:template": "node scripts/gen-template.mjs",

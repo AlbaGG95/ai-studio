@@ -6,6 +6,17 @@ export interface WriteOperation {
   path: string;
 }
 
+export interface IntegrationFile {
+  moduleId: string;
+  path: string;
+  content: string;
+}
+
+export interface IntegrationResult {
+  ok: boolean;
+  errors: string[];
+}
+
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\/+/, "");
 }
@@ -67,4 +78,49 @@ export function validateWriteOperations(
   }
 
   return errors;
+}
+
+export async function applyIntegration(
+  manifests: FeatureManifest[],
+  files: IntegrationFile[],
+  targetDir: string
+): Promise<IntegrationResult> {
+  const missingModuleErrors = files
+    .filter((file) => !file.moduleId)
+    .map((file) => `Write sin moduleId: ${file.path}`);
+  const writeErrors = [
+    ...missingModuleErrors,
+    ...validateWriteOperations(
+      manifests,
+      files.map((file) => ({
+        moduleId: file.moduleId,
+        path: file.path,
+      }))
+    ),
+  ];
+
+  if (writeErrors.length > 0) {
+    return { ok: false, errors: writeErrors };
+  }
+
+  const sorted = [...files].sort((a, b) => {
+    const keyA = `${a.moduleId}:${normalizePath(a.path)}`;
+    const keyB = `${b.moduleId}:${normalizePath(b.path)}`;
+    return keyA.localeCompare(keyB);
+  });
+
+  await import("fs/promises").then(async ({ mkdir, writeFile }) => {
+    await mkdir(targetDir, { recursive: true });
+    for (const file of sorted) {
+      const normalized = normalizePath(file.path);
+      const target = path.resolve(targetDir, normalized);
+      if (!target.startsWith(`${targetDir}${path.sep}`) && target !== targetDir) {
+        throw new Error(`write fuera del target: ${file.path}`);
+      }
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, file.content, "utf-8");
+    }
+  });
+
+  return { ok: true, errors: [] };
 }

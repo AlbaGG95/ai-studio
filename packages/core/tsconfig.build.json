@@ -16,6 +16,7 @@
     "./engine/**/*.ts",
     "./afk/**/*.ts",
     "./runtime/**/*.ts",
+    "./runtime/assemblySmoke.ts",
     "./trivia/**/*.ts",
     "./runner/**/*.ts",
     "./tower/**/*.ts"

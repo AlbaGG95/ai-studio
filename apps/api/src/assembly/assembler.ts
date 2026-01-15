@@ -3,13 +3,14 @@ import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import {
   resolveModulesForSpec,
-  runSmokeTest,
+  runAssemblySmokeTest,
   validateGameSpec,
   type FeatureManifest,
   type GameSpec,
 } from "@ai-studio/core";
 import { runValidation } from "../validation/service.js";
 import { REPO_ROOT } from "../paths.js";
+import { applyIntegration } from "../validation/integrator.js";
 
 export interface AssemblyPlanModule {
   id: string;
@@ -90,8 +91,13 @@ async function resolveSpec(input: unknown): Promise<GameSpec> {
   return validation.data;
 }
 
+export interface AssemblyOptions {
+  moduleBaseDir?: string;
+}
+
 export async function assembleFromSpec(
-  input: unknown
+  input: unknown,
+  options: AssemblyOptions = {}
 ): Promise<{ report: AssemblyReport; reportsDir: string }> {
   const spec = await resolveSpec(input);
   const normalizedSpec = stableNormalize(spec);
@@ -111,7 +117,8 @@ export async function assembleFromSpec(
   );
 
   const selection = resolveModulesForSpec(spec);
-  const moduleBase = path.resolve(REPO_ROOT, "examples", "modules");
+  const moduleBase =
+    options.moduleBaseDir || path.resolve(REPO_ROOT, "examples", "modules");
   const missingModules: string[] = [];
   const manifests: FeatureManifest[] = [];
   const planModules: AssemblyPlanModule[] = [];
@@ -170,27 +177,43 @@ export async function assembleFromSpec(
     files,
     buildId,
   });
+  const validationErrors = validation.ok
+    ? []
+    : validation.steps
+        .filter((step) => step.status === "blocked")
+        .flatMap((step) =>
+          (step.errors || ["blocked"]).map((error) => `${step.id}: ${error}`)
+        );
 
   let smokeOk = false;
+  let smokeAttempted = false;
+  let integrationErrors: string[] = [];
   if (missingModules.length === 0 && validation.ok) {
-    await mkdir(assemblyDir, { recursive: true });
-    for (const file of files) {
-      const target = path.resolve(assemblyDir, file.path);
-      if (!target.startsWith(`${assemblyDir}${path.sep}`) && target !== assemblyDir) {
-        throw new Error(`write fuera de assembly: ${file.path}`);
-      }
-      await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, file.content, "utf-8");
-    }
-
-    const smoke = await runSmokeTest(5);
-    smokeOk = smoke.ok;
-    await writeFile(
-      path.join(reportsDir, "runtime-smoke.json"),
-      JSON.stringify({ buildId, ...smoke }, null, 2),
-      "utf-8"
+    const integration = await applyIntegration(
+      manifests,
+      files,
+      assemblyDir
     );
-  } else {
+    if (!integration.ok) {
+      integrationErrors = integration.errors;
+    } else {
+      const smoke = await runAssemblySmokeTest({
+        spec,
+        manifests,
+        assemblyDir,
+        ticks: 5,
+      });
+      smokeAttempted = true;
+      smokeOk = smoke.ok;
+      await writeFile(
+        path.join(reportsDir, "runtime-smoke.json"),
+        JSON.stringify({ buildId, ...smoke }, null, 2),
+        "utf-8"
+      );
+    }
+  }
+
+  if (!smokeAttempted) {
     await writeFile(
       path.join(reportsDir, "runtime-smoke.json"),
       JSON.stringify(
@@ -201,7 +224,9 @@ export async function assembleFromSpec(
           reason:
             missingModules.length > 0
               ? "missing-modules"
-              : "validation-failed",
+              : validation.ok
+                ? "integration-failed"
+                : "validation-failed",
         },
         null,
         2
@@ -210,12 +235,19 @@ export async function assembleFromSpec(
     );
   }
 
-  const errors = missingModules.map(
-    (moduleId) => `Modulo requerido no disponible: ${moduleId}`
-  );
+  const errors = [
+    ...missingModules.map(
+      (moduleId) => `Modulo requerido no disponible: ${moduleId}`
+    ),
+    ...validationErrors,
+    ...integrationErrors,
+    ...(smokeAttempted && !smokeOk
+      ? ["Smoke fallo al ejecutar modulos ensamblados"]
+      : []),
+  ];
 
   const status: AssemblyReport["status"] =
-    errors.length === 0 && validation.ok ? "PASS" : "FAIL";
+    errors.length === 0 && validation.ok && smokeOk ? "PASS" : "FAIL";
   const report: AssemblyReport = {
     status,
     buildId,
