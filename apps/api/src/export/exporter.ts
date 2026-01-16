@@ -37,6 +37,11 @@ function toPosix(value: string) {
   return value.replace(/\\/g, "/");
 }
 
+function isRuntimeCachePath(file: string): boolean {
+  const normalized = toPosix(file);
+  return normalized.includes("/.runtime-cache/");
+}
+
 async function exists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -75,9 +80,16 @@ async function listFiles(rootDir: string): Promise<string[]> {
   return entries.sort();
 }
 
-async function copyDir(src: string, dest: string): Promise<void> {
+async function copyDir(
+  src: string,
+  dest: string,
+  options?: { filter?: (file: string) => boolean }
+): Promise<void> {
   const files = await listFiles(src);
   for (const file of files) {
+    if (options?.filter && !options.filter(file)) {
+      continue;
+    }
     const sourcePath = path.join(src, file);
     const targetPath = path.join(dest, file);
     await mkdir(path.dirname(targetPath), { recursive: true });
@@ -86,10 +98,16 @@ async function copyDir(src: string, dest: string): Promise<void> {
   }
 }
 
-async function hashDirectory(rootDir: string): Promise<string> {
+async function hashDirectory(
+  rootDir: string,
+  options?: { filter?: (file: string) => boolean }
+): Promise<string> {
   const files = await listFiles(rootDir);
   const lines: string[] = [];
   for (const file of files) {
+    if (options?.filter && !options.filter(file)) {
+      continue;
+    }
     const hash = await hashFile(path.join(rootDir, file));
     lines.push(`${file}:${hash}`);
   }
@@ -137,7 +155,9 @@ async function buildManifestForExport(
 
   const assemblyDir = path.join(workspaceDir, "assembly");
   const reportsHash = await hashDirectory(reportsDir);
-  const assemblyHash = await hashDirectory(assemblyDir);
+  const assemblyHash = await hashDirectory(assemblyDir, {
+    filter: (file) => !isRuntimeCachePath(file),
+  });
 
   return {
     buildId,
@@ -156,7 +176,7 @@ async function writeChecksumFile(
   exportRoot: string
 ): Promise<string> {
   const files = (await listFiles(exportRoot)).filter(
-    (file) => file !== "checksum.sha256"
+    (file) => file !== "checksum.sha256" && !isRuntimeCachePath(file)
   );
   const lines: string[] = [];
   for (const file of files) {
@@ -191,7 +211,9 @@ export async function exportBuild(buildId: string): Promise<ExportResult> {
   const buildRoot = path.join(exportRoot, "build");
   const buildAssembly = path.join(buildRoot, "assembly");
   await mkdir(buildAssembly, { recursive: true });
-  await copyDir(assemblyDir, buildAssembly);
+  await copyDir(assemblyDir, buildAssembly, {
+    filter: (file) => !isRuntimeCachePath(file),
+  });
 
   const assetsDir = path.join(workspaceDir, "assets");
   if (await exists(assetsDir)) {
@@ -249,8 +271,8 @@ export async function exportBuild(buildId: string): Promise<ExportResult> {
   await writeChecksumFile(exportRoot);
 
   const zipPath = path.join(exportDir, `${buildId}.zip`);
-  const files = (await listFiles(exportDir)).filter((file) =>
-    file.startsWith("export/")
+  const files = (await listFiles(exportDir)).filter(
+    (file) => file.startsWith("export/") && !isRuntimeCachePath(file)
   );
   await createDeterministicZip(zipPath, exportDir, files);
   const checksum = await hashZip(zipPath);

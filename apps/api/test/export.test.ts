@@ -17,6 +17,31 @@ async function hashFile(filePath: string) {
   return createHash("sha256").update(data).digest("hex");
 }
 
+async function listZipEntries(filePath: string): Promise<string[]> {
+  const data = await readFile(filePath);
+  const endOffset = data.length - 22;
+  if (data.readUInt32LE(endOffset) !== 0x06054b50) {
+    throw new Error("ZIP end record not found");
+  }
+  const totalEntries = data.readUInt16LE(endOffset + 10);
+  const centralOffset = data.readUInt32LE(endOffset + 16);
+  const entries: string[] = [];
+  let pos = centralOffset;
+  for (let i = 0; i < totalEntries; i += 1) {
+    if (data.readUInt32LE(pos) !== 0x02014b50) {
+      throw new Error("ZIP central directory entry not found");
+    }
+    const nameLength = data.readUInt16LE(pos + 28);
+    const extraLength = data.readUInt16LE(pos + 30);
+    const commentLength = data.readUInt16LE(pos + 32);
+    const nameStart = pos + 46;
+    const nameEnd = nameStart + nameLength;
+    entries.push(data.slice(nameStart, nameEnd).toString("utf-8"));
+    pos = nameEnd + extraLength + commentLength;
+  }
+  return entries;
+}
+
 function testBuildId(label: string) {
   return `export-${createHash("sha256").update(label).digest("hex").slice(0, 12)}`;
 }
@@ -52,10 +77,16 @@ test("export build creates deterministic zip", async () => {
   const secondHash = await hashFile(second.zipPath);
   assert.equal(firstHash, secondHash);
 
+  const entries = await listZipEntries(first.zipPath);
+  assert.ok(entries.some((entry) => entry.startsWith("export/build/assembly/")));
+  assert.ok(entries.some((entry) => entry.startsWith("export/reports/")));
+  assert.ok(!entries.some((entry) => entry.includes(".runtime-cache/")));
+
   const checksumPath = path.join(first.exportDir, "checksum.sha256");
   const checksumContent = await readFile(checksumPath, "utf-8");
   assert.ok(checksumContent.includes("build/assembly/"));
   assert.ok(checksumContent.includes("reports/"));
+  assert.ok(!checksumContent.includes(".runtime-cache/"));
 
   await cleanup(report.buildId);
 });
