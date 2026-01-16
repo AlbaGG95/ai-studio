@@ -80,7 +80,8 @@ export async function runGameSpecGeneration(
 }
 
 export async function runGameGeneration(
-  intentInput: unknown
+  intentInput: unknown,
+  options: { migrateToLatest?: boolean } = {}
 ): Promise<GamePipelineResult> {
   const generation = await runGameSpecGeneration(intentInput);
   if (!generation.validationOk) {
@@ -93,6 +94,7 @@ export async function runGameGeneration(
   const assembly = await assembleFromSpec(generation.spec, {
     buildId: generation.buildId,
     cleanWorkspace: false,
+    migrateToLatest: options.migrateToLatest,
   });
 
   return {

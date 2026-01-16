@@ -4,7 +4,9 @@
  */
 
 export type GameLanguage = "en" | "es";
-export type TemplateId = "idle-rpg-base";
+export type TemplateId =
+  | "idle-rpg-base"
+  | `idle-rpg-base@${number}.${number}`;
 export type DamageFormula = "linear" | "scaling" | "exponential";
 export type ProgressionScaling = "linear" | "quadratic" | "exponential";
 export type ScreenId = "home" | "battle" | "inventory" | "heroes";

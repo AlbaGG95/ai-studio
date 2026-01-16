@@ -1,14 +1,23 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "templates": {
     "idle-rpg-base": {
-      "baseModules": ["idle-loop", "combat", "progression"],
-      "conditionalModules": [
-        {
-          "when": { "path": "systems.inventory.enabled", "equals": true },
-          "add": ["inventory"]
+      "latest": "1.2",
+      "versions": {
+        "1.1": {
+          "baseModules": ["idle-loop", "combat", "progression"],
+          "conditionalModules": []
+        },
+        "1.2": {
+          "baseModules": ["idle-loop", "combat", "progression"],
+          "conditionalModules": [
+            {
+              "when": { "path": "systems.inventory.enabled", "equals": true },
+              "add": ["inventory"]
+            }
+          ]
         }
-      ]
+      }
     }
   }
 }

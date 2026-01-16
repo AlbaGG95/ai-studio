@@ -2,9 +2,12 @@ import { createHash } from "crypto";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import {
+  migrateSpecForTemplate,
+  parseTemplateId,
   resolveModulesForSpec,
   runAssemblySmokeTest,
   validateGameSpec,
+  type TemplateMigrationReport,
   type FeatureManifest,
   type GameSpec,
 } from "@ai-studio/core";
@@ -57,6 +60,13 @@ function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\/+/, "");
 }
 
+function buildVersionedTemplateId(
+  templateId: string,
+  version: string
+): GameSpec["engine"]["templateId"] {
+  return `${templateId}@${version}` as GameSpec["engine"]["templateId"];
+}
+
 function resolveModuleFile(
   moduleDir: string,
   moduleId: string,
@@ -96,6 +106,7 @@ export interface AssemblyOptions {
   buildId?: string;
   workspaceDir?: string;
   cleanWorkspace?: boolean;
+  migrateToLatest?: boolean;
 }
 
 export async function assembleFromSpec(
@@ -103,6 +114,7 @@ export async function assembleFromSpec(
   options: AssemblyOptions = {}
 ): Promise<{ report: AssemblyReport; reportsDir: string }> {
   const spec = await resolveSpec(input);
+  const requestedTemplateId = spec.engine.templateId;
   const normalizedSpec = stableNormalize(spec);
   const specHash = hashString(JSON.stringify(normalizedSpec));
   const buildId = options.buildId || `assembly-${specHash.slice(0, 12)}`;
@@ -124,12 +136,59 @@ export async function assembleFromSpec(
     "utf-8"
   );
 
-  const selection = resolveModulesForSpec(spec);
+  const parsedTemplate = parseTemplateId(requestedTemplateId);
+  const initialSelection = resolveModulesForSpec(spec);
+  let resolvedSpec = spec;
+  let migrationReport: TemplateMigrationReport | null = null;
+  let migrated = false;
+  const latestVersion = initialSelection.templateVersionLatest;
+  const fromVersion = parsedTemplate.version || initialSelection.templateVersionUsed;
+  if (options.migrateToLatest && fromVersion !== latestVersion) {
+    const migration = migrateSpecForTemplate(spec, {
+      templateId: initialSelection.templateId,
+      fromVersion,
+      toVersion: latestVersion,
+    });
+    resolvedSpec = {
+      ...migration.spec,
+      engine: {
+        ...migration.spec.engine,
+        templateId: buildVersionedTemplateId(
+          initialSelection.templateId,
+          latestVersion
+        ),
+      },
+    };
+    migrationReport = migration.applied;
+    migrated = true;
+  }
+
+  const selection = resolveModulesForSpec(resolvedSpec);
+  const resolvedTemplateId = `${selection.templateId}@${selection.templateVersionUsed}`;
+
+  await writeFile(
+    path.join(reportsDir, "template-resolution.json"),
+    JSON.stringify(
+      {
+        requestedTemplateId,
+        resolvedTemplateId,
+        versionUsed: selection.templateVersionUsed,
+        latestVersion: selection.templateVersionLatest,
+        migrated,
+        migrationReport,
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
   await writeFile(
     path.join(reportsDir, "module-selection.json"),
     JSON.stringify(
       {
         templateId: selection.templateId,
+        templateVersionUsed: selection.templateVersionUsed,
+        templateVersionLatest: selection.templateVersionLatest,
         baseModules: selection.baseModules,
         conditionsApplied: selection.conditionsApplied,
         conditionsEvaluated: selection.conditionsEvaluated,
@@ -195,7 +254,7 @@ export async function assembleFromSpec(
   }
 
   const validation = await runValidation({
-    spec,
+    spec: resolvedSpec,
     featureManifests: manifests,
     files,
     buildId,
@@ -221,7 +280,7 @@ export async function assembleFromSpec(
       integrationErrors = integration.errors;
     } else {
       const smoke = await runAssemblySmokeTest({
-        spec,
+        spec: resolvedSpec,
         manifests,
         assemblyDir,
         ticks: 5,

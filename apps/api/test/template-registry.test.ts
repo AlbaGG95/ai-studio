@@ -30,6 +30,8 @@ test("template registry resolves base modules", async () => {
     "progression",
   ]);
   assert.equal(selection.templateId, "idle-rpg-base");
+  assert.equal(selection.templateVersionUsed, "1.2");
+  assert.equal(selection.templateVersionLatest, "1.2");
 });
 
 test("template registry applies conditions in order", async () => {
@@ -46,12 +48,31 @@ test("template registry applies conditions in order", async () => {
   );
 });
 
+test("template registry respects versioned templateId", async () => {
+  const spec = await readJson(specPath);
+  spec.engine.templateId = "idle-rpg-base@1.1";
+  spec.systems.inventory.enabled = true;
+  const selection = resolveModulesForSpec(spec);
+  assert.equal(selection.templateVersionUsed, "1.1");
+  assert.equal(selection.templateVersionLatest, "1.2");
+  assert.ok(!selection.modules.includes("inventory"));
+});
+
 test("template registry throws on unknown template", async () => {
   const spec = await readJson(specPath);
   spec.engine.templateId = "unknown-template";
   assert.throws(
     () => resolveModulesForSpec(spec),
     /Template no registrado/
+  );
+});
+
+test("template registry throws on unknown version", async () => {
+  const spec = await readJson(specPath);
+  spec.engine.templateId = "idle-rpg-base@9.9";
+  assert.throws(
+    () => resolveModulesForSpec(spec),
+    /Template version no registrada/
   );
 });
 

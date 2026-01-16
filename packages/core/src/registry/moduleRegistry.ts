@@ -3,6 +3,8 @@ import templateRegistry from "../../spec/template-registry.json" with { type: "j
 
 export interface ModuleSelection {
   templateId: string;
+  templateVersionUsed: string;
+  templateVersionLatest: string;
   baseModules: string[];
   conditionsApplied: AppliedCondition[];
   conditionsEvaluated: ConditionEvaluation[];
@@ -38,9 +40,18 @@ export interface TemplateRegistryEntry {
   conditionalModules?: TemplateRegistryCondition[];
 }
 
+export interface TemplateRegistryVersionedEntry {
+  latest: string;
+  versions: Record<string, TemplateRegistryEntry>;
+}
+
+export type TemplateRegistryTemplate =
+  | TemplateRegistryEntry
+  | TemplateRegistryVersionedEntry;
+
 export interface TemplateRegistry {
   version: string;
-  templates: Record<string, TemplateRegistryEntry>;
+  templates: Record<string, TemplateRegistryTemplate>;
 }
 
 export interface AppliedCondition {
@@ -53,6 +64,19 @@ export interface ConditionEvaluation {
   result: boolean;
   applied: boolean;
   error?: string;
+}
+
+export interface ParsedTemplateId {
+  id: string;
+  version?: string;
+}
+
+export interface TemplateResolution {
+  templateId: string;
+  requestedVersion?: string;
+  versionUsed: string;
+  latestVersion: string;
+  entry: TemplateRegistryEntry;
 }
 
 function readPathValue(value: unknown, pathValue: string): unknown {
@@ -76,6 +100,77 @@ function uniqueOrdered(values: string[]): string[] {
     }
   }
   return result;
+}
+
+export function parseTemplateId(templateId: string): ParsedTemplateId {
+  const trimmed = templateId.trim();
+  const match = /^([a-z0-9-]+)(?:@(\d+\.\d+))?$/.exec(trimmed);
+  if (!match) {
+    throw new Error(`TemplateId invalido: ${templateId}`);
+  }
+  const [, id, version] = match;
+  return { id, version };
+}
+
+function isVersionedTemplate(
+  template: TemplateRegistryTemplate
+): template is TemplateRegistryVersionedEntry {
+  return (
+    typeof template === "object" &&
+    template !== null &&
+    "versions" in template &&
+    "latest" in template
+  );
+}
+
+export function resolveTemplateFromRegistry(
+  templateIdValue: string,
+  registry: TemplateRegistry
+): TemplateResolution {
+  const parsed = parseTemplateId(templateIdValue);
+  const template = registry.templates[parsed.id];
+  if (!template) {
+    throw new Error(`Template no registrado: ${parsed.id}`);
+  }
+
+  if (isVersionedTemplate(template)) {
+    const latestVersion = template.latest;
+    if (!template.versions[latestVersion]) {
+      throw new Error(
+        `Template sin version latest valida: ${parsed.id}@${latestVersion}`
+      );
+    }
+    const requestedVersion = parsed.version;
+    const versionUsed = requestedVersion ?? latestVersion;
+    const entry = template.versions[versionUsed];
+    if (!entry) {
+      throw new Error(
+        `Template version no registrada: ${parsed.id}@${versionUsed}`
+      );
+    }
+    return {
+      templateId: parsed.id,
+      requestedVersion,
+      versionUsed,
+      latestVersion,
+      entry,
+    };
+  }
+
+  const requestedVersion = parsed.version;
+  if (requestedVersion && requestedVersion !== "1.0") {
+    throw new Error(
+      `Template version no registrada: ${parsed.id}@${requestedVersion}`
+    );
+  }
+
+  return {
+    templateId: parsed.id,
+    requestedVersion,
+    versionUsed: requestedVersion ?? "1.0",
+    latestVersion: "1.0",
+    entry: template,
+  };
 }
 
 function isGroup(condition: ConditionNode): condition is ConditionGroup {
@@ -181,18 +276,16 @@ export function resolveModulesForSpecWithRegistry(
   spec: GameSpec,
   registry: TemplateRegistry
 ): ModuleSelection {
-  const templateId = spec.engine.templateId;
-  const template = registry.templates[templateId];
-  if (!template) {
-    throw new Error(`Template no registrado: ${templateId}`);
-  }
-
-  const baseModules = [...template.baseModules];
+  const resolution = resolveTemplateFromRegistry(
+    spec.engine.templateId,
+    registry
+  );
+  const baseModules = [...resolution.entry.baseModules];
   const modules = [...baseModules];
   const conditionsApplied: AppliedCondition[] = [];
   const conditionsEvaluated: ConditionEvaluation[] = [];
 
-  for (const condition of template.conditionalModules || []) {
+  for (const condition of resolution.entry.conditionalModules || []) {
     const evaluation = evaluateConditionNode(condition.when, spec);
     const applied = evaluation.result;
     conditionsEvaluated.push({
@@ -211,7 +304,9 @@ export function resolveModulesForSpecWithRegistry(
   }
 
   return {
-    templateId,
+    templateId: resolution.templateId,
+    templateVersionUsed: resolution.versionUsed,
+    templateVersionLatest: resolution.latestVersion,
     baseModules: uniqueOrdered(baseModules),
     conditionsApplied,
     conditionsEvaluated,

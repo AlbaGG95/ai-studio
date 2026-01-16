@@ -46,8 +46,11 @@
       "properties": {
         "templateId": {
           "type": "string",
-          "enum": ["idle-rpg-base"],
-          "description": "Base template identifier"
+          "description": "Base template identifier (optionally versioned)",
+          "oneOf": [
+            { "enum": ["idle-rpg-base"] },
+            { "pattern": "^idle-rpg-base@\\d+\\.\\d+$" }
+          ]
         }
       }
     },

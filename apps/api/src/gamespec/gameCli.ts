@@ -3,12 +3,23 @@ import { runGameGeneration } from "./pipeline.js";
 import { ensureIntentPath, resolveIntentPath } from "./cliUtils.js";
 
 try {
-  const inputPath = resolveIntentPath(process.argv[2]);
+  const args = process.argv.slice(2);
+  let inputArg: string | undefined;
+  let migrateToLatest = false;
+  for (const arg of args) {
+    if (arg === "--migrate-to-latest") {
+      migrateToLatest = true;
+    } else if (!inputArg) {
+      inputArg = arg;
+    }
+  }
+
+  const inputPath = resolveIntentPath(inputArg);
   await ensureIntentPath(inputPath);
   const raw = await readFile(inputPath, "utf-8");
   const intent = JSON.parse(raw);
 
-  const result = await runGameGeneration(intent);
+  const result = await runGameGeneration(intent, { migrateToLatest });
   const status =
     result.validationOk && result.assemblyStatus === "PASS" ? "PASS" : "FAIL";
 

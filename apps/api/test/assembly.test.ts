@@ -100,6 +100,24 @@ test("assembly plan is generated deterministically", async () => {
   await cleanup(report.buildId);
 });
 
+test("assembly migrates template when flag is enabled", async () => {
+  const spec = await readJson(okSpecPath);
+  spec.engine.templateId = "idle-rpg-base@1.1";
+  const { report, reportsDir } = await assembleFromSpec(spec, {
+    migrateToLatest: true,
+  });
+  assert.equal(report.status, "PASS");
+  const resolution = await readJson(
+    path.join(reportsDir, "template-resolution.json")
+  );
+  assert.equal(resolution.requestedTemplateId, "idle-rpg-base@1.1");
+  assert.equal(resolution.versionUsed, "1.2");
+  assert.equal(resolution.latestVersion, "1.2");
+  assert.equal(resolution.migrated, true);
+
+  await cleanup(report.buildId);
+});
+
 test("assembly fails when module is missing", async () => {
   const spec = await readJson(failSpecPath);
   const { report, reportsDir } = await assembleFromSpec(spec);
