@@ -59,13 +59,14 @@ function readTemplateId(input: unknown): string | null {
 }
 
 export async function runPresetSpecGeneration(
-  presetInput: unknown
+  presetInput: unknown,
+  options: { buildId?: string } = {}
 ): Promise<PresetSpecPipelineResult> {
   const input =
     presetInput && typeof presetInput === "object" ? presetInput : {};
   const normalizedPresetInput = stableNormalize(input);
   const presetHash = hashString(JSON.stringify(normalizedPresetInput));
-  const buildId = `preset-${presetHash.slice(0, 12)}`;
+  const buildId = options.buildId || `preset-${presetHash.slice(0, 12)}`;
   const reportsDir = path.resolve(REPO_ROOT, "workspaces", buildId, "reports");
   await mkdir(reportsDir, { recursive: true });
 
@@ -169,9 +170,11 @@ export async function runPresetSpecGeneration(
 
 export async function runPresetGame(
   presetInput: unknown,
-  options: { migrateToLatest?: boolean } = {}
+  options: { migrateToLatest?: boolean; buildId?: string } = {}
 ): Promise<PresetGamePipelineResult> {
-  const generation = await runPresetSpecGeneration(presetInput);
+  const generation = await runPresetSpecGeneration(presetInput, {
+    buildId: options.buildId,
+  });
   if (!generation.validationOk || !generation.spec) {
     return {
       ...generation,
