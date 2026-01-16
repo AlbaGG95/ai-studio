@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "name": "Preset Hard",
+    "version": "0.1.0",
+    "language": "en",
+    "templateId": "idle-rpg-base@1.2"
+  },
+  "tuning": {
+    "pacing": "normal",
+    "difficulty": "hard",
+    "economy": "stingy",
+    "inventoryEnabled": false,
+    "damageFormula": "scaling",
+    "progressionScaling": "quadratic",
+    "levels": 60
+  },
+  "seed": "preset-hard"
+}

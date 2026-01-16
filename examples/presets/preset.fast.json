@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "name": "Preset Fast",
+    "version": "0.1.0",
+    "language": "es",
+    "templateId": "idle-rpg-base@1.2"
+  },
+  "tuning": {
+    "pacing": "fast",
+    "difficulty": "easy",
+    "economy": "generous",
+    "inventoryEnabled": false,
+    "damageFormula": "linear",
+    "progressionScaling": "linear",
+    "levels": 20
+  },
+  "seed": "preset-fast"
+}

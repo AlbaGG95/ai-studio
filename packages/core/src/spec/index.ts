@@ -1,5 +1,7 @@
 export * from "./gamespec.types.js";
 export * from "./feature-manifest.types.js";
+export * from "./preset.types.js";
+export * from "./preset.generator.js";
 export {
   validateGameSpec,
   parseAndValidateGameSpec,
@@ -7,4 +9,7 @@ export {
   validateFeatureManifest,
   parseAndValidateFeatureManifest,
   validateFeatureManifestStrict,
+  validatePreset,
+  parseAndValidatePreset,
+  validatePresetStrict,
 } from "./validator.js";

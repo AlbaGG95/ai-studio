@@ -16,6 +16,8 @@
     "gen:module": "pnpm --filter api exec tsx src/generation/cli.ts",
     "gen:gamespec": "pnpm --filter api exec tsx src/gamespec/cli.ts",
     "gen:game": "pnpm --filter api exec tsx src/gamespec/gameCli.ts",
+    "gen:preset-spec": "pnpm --filter api exec tsx src/preset/cli.ts",
+    "gen:preset-game": "pnpm --filter api exec tsx src/preset/gameCli.ts",
     "assemble": "pnpm --filter api exec tsx src/assembly/cli.ts",
     "export-build": "pnpm --filter api exec tsx src/export/cli.ts",
     "test:generate-module": "pnpm --filter api exec tsx --test test/**/*.ts",

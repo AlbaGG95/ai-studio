@@ -1,11 +1,13 @@
 import Ajv from "ajv";
 import { GameSpec, ValidationResult } from "./gamespec.types";
+import { Preset, PresetValidationResult } from "./preset.types";
 import {
   FeatureManifest,
   FeatureValidationResult,
 } from "./feature-manifest.types";
 import gameSpecSchema from "../../spec/gamespec.schema.json" with { type: "json" };
 import featureManifestSchema from "../../spec/feature-manifest.schema.json" with { type: "json" };
+import presetSchema from "../../spec/preset.schema.json" with { type: "json" };
 
 const ajv = new Ajv({
   allErrors: true,
@@ -18,6 +20,7 @@ const validateGameSpecSchema = ajv.compile<GameSpec>(gameSpecSchema as any);
 const validateFeatureManifestSchema = ajv.compile<FeatureManifest>(
   featureManifestSchema as any
 );
+const validatePresetSchema = ajv.compile<Preset>(presetSchema as any);
 
 export function validateGameSpec(data: unknown): ValidationResult {
   const valid = validateGameSpecSchema(data);
@@ -97,6 +100,43 @@ export function validateFeatureManifestStrict(
     throw new Error(
       `Feature Manifest validation failed: ${result.errors?.join("; ")}`
     );
+  }
+  return result.data!;
+}
+
+export function validatePreset(data: unknown): PresetValidationResult {
+  const valid = validatePresetSchema(data);
+  if (!valid) {
+    return {
+      valid: false,
+      errors: validatePresetSchema.errors?.map(
+        (err) => `${err.instancePath} ${err.message}`
+      ),
+    };
+  }
+
+  return {
+    valid: true,
+    data: data as Preset,
+  };
+}
+
+export function parseAndValidatePreset(json: string): PresetValidationResult {
+  try {
+    const data = JSON.parse(json);
+    return validatePreset(data);
+  } catch (err) {
+    return {
+      valid: false,
+      errors: [err instanceof Error ? err.message : "Unknown JSON parse error"],
+    };
+  }
+}
+
+export function validatePresetStrict(data: unknown): Preset {
+  const result = validatePreset(data);
+  if (!result.valid) {
+    throw new Error(`Preset validation failed: ${result.errors?.join("; ")}`);
   }
   return result.data!;
 }

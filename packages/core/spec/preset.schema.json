@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI Studio Preset v1",
+  "description": "Deterministic preset contract for GameSpec generation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "tuning"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "language", "templateId"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "language": {
+          "type": "string",
+          "enum": ["en", "es"]
+        },
+        "templateId": {
+          "type": "string",
+          "oneOf": [
+            { "enum": ["idle-rpg-base"] },
+            { "pattern": "^idle-rpg-base@\\d+\\.\\d+$" }
+          ]
+        }
+      }
+    },
+    "tuning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pacing",
+        "difficulty",
+        "economy",
+        "inventoryEnabled",
+        "damageFormula",
+        "progressionScaling",
+        "levels"
+      ],
+      "properties": {
+        "pacing": {
+          "type": "string",
+          "enum": ["slow", "normal", "fast"]
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["easy", "normal", "hard"]
+        },
+        "economy": {
+          "type": "string",
+          "enum": ["stingy", "normal", "generous"]
+        },
+        "inventoryEnabled": {
+          "type": "boolean"
+        },
+        "damageFormula": {
+          "type": "string",
+          "enum": ["linear", "scaling", "exponential"]
+        },
+        "progressionScaling": {
+          "type": "string",
+          "enum": ["linear", "quadratic", "exponential"]
+        },
+        "levels": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 200
+        }
+      }
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

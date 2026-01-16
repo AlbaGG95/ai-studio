@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "name": "Preset Inventory",
+    "version": "0.1.0",
+    "language": "es",
+    "templateId": "idle-rpg-base@1.2"
+  },
+  "tuning": {
+    "pacing": "normal",
+    "difficulty": "normal",
+    "economy": "normal",
+    "inventoryEnabled": true,
+    "damageFormula": "linear",
+    "progressionScaling": "linear",
+    "levels": 25
+  },
+  "seed": "preset-inventory"
+}
