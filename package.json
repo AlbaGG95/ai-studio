@@ -17,6 +17,7 @@
     "gen:gamespec": "pnpm --filter api exec tsx src/gamespec/cli.ts",
     "gen:game": "pnpm --filter api exec tsx src/gamespec/gameCli.ts",
     "assemble": "pnpm --filter api exec tsx src/assembly/cli.ts",
+    "export-build": "pnpm --filter api exec tsx src/export/cli.ts",
     "test:generate-module": "pnpm --filter api exec tsx --test test/**/*.ts",
     "test:assemble": "pnpm test:generate-module",
     "test:smoke": "node scripts/test-generate.mjs",

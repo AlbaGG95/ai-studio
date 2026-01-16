@@ -21,6 +21,10 @@ function hashString(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+function testBuildId(label: string) {
+  return `test-${hashString(label).slice(0, 12)}`;
+}
+
 async function writeModule(
   baseDir: string,
   moduleId: string,
@@ -86,7 +90,9 @@ test("module selection is deterministic from GameSpec", async () => {
 
 test("assembly plan is generated deterministically", async () => {
   const spec = await readJson(okSpecPath);
-  const { report, reportsDir } = await assembleFromSpec(spec);
+  const { report, reportsDir } = await assembleFromSpec(spec, {
+    buildId: testBuildId("assembly-plan"),
+  });
   assert.equal(report.status, "PASS");
 
   const plan = await readJson(path.join(reportsDir, "assembly-plan.json"));
@@ -104,6 +110,7 @@ test("assembly migrates template when flag is enabled", async () => {
   const spec = await readJson(okSpecPath);
   spec.engine.templateId = "idle-rpg-base@1.1";
   const { report, reportsDir } = await assembleFromSpec(spec, {
+    buildId: testBuildId("assembly-migrate"),
     migrateToLatest: true,
   });
   assert.equal(report.status, "PASS");
@@ -120,7 +127,9 @@ test("assembly migrates template when flag is enabled", async () => {
 
 test("assembly fails when module is missing", async () => {
   const spec = await readJson(failSpecPath);
-  const { report, reportsDir } = await assembleFromSpec(spec);
+  const { report, reportsDir } = await assembleFromSpec(spec, {
+    buildId: testBuildId("assembly-missing"),
+  });
   assert.equal(report.status, "FAIL");
   assert.ok(report.errors.some((err) => err.includes("inventory")));
 
@@ -149,7 +158,10 @@ test("assembly blocks when integrator rejects paths", async () => {
     { path: "modules/progression/index.ts", content: okContent },
   ]);
 
-  const { report } = await assembleFromSpec(spec, { moduleBaseDir: moduleBase });
+  const { report } = await assembleFromSpec(spec, {
+    moduleBaseDir: moduleBase,
+    buildId: testBuildId("assembly-integrator"),
+  });
   assert.equal(report.status, "FAIL");
   assert.ok(
     report.errors.some((err) => err.includes("feature-manifest.integration"))
@@ -179,6 +191,7 @@ test("assembly smoke fails when module entrypoint cannot load", async () => {
 
   const { report, reportsDir } = await assembleFromSpec(spec, {
     moduleBaseDir: moduleBase,
+    buildId: testBuildId("assembly-smoke-load"),
   });
   assert.equal(report.status, "FAIL");
   const smoke = await readJson(path.join(reportsDir, "runtime-smoke.json"));
@@ -222,7 +235,10 @@ test("assembly smoke busts cache when module files change", async () => {
     { path: "modules/combat/marker.ts", content: "export const marker = \"one\";" },
   ]);
 
-  const first = await assembleFromSpec(spec, { moduleBaseDir: moduleBase });
+  const first = await assembleFromSpec(spec, {
+    moduleBaseDir: moduleBase,
+    buildId: testBuildId("assembly-cache-first"),
+  });
   assert.equal(first.report.status, "PASS");
   const smokeFirst = await readJson(
     path.join(first.reportsDir, "runtime-smoke.json")
@@ -234,13 +250,17 @@ test("assembly smoke busts cache when module files change", async () => {
     { path: "modules/combat/marker.ts", content: "export const marker = \"two\";" },
   ]);
 
-  const second = await assembleFromSpec(spec, { moduleBaseDir: moduleBase });
+  const second = await assembleFromSpec(spec, {
+    moduleBaseDir: moduleBase,
+    buildId: testBuildId("assembly-cache-second"),
+  });
   assert.equal(second.report.status, "PASS");
   const smokeSecond = await readJson(
     path.join(second.reportsDir, "runtime-smoke.json")
   );
   assert.ok(smokeSecond.loadedModules.includes("combat-two"));
 
+  await cleanup(first.report.buildId);
   await cleanup(second.report.buildId);
   await rm(moduleBase, { recursive: true, force: true });
 });
