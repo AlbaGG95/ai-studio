@@ -373,22 +373,6 @@ app.post("/api/engine/simulate", async (request, reply) => {
   }
 });
 
-app.post("/api/engine/claim-afk", async (request, reply) => {
-  try {
-    const now = typeof (request.body as any)?.now === "number" ? (request.body as any).now : Date.now();
-    const engine = await loadEngine(now);
-    const rewards = engine.claimAfkRewards(now);
-    await persistEngine(engine);
-    return reply
-      .code(200)
-      .send({ ok: true, message: "AFK reclamado", data: { rewards, state: engine.getState() } });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "No se pudo reclamar AFK";
-    request.log.error(err);
-    return reply.code(500).send({ ok: false, error: message });
-  }
-});
-
 app.post("/api/engine/save", async (request, reply) => {
   try {
     const state = (request.body as any)?.state;

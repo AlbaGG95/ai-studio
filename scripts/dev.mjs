@@ -102,35 +102,14 @@ async function main() {
       process.exit(1);
     }
 
-    // Step 3: Start Web server
-    console.log("\n🌐 Starting Web server...");
-    const webProc = spawn(
-      isWindows ? "cmd" : "sh",
-      isWindows
-        ? ["/c", "pnpm --filter web dev"]
-        : ["-c", "pnpm --filter web dev"],
-      {
-        cwd: repoRoot,
-        stdio: "inherit",
-      }
-    );
-
-    webProc.on("error", (err) => {
-      console.error("❌ Failed to start Web:", err);
-      apiProc.kill();
-      process.exit(1);
-    });
-
-    console.log("\n✅ All servers started!");
-    console.log(`   Web:  http://localhost:3000`);
+        console.log("\nAPI server started!");
     console.log(`   API:  ${apiInfo.apiUrl}`);
-    console.log("\nPress Ctrl+C to stop all servers.\n");
+    console.log("\nPress Ctrl+C to stop the server.\n");
 
     // Handle graceful shutdown
     process.on("SIGINT", () => {
       console.log("\n🛑 Shutting down servers...");
       apiProc.kill();
-      webProc.kill();
       process.exit(0);
     });
 
@@ -138,12 +117,6 @@ async function main() {
     apiProc.on("close", (code) => {
       if (code !== null && code !== 0) {
         console.error(`❌ API exited with code ${code}`);
-      }
-    });
-
-    webProc.on("close", (code) => {
-      if (code !== null && code !== 0) {
-        console.error(`❌ Web exited with code ${code}`);
       }
     });
   } catch (err) {

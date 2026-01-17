@@ -3,11 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "dev:web": "pnpm --filter web dev",
+    "dev": "pnpm dev:api",
     "dev:api": "pnpm --filter api dev",
-    "build": "pnpm --filter web build && pnpm --filter api build",
-    "lint": "pnpm --filter web lint && pnpm --filter api lint",
+    "build": "pnpm --filter api build",
     "typecheck": "pnpm typecheck:core",
     "typecheck:core": "pnpm --filter @ai-studio/core exec tsc -p tsconfig.core.json --noEmit",
     "typecheck:tests": "pnpm --filter @ai-studio/core exec tsc -p tsconfig.tests.json --noEmit",
